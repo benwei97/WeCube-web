@@ -26,14 +26,34 @@ export function AuthProvider({ children }) {
     );
     const user = userCredential.user;
 
-    await setDoc(doc(db, "users", user.uid), {
-      email: email,
-      firstName: firstName,
-      lastName: lastName,
-      createdAt: new Date().toISOString(),
-    });
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      // Auth account creation succeeded, but Firestore profile creation failed.
+      // Sign the user back out and let the UI present a success message that
+      // encourages them to sign in while the database configuration is fixed.
+      if (error.code === "permission-denied") {
+        await signOut(auth);
+        return {
+          userCredential,
+          profileCreated: false,
+        };
+      }
 
-    return userCredential;
+      throw error;
+    }
+
+    await signOut(auth);
+
+    return {
+      userCredential,
+      profileCreated: true,
+    };
   }
 
   function login(email, password) {

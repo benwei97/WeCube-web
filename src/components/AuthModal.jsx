@@ -27,6 +27,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const { login, signup } = useAuth();
 
@@ -40,6 +41,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
     setPassword("");
     setShowPassword(false);
     setError("");
+    setSuccess("");
     setLoading(false);
   };
 
@@ -50,7 +52,8 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
   const switchMode = () => {
     setMode(isLogin ? "signup" : "login");
-    setError(""); // Clear any existing errors when switching
+    setError("");
+    setSuccess("");
   };
 
   async function handleSubmit(e) {
@@ -58,15 +61,26 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
     try {
       setError("");
+      setSuccess("");
       setLoading(true);
 
       if (isLogin) {
         await login(email, password);
+        handleClose();
       } else {
-        await signup(email, password, firstName, lastName);
-      }
+        const result = await signup(email, password, firstName, lastName);
 
-      handleClose();
+        setMode("login");
+        setPassword("");
+
+        if (result.profileCreated) {
+          setSuccess("Account created successfully. Please sign in.");
+        } else {
+          setSuccess(
+            "Account created successfully. Please sign in. Some profile features are temporarily unavailable until the database permissions are fixed."
+          );
+        }
+      }
     } catch (error) {
       setError(
         `Failed to ${isLogin ? "log in" : "create account"}: ${error.message}`
@@ -105,6 +119,11 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
       <form onSubmit={handleSubmit}>
         <DialogContent>
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
+            </Alert>
+          )}
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
