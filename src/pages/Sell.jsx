@@ -15,14 +15,13 @@ import {
   Switch,
   FormGroup,
   FormHelperText,
-  Fade,
-  Grow,
   Autocomplete,
   Chip,
   Skeleton,
 } from "@mui/material";
-import { Upload, Close, Check } from "@mui/icons-material";
+import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -32,6 +31,7 @@ import SellerOnboarding from "../components/SellerOnboarding";
 import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
 
 function Sell() {
+  const navigate = useNavigate();
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [deliveryOptions, setDeliveryOptions] = useState({
     shipping: true,
@@ -44,9 +44,7 @@ function Sell() {
     condition: "",
   });
   const [isPublishing, setIsPublishing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState(0); // 0: initial, 1: show check, 2: turn green
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [sellerOnboardingComplete, setSellerOnboardingComplete] =
     useState(false);
@@ -97,28 +95,6 @@ function Sell() {
       console.error("Error clearing Stripe data:", error);
     }
   };
-
-  // Handle success animation phases
-  useEffect(() => {
-    if (showSuccess) {
-      setAnimationPhase(0);
-
-      // Phase 1: Show check mark after 300ms
-      const timer1 = setTimeout(() => {
-        setAnimationPhase(1);
-      }, 300);
-
-      // Phase 2: Turn green after 1 second
-      const timer2 = setTimeout(() => {
-        setAnimationPhase(2);
-      }, 1000);
-
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-      };
-    }
-  }, [showSuccess]);
 
   const checkSellerOnboarding = async () => {
     try {
@@ -347,14 +323,8 @@ function Sell() {
 
       console.log("Listing saved successfully with ID:", docRef.id);
 
-      setShowSuccess(true);
-      setHasAttemptedSubmit(false); // Reset validation state on successful submit
-
-      setTimeout(() => {
-        handleClearListing();
-        setShowSuccess(false);
-        setAnimationPhase(0);
-      }, 2000);
+      handleClearListing();
+      navigate(`/listing/${docRef.id}`);
     } catch (error) {
       console.error("Error saving listing:", error);
 
@@ -811,89 +781,6 @@ function Sell() {
           </Button>
         </Box>
       </Stack>
-
-      <Fade in={showSuccess}>
-        <Box
-          sx={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-          }}
-        >
-          <Box
-            sx={{
-              backgroundColor: "white",
-              borderRadius: 2,
-              p: 6,
-              textAlign: "center",
-              maxWidth: 400,
-              width: "90%",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
-            }}
-          >
-            {/* Animated Check Mark Circle */}
-            <Box
-              sx={{
-                width: 120,
-                height: 120,
-                borderRadius: "50%",
-                border: "4px solid",
-                borderColor: "success.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 24px auto",
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <Grow
-                in={animationPhase >= 1}
-                timeout={800}
-                style={{ transformOrigin: "center" }}
-              >
-                <Check
-                  sx={{
-                    fontSize: "4rem",
-                    color: "success.main",
-                  }}
-                />
-              </Grow>
-            </Box>
-
-            {/* Success Text */}
-            <Fade in={animationPhase >= 1} timeout={1000}>
-              <Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    fontWeight: "bold",
-                    mb: 2,
-                    color: "text.primary",
-                  }}
-                >
-                  Success!
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    color: "text.secondary",
-                  }}
-                >
-                  Your listing has been published successfully
-                </Typography>
-              </Box>
-            </Fade>
-          </Box>
-        </Box>
-      </Fade>
     </Box>
   );
 }
