@@ -338,18 +338,6 @@ function ListingDetail() {
     return dateObj.toLocaleDateString();
   };
 
-  const getConditionColor = (condition) => {
-    const colors = {
-      new: "success",
-      "like-new": "success",
-      excellent: "info",
-      good: "warning",
-      fair: "warning",
-      used: "default",
-    };
-    return colors[condition] || "default";
-  };
-
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -470,16 +458,17 @@ function ListingDetail() {
               {formatPrice(listing.price)}
             </Typography>
 
-            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-              <Chip
-                label={listing.condition}
-                color={getConditionColor(listing.condition)}
-              />
-              <Chip
-                label={listing.status === "sold" ? "Sold" : "Available"}
-                color={listing.status === "sold" ? "default" : "success"}
-              />
-            </Stack>
+            <Typography variant="body1" sx={{ mb: 0.5 }}>
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                Condition:
+              </Box>{" "}
+              {listing.condition}
+            </Typography>
+            {listing.status === "sold" && (
+              <Typography variant="body2" color="text.secondary">
+                Sold
+              </Typography>
+            )}
 
             <Divider sx={{ my: 2 }} />
 
