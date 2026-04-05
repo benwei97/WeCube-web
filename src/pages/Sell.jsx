@@ -42,6 +42,7 @@ function Sell() {
     price: "",
     description: "",
     condition: "",
+    location: "",
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -253,7 +254,10 @@ function Sell() {
 
     const isPhotosValid = selectedPhotos.length > 0;
     const isBasicInfoValid =
-      listingData.title && listingData.price && listingData.condition;
+      listingData.title &&
+      listingData.price &&
+      listingData.condition &&
+      listingData.location;
 
     if (!isPhotosValid || !isBasicInfoValid || !isDeliveryValid) {
       alert("Please fill in all required fields");
@@ -298,6 +302,7 @@ function Sell() {
         price: parseFloat(listingData.price),
         description: listingData.description,
         condition: listingData.condition,
+        location: listingData.location,
         photos: photosForStorage,
         deliveryOptions,
         competitions: selectedCompetitions.map((comp) => ({
@@ -349,6 +354,7 @@ function Sell() {
       price: "",
       description: "",
       condition: "",
+      location: "",
     });
     setDeliveryOptions({
       shipping: true,
@@ -611,6 +617,17 @@ function Sell() {
                 variant="outlined"
                 value={listingData.description}
                 onChange={handleInputChange("description")}
+              />
+
+              <TextField
+                label="Broad Location"
+                fullWidth
+                placeholder="e.g., Los Angeles, California, United States"
+                helperText="Keep this broad so you do not share your exact address."
+                variant="outlined"
+                value={listingData.location}
+                onChange={handleInputChange("location")}
+                required
               />
             </Stack>
           </CardContent>

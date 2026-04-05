@@ -4,6 +4,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Avatar,
   Chip,
   Button,
   Paper,
@@ -31,6 +32,7 @@ import {
   Groups,
   Close,
   Save,
+  Star,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -57,6 +59,7 @@ function ListingDetail() {
     price: "",
     description: "",
     condition: "",
+    location: "",
     deliveryOptions: {
       shipping: false,
       meetup: false,
@@ -104,6 +107,9 @@ function ListingDetail() {
         setListing({
           ...listingData,
           stripeAccountId: sellerData?.stripeAccountId,
+          sellerAvatarUrl: sellerData?.avatarUrl || "",
+          sellerReviewCount: sellerData?.reviewCount || 0,
+          sellerRating: sellerData?.averageRating || null,
           sellerName:
             `${sellerData?.firstName || ""} ${sellerData?.lastName || ""}`.trim() ||
             "Seller",
@@ -114,6 +120,7 @@ function ListingDetail() {
           price: listingData.price.toString(),
           description: listingData.description || "",
           condition: listingData.condition,
+          location: listingData.location || "",
           deliveryOptions: listingData.deliveryOptions || {
             shipping: false,
             meetup: false,
@@ -170,6 +177,7 @@ function ListingDetail() {
         !editData.title ||
         !editData.price ||
         !editData.condition ||
+        !editData.location ||
         !isDeliveryValid
       ) {
         alert("Please fill in all required fields");
@@ -182,6 +190,7 @@ function ListingDetail() {
         price: parseFloat(editData.price),
         description: editData.description,
         condition: editData.condition,
+        location: editData.location,
         deliveryOptions: editData.deliveryOptions,
         updatedAt: new Date(),
       });
@@ -192,6 +201,7 @@ function ListingDetail() {
         price: parseFloat(editData.price),
         description: editData.description,
         condition: editData.condition,
+        location: editData.location,
         deliveryOptions: editData.deliveryOptions,
         updatedAt: new Date(),
       }));
@@ -469,6 +479,11 @@ function ListingDetail() {
                 Sold
               </Typography>
             )}
+            {listing.location && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Located in: {listing.location}
+              </Typography>
+            )}
 
             <Divider sx={{ my: 2 }} />
 
@@ -501,6 +516,43 @@ function ListingDetail() {
                   variant="outlined"
                 />
               )}
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Seller Details
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar
+                src={listing.sellerAvatarUrl || undefined}
+                sx={{ width: 56, height: 56 }}
+              >
+                {listing.sellerName?.charAt(0)?.toUpperCase() || "S"}
+              </Avatar>
+              <Box>
+                <Typography variant="body1" fontWeight={600}>
+                  {listing.sellerName}
+                </Typography>
+                {listing.sellerReviewCount > 0 ? (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                  >
+                    <Star fontSize="inherit" />
+                    {listing.sellerRating
+                      ? `${listing.sellerRating.toFixed(1)} · `
+                      : ""}
+                    {listing.sellerReviewCount} review
+                    {listing.sellerReviewCount === 1 ? "" : "s"}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No reviews yet
+                  </Typography>
+                )}
+              </Box>
             </Stack>
 
             <Divider sx={{ my: 2 }} />
@@ -587,6 +639,15 @@ function ListingDetail() {
               rows={4}
               value={editData.description}
               onChange={handleInputChange("description")}
+            />
+
+            <TextField
+              label="Broad Location"
+              fullWidth
+              placeholder="e.g., Fountain Valley, California, United States"
+              value={editData.location}
+              onChange={handleInputChange("location")}
+              required
             />
 
             <FormControl required>
