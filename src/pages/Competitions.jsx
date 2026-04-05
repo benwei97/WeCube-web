@@ -107,18 +107,6 @@ function Competitions() {
     }).format(price);
   };
 
-  const getConditionColor = (condition) => {
-    const colors = {
-      new: "success",
-      "like-new": "success",
-      excellent: "info",
-      good: "warning",
-      fair: "warning",
-      used: "default",
-    };
-    return colors[condition] || "default";
-  };
-
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
@@ -277,13 +265,6 @@ function Competitions() {
                       >
                         {formatPrice(cube.price)}
                       </Typography>
-                      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                        <Chip
-                          label={cube.condition}
-                          size="small"
-                          color={getConditionColor(cube.condition)}
-                        />
-                      </Stack>
                       {cube.competitions && cube.competitions.length > 1 && (
                         <Typography variant="body2" color="text.secondary">
                           Also at {cube.competitions.length - 1} other competition{cube.competitions.length > 2 ? 's' : ''}

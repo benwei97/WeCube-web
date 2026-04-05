@@ -261,18 +261,6 @@ function Browse() {
     }).format(price);
   };
 
-  const getConditionColor = (condition) => {
-    const colors = {
-      new: "success",
-      "like-new": "success",
-      excellent: "info",
-      good: "warning",
-      fair: "warning",
-      used: "default",
-    };
-    return colors[condition] || "default";
-  };
-
   const handleListingClick = (listingId) => {
     navigate(`/listing/${listingId}`);
   };
@@ -441,17 +429,6 @@ function Browse() {
                   </Typography>
                 </Box>
               )}
-
-              <Chip
-                label={listing.condition}
-                size="small"
-                color={getConditionColor(listing.condition)}
-                sx={{
-                  position: "absolute",
-                  top: 8,
-                  right: 8,
-                }}
-              />
 
               <CardContent
                 sx={{
