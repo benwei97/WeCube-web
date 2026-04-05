@@ -29,6 +29,7 @@ import { uploadMultipleImages } from "../utils/s3";
 import { getConnectAccountStatus } from "../utils/stripe";
 import SellerOnboarding from "../components/SellerOnboarding";
 import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
+import { fetchLocationSuggestions } from "../utils/locationSearch";
 
 function Sell() {
   const navigate = useNavigate();
@@ -53,6 +54,8 @@ function Sell() {
   const [competitions, setCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const { currentUser } = useAuth();
 
   // Check seller onboarding status
@@ -61,6 +64,41 @@ function Sell() {
       checkSellerOnboarding();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    const query = listingData.location.trim();
+    if (query.length < 2) {
+      setLocationOptions([]);
+      setLoadingLocations(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingLocations(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const suggestions = await fetchLocationSuggestions(query);
+        if (active) {
+          setLocationOptions(suggestions);
+        }
+      } catch (error) {
+        console.error("Error loading location suggestions:", error);
+        if (active) {
+          setLocationOptions([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingLocations(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [listingData.location]);
 
   // Handle URL parameters for onboarding redirect
   useEffect(() => {
@@ -619,15 +657,40 @@ function Sell() {
                 onChange={handleInputChange("description")}
               />
 
-              <TextField
-                label="Broad Location"
-                fullWidth
-                placeholder="e.g., Los Angeles, California, United States"
-                helperText="Keep this broad so you do not share your exact address."
-                variant="outlined"
-                value={listingData.location}
-                onChange={handleInputChange("location")}
-                required
+              <Autocomplete
+                options={locationOptions}
+                value={
+                  listingData.location && locationOptions.includes(listingData.location)
+                    ? listingData.location
+                    : null
+                }
+                inputValue={listingData.location}
+                onChange={(_, newValue) => {
+                  setListingData((prev) => ({
+                    ...prev,
+                    location: newValue || "",
+                  }));
+                }}
+                onInputChange={(_, newInputValue) => {
+                  setListingData((prev) => ({
+                    ...prev,
+                    location: newInputValue,
+                  }));
+                }}
+                loading={loadingLocations}
+                noOptionsText={
+                  listingData.location.trim().length < 2
+                    ? "Start typing a city..."
+                    : "No matching cities found"
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Location"
+                    placeholder="Start typing a city..."
+                    required
+                  />
+                )}
               />
             </Stack>
           </CardContent>

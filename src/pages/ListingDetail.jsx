@@ -41,6 +41,7 @@ import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { createConversationRequest, getExistingConversation } from "../utils/messaging";
 import PaymentModal from "../components/PaymentModal";
+import { fetchLocationSuggestions } from "../utils/locationSearch";
 
 function ListingDetail() {
   const { id } = useParams();
@@ -54,6 +55,8 @@ function ListingDetail() {
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const [editData, setEditData] = useState({
     title: "",
     price: "",
@@ -76,6 +79,41 @@ function ListingDetail() {
       checkExistingConversation();
     }
   }, [currentUser, listing]);
+
+  useEffect(() => {
+    const query = editData.location.trim();
+    if (query.length < 2) {
+      setLocationOptions([]);
+      setLoadingLocations(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingLocations(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const suggestions = await fetchLocationSuggestions(query);
+        if (active) {
+          setLocationOptions(suggestions);
+        }
+      } catch (error) {
+        console.error("Error loading location suggestions:", error);
+        if (active) {
+          setLocationOptions([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingLocations(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [editData.location]);
 
   const checkExistingConversation = async () => {
     try {
@@ -481,7 +519,7 @@ function ListingDetail() {
             )}
             {listing.location && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Located in: {listing.location}
+                Location: {listing.location}
               </Typography>
             )}
 
@@ -641,13 +679,40 @@ function ListingDetail() {
               onChange={handleInputChange("description")}
             />
 
-            <TextField
-              label="Broad Location"
-              fullWidth
-              placeholder="e.g., Fountain Valley, California, United States"
-              value={editData.location}
-              onChange={handleInputChange("location")}
-              required
+            <Autocomplete
+              options={locationOptions}
+              value={
+                editData.location && locationOptions.includes(editData.location)
+                  ? editData.location
+                  : null
+              }
+              inputValue={editData.location}
+              onChange={(_, newValue) => {
+                setEditData((prev) => ({
+                  ...prev,
+                  location: newValue || "",
+                }));
+              }}
+              onInputChange={(_, newInputValue) => {
+                setEditData((prev) => ({
+                  ...prev,
+                  location: newInputValue,
+                }));
+              }}
+              loading={loadingLocations}
+              noOptionsText={
+                editData.location.trim().length < 2
+                  ? "Start typing a city..."
+                  : "No matching cities found"
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Location"
+                  placeholder="Start typing a city..."
+                  required
+                />
+              )}
             />
 
             <FormControl required>
