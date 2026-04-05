@@ -90,15 +90,23 @@ function ListingDetail() {
 
       if (docSnap.exists()) {
         const listingData = { id: docSnap.id, ...docSnap.data() };
+        let sellerData = null;
 
-        // Fetch seller's Stripe account ID
-        const sellerDoc = await getDoc(doc(db, "users", listingData.userId));
-        const sellerData = sellerDoc.data();
+        try {
+          // Seller profile data is useful, but it should not prevent the listing
+          // itself from rendering if that read is blocked or missing.
+          const sellerDoc = await getDoc(doc(db, "users", listingData.userId));
+          sellerData = sellerDoc.exists() ? sellerDoc.data() : null;
+        } catch (sellerError) {
+          console.error("Error fetching seller profile:", sellerError);
+        }
 
         setListing({
           ...listingData,
           stripeAccountId: sellerData?.stripeAccountId,
-          sellerName: `${sellerData?.firstName || ''} ${sellerData?.lastName || ''}`.trim() || 'Seller'
+          sellerName:
+            `${sellerData?.firstName || ""} ${sellerData?.lastName || ""}`.trim() ||
+            "Seller",
         });
 
         setEditData({
@@ -113,7 +121,7 @@ function ListingDetail() {
         });
       } else {
         console.log("No such document!");
-        navigate("/dashboard");
+        setListing(null);
       }
     } catch (error) {
       console.error("Error fetching listing:", error);
