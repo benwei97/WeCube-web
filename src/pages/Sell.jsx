@@ -659,11 +659,8 @@ function Sell() {
 
               <Autocomplete
                 options={locationOptions}
-                value={
-                  listingData.location && locationOptions.includes(listingData.location)
-                    ? listingData.location
-                    : null
-                }
+                freeSolo
+                value={listingData.location || null}
                 inputValue={listingData.location}
                 onChange={(_, newValue) => {
                   setListingData((prev) => ({
@@ -671,7 +668,10 @@ function Sell() {
                     location: newValue || "",
                   }));
                 }}
-                onInputChange={(_, newInputValue) => {
+                onInputChange={(_, newInputValue, reason) => {
+                  if (reason === "reset") {
+                    return;
+                  }
                   setListingData((prev) => ({
                     ...prev,
                     location: newInputValue,

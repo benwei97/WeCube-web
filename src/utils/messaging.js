@@ -27,7 +27,9 @@ import { db } from "../../firebase";
  *   updatedAt: timestamp,
  *   lastMessage: string,
  *   lastMessageAt: timestamp,
- *   initialMessage: string
+ *   initialMessage: string,
+ *   buyerLastReadAt: timestamp,
+ *   sellerLastReadAt: timestamp
  * }
  *
  * messages: {
@@ -69,7 +71,10 @@ export async function createConversationRequest(
       updatedAt: serverTimestamp(),
       lastMessage: initialMessage,
       lastMessageAt: serverTimestamp(),
+      lastMessageSenderId: buyerId,
       initialMessage,
+      buyerLastReadAt: serverTimestamp(),
+      sellerLastReadAt: null,
     });
 
     await addDoc(collection(db, "messages"), {
@@ -257,6 +262,77 @@ export async function addMessage(
 }
 
 /**
+ * Mark a conversation as read for the current participant
+ */
+export async function markConversationAsRead(conversationId, userId) {
+  try {
+    const conversationRef = doc(db, "conversations", conversationId);
+    const conversationDoc = await getDoc(conversationRef);
+
+    if (!conversationDoc.exists()) {
+      throw new Error("Conversation not found");
+    }
+
+    const conversation = conversationDoc.data();
+    const updates = {};
+
+    if (conversation.buyerId === userId) {
+      updates.buyerLastReadAt = serverTimestamp();
+    } else if (conversation.sellerId === userId) {
+      updates.sellerLastReadAt = serverTimestamp();
+    } else {
+      throw new Error("Unauthorized to mark this conversation as read");
+    }
+
+    await updateDoc(conversationRef, updates);
+  } catch (error) {
+    console.error("Error marking conversation as read:", error);
+    throw error;
+  }
+}
+
+/**
+ * Return true when the latest approved-chat message has not been read by the user
+ */
+export function isConversationUnread(conversation, userId) {
+  if (!conversation || conversation.status !== "approved") {
+    return false;
+  }
+
+  if (!conversation.lastMessageAt || !conversation.lastMessageSenderId) {
+    return false;
+  }
+
+  if (conversation.lastMessageSenderId === userId) {
+    return false;
+  }
+
+  const lastReadAt =
+    conversation.buyerId === userId
+      ? conversation.buyerLastReadAt
+      : conversation.sellerId === userId
+        ? conversation.sellerLastReadAt
+        : null;
+
+  if (!lastReadAt) {
+    return true;
+  }
+
+  const lastMessageTime = conversation.lastMessageAt?.toMillis?.() || 0;
+  const lastReadTime = lastReadAt?.toMillis?.() || 0;
+  return lastMessageTime > lastReadTime;
+}
+
+/**
+ * Count unread approved conversations for a user
+ */
+export function countUnreadConversations(conversations, userId) {
+  return conversations.filter((conversation) =>
+    isConversationUnread(conversation, userId)
+  ).length;
+}
+
+/**
  * Get messages for a conversation
  */
 export async function getConversationMessages(conversationId) {
@@ -298,33 +374,86 @@ export function subscribeToMessages(conversationId, callback) {
  * Listen to real-time conversations for a user
  */
 export function subscribeToUserConversations(userId, callback) {
-  // Listen to conversations where user is buyer
   const buyerQuery = query(
     collection(db, "conversations"),
     where("buyerId", "==", userId)
   );
 
-  // Listen to conversations where user is seller
   const sellerQuery = query(
     collection(db, "conversations"),
     where("sellerId", "==", userId)
   );
 
-  const unsubscribeBuyer = onSnapshot(buyerQuery, () => {
-    // Fetch updated conversations when changes occur
-    getUserConversations(userId).then(callback);
+  let buyerConversations = [];
+  let sellerConversations = [];
+
+  const emitConversations = () => {
+    const mergedConversations = [
+      ...buyerConversations.map((conversation) => ({
+        ...conversation,
+        userRole: "buyer",
+      })),
+      ...sellerConversations.map((conversation) => ({
+        ...conversation,
+        userRole: "seller",
+      })),
+    ]
+      .filter((conversation) => conversation.status !== "pending")
+      .sort((a, b) => {
+        const aTime = a.lastMessageAt?.toMillis?.() || 0;
+        const bTime = b.lastMessageAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
+    callback(mergedConversations);
+  };
+
+  const unsubscribeBuyer = onSnapshot(buyerQuery, (snapshot) => {
+    buyerConversations = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    emitConversations();
   });
 
-  const unsubscribeSeller = onSnapshot(sellerQuery, () => {
-    // Fetch updated conversations when changes occur
-    getUserConversations(userId).then(callback);
+  const unsubscribeSeller = onSnapshot(sellerQuery, (snapshot) => {
+    sellerConversations = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    emitConversations();
   });
 
-  // Return function to unsubscribe from both listeners
   return () => {
     unsubscribeBuyer();
     unsubscribeSeller();
   };
+}
+
+/**
+ * Listen to pending conversation requests for a seller
+ */
+export function subscribeToPendingRequests(sellerId, callback) {
+  const pendingQuery = query(
+    collection(db, "conversations"),
+    where("sellerId", "==", sellerId),
+    where("status", "==", "pending")
+  );
+
+  return onSnapshot(pendingQuery, (snapshot) => {
+    const pendingRequests = snapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
+    callback(pendingRequests);
+  });
 }
 
 /**

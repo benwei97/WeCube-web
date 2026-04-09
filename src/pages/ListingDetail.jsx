@@ -682,11 +682,8 @@ function ListingDetail() {
 
             <Autocomplete
               options={locationOptions}
-              value={
-                editData.location && locationOptions.includes(editData.location)
-                  ? editData.location
-                  : null
-              }
+              freeSolo
+              value={editData.location || null}
               inputValue={editData.location}
               onChange={(_, newValue) => {
                 setEditData((prev) => ({
@@ -694,7 +691,10 @@ function ListingDetail() {
                   location: newValue || "",
                 }));
               }}
-              onInputChange={(_, newInputValue) => {
+              onInputChange={(_, newInputValue, reason) => {
+                if (reason === "reset") {
+                  return;
+                }
                 setEditData((prev) => ({
                   ...prev,
                   location: newInputValue,

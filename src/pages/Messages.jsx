@@ -26,10 +26,12 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   getUserConversations,
   subscribeToUserConversations,
+  subscribeToPendingRequests,
   subscribeToMessages,
   addMessage,
+  markConversationAsRead,
+  isConversationUnread,
   updateConversationStatus,
-  getPendingRequests,
 } from "../utils/messaging";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -58,20 +60,33 @@ function Messages() {
     }
 
     loadConversations();
-    loadPendingRequests();
+    setLoading(true);
 
-    // Subscribe to real-time conversation updates
-    const unsubscribe = subscribeToUserConversations(
+    const unsubscribeConversations = subscribeToUserConversations(
       currentUser.uid,
       (updatedConversations) => {
         setConversations(updatedConversations);
         loadListingDetails(updatedConversations);
         loadUserDetails(updatedConversations);
-        loadPendingRequests();
+        setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    const unsubscribePending = subscribeToPendingRequests(
+      currentUser.uid,
+      (pending) => {
+        setPendingRequests(pending);
+        if (pending.length > 0) {
+          loadListingDetails(pending);
+          loadUserDetails(pending);
+        }
+      }
+    );
+
+    return () => {
+      unsubscribeConversations();
+      unsubscribePending();
+    };
   }, [currentUser, navigate]);
 
   useEffect(() => {
@@ -79,6 +94,34 @@ function Messages() {
       const conversation = conversations.find((c) => c.id === conversationId);
       if (conversation) {
         setSelectedConversation(conversation);
+        if (
+          conversation.status === "approved" &&
+          isConversationUnread(conversation, currentUser.uid)
+        ) {
+          const readField =
+            conversation.buyerId === currentUser.uid
+              ? "buyerLastReadAt"
+              : "sellerLastReadAt";
+          const now = new Date();
+
+          setConversations((prev) =>
+            prev.map((item) =>
+              item.id === conversation.id
+                ? {
+                    ...item,
+                    [readField]: {
+                      toMillis: () => now.getTime(),
+                      toDate: () => now,
+                    },
+                  }
+                : item
+            )
+          );
+
+          markConversationAsRead(conversation.id, currentUser.uid).catch((error) =>
+            console.error("Error marking conversation as read:", error)
+          );
+        }
         if (messagesUnsubscribeRef.current) {
           messagesUnsubscribeRef.current();
         }
@@ -95,7 +138,7 @@ function Messages() {
         messagesUnsubscribeRef.current = null;
       }
     };
-  }, [conversationId, conversations]);
+  }, [conversationId, conversations, currentUser]);
 
   useEffect(() => {
     scrollToBottom();
@@ -115,23 +158,6 @@ function Messages() {
     } catch (error) {
       console.error("Error loading conversations:", error);
       setLoading(false);
-    }
-  };
-
-  const loadPendingRequests = async () => {
-    try {
-      console.log("Loading pending requests for user:", currentUser.uid);
-      const pending = await getPendingRequests(currentUser.uid);
-      console.log("Found pending requests:", pending);
-      setPendingRequests(pending);
-
-      // Load listing details for pending requests
-      if (pending.length > 0) {
-        await loadListingDetails(pending);
-        await loadUserDetails(pending);
-      }
-    } catch (error) {
-      console.error("Error loading pending requests:", error);
     }
   };
 
@@ -219,8 +245,6 @@ function Messages() {
         "approved",
         currentUser.uid
       );
-      await loadPendingRequests();
-      await loadConversations();
     } catch (error) {
       console.error("Error approving request:", error);
       alert("Failed to approve request");
@@ -234,8 +258,6 @@ function Messages() {
         "rejected",
         currentUser.uid
       );
-      await loadPendingRequests();
-      await loadConversations();
     } catch (error) {
       console.error("Error rejecting request:", error);
       alert("Failed to reject request");
@@ -365,13 +387,29 @@ function Messages() {
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Typography variant="body1" fontWeight="medium">
+                      <Typography
+                        variant="body1"
+                        fontWeight={
+                          isConversationUnread(conversation, currentUser.uid)
+                            ? "bold"
+                            : "medium"
+                        }
+                      >
                         {listingDetails[conversation.listingId]?.title ||
                           "Unknown Listing"}
                       </Typography>
                     }
                     secondary={
-                      <Typography variant="body2" color="text.secondary" noWrap>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        fontWeight={
+                          isConversationUnread(conversation, currentUser.uid)
+                            ? "medium"
+                            : "regular"
+                        }
+                      >
                         {formatLastMessagePreview(conversation)}
                       </Typography>
                     }
@@ -382,8 +420,21 @@ function Messages() {
                         sx={{
                           display: "flex",
                           justifyContent: "flex-end",
+                          alignItems: "center",
+                          gap: 1,
                         }}
                       >
+                        {isConversationUnread(conversation, currentUser.uid) && (
+                          <Box
+                            sx={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              bgcolor: "error.main",
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
                         {conversation.lastMessageAt && (
                           <Typography variant="caption" color="text.secondary">
                             {formatTime(conversation.lastMessageAt)}

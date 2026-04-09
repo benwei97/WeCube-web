@@ -19,7 +19,13 @@ import {
 } from "@mui/material";
 import { useAuth } from "../contexts/AuthContext";
 import { AuthModal } from "./AuthModal";
-import { getPendingRequests } from "../utils/messaging";
+import {
+  countUnreadConversations,
+  getPendingRequests,
+  getUserConversations,
+  subscribeToPendingRequests,
+  subscribeToUserConversations,
+} from "../utils/messaging";
 import logo from "../assets/wecube-logo.png";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -29,28 +35,56 @@ function Header() {
   const [authMode, setAuthMode] = useState("login");
   const [anchorEl, setAnchorEl] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [unreadConversationCount, setUnreadConversationCount] = useState(0);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
   const isMenuOpen = Boolean(anchorEl);
 
-  // Load pending message requests count
   useEffect(() => {
     if (currentUser) {
-      loadPendingCount();
-      // Set up periodic refresh every 30 seconds
-      const interval = setInterval(loadPendingCount, 30000);
-      return () => clearInterval(interval);
+      loadMessageNotificationCount();
+
+      const unsubscribeConversations = subscribeToUserConversations(
+        currentUser.uid,
+        (conversations) => {
+          setUnreadConversationCount(
+            countUnreadConversations(conversations, currentUser.uid)
+          );
+        }
+      );
+
+      const unsubscribePending = subscribeToPendingRequests(
+        currentUser.uid,
+        (pendingRequests) => {
+          setPendingRequestCount(pendingRequests.length);
+        }
+      );
+
+      return () => {
+        unsubscribeConversations();
+        unsubscribePending();
+      };
+    } else {
+      setUnreadConversationCount(0);
+      setPendingRequestCount(0);
     }
   }, [currentUser]);
 
-  const loadPendingCount = async () => {
+  const loadMessageNotificationCount = async () => {
     try {
-      const pending = await getPendingRequests(currentUser.uid);
-      setPendingCount(pending.length);
+      const [pendingRequests, conversations] = await Promise.all([
+        getPendingRequests(currentUser.uid),
+        getUserConversations(currentUser.uid),
+      ]);
+
+      setPendingRequestCount(pendingRequests.length);
+      setUnreadConversationCount(
+        countUnreadConversations(conversations, currentUser.uid)
+      );
     } catch (error) {
-      console.error("Error loading pending requests:", error);
+      console.error("Error loading message notifications:", error);
     }
   };
 
@@ -143,7 +177,7 @@ function Header() {
               sx={{ position: "relative" }}
             >
               <Badge
-                badgeContent={pendingCount}
+                badgeContent={pendingRequestCount + unreadConversationCount}
                 color="error"
                 overlap="circular"
                 sx={{
