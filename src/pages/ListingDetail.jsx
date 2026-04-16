@@ -43,6 +43,13 @@ import { useAuth } from "../contexts/AuthContext";
 import { createConversationRequest, getExistingConversation } from "../utils/messaging";
 import PaymentModal from "../components/PaymentModal";
 import { fetchLocationSuggestions } from "../utils/locationSearch";
+import {
+  CONDITION_OPTIONS,
+  PUZZLE_TYPE_OPTIONS,
+  getConditionLabel,
+  getNormalizedFulfillmentFields,
+} from "../utils/listingUtils";
+import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
 
 function ListingDetail() {
   const { id } = useParams();
@@ -58,16 +65,22 @@ function ListingDetail() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [competitions, setCompetitions] = useState([]);
+  const [selectedCompetitions, setSelectedCompetitions] = useState([]);
+  const [loadingCompetitions, setLoadingCompetitions] = useState(false);
   const [editData, setEditData] = useState({
     title: "",
     price: "",
     description: "",
     condition: "",
-    location: "",
-    deliveryOptions: {
-      shipping: false,
-      meetup: false,
-    },
+    puzzleType: "",
+    brand: "",
+    meetupLocationLabel: "",
+    shippingAvailable: false,
+    shippingIncluded: false,
+    shippingCost: "",
+    localMeetupAvailable: false,
+    competitionMeetupAvailable: false,
   });
 
   useEffect(() => {
@@ -82,7 +95,7 @@ function ListingDetail() {
   }, [currentUser, listing]);
 
   useEffect(() => {
-    const query = editData.location.trim();
+    const query = editData.meetupLocationLabel.trim();
     if (query.length < 2) {
       setLocationOptions([]);
       setLoadingLocations(false);
@@ -114,7 +127,7 @@ function ListingDetail() {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [editData.location]);
+  }, [editData.meetupLocationLabel]);
 
   const checkExistingConversation = async () => {
     try {
@@ -132,6 +145,7 @@ function ListingDetail() {
 
       if (docSnap.exists()) {
         const listingData = { id: docSnap.id, ...docSnap.data() };
+        const fulfillmentFields = getNormalizedFulfillmentFields(listingData);
         let sellerData = null;
 
         try {
@@ -145,6 +159,7 @@ function ListingDetail() {
 
         setListing({
           ...listingData,
+          ...fulfillmentFields,
           stripeAccountId: sellerData?.stripeAccountId,
           sellerAvatarUrl: sellerData?.avatarUrl || "",
           sellerReviewCount: sellerData?.reviewCount || 0,
@@ -159,12 +174,20 @@ function ListingDetail() {
           price: listingData.price.toString(),
           description: listingData.description || "",
           condition: listingData.condition,
-          location: listingData.location || "",
-          deliveryOptions: listingData.deliveryOptions || {
-            shipping: false,
-            meetup: false,
-          },
+          puzzleType: listingData.puzzleType || "",
+          brand: listingData.brand || "",
+          meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
+          shippingAvailable: fulfillmentFields.shippingAvailable,
+          shippingIncluded: fulfillmentFields.shippingIncluded,
+          shippingCost:
+            fulfillmentFields.shippingIncluded || !fulfillmentFields.shippingCost
+              ? ""
+              : fulfillmentFields.shippingCost.toString(),
+          localMeetupAvailable: fulfillmentFields.localMeetupAvailable,
+          competitionMeetupAvailable:
+            fulfillmentFields.competitionMeetupAvailable,
         });
+        setSelectedCompetitions(fulfillmentFields.meetupCompetitionTags);
       } else {
         console.log("No such document!");
         setListing(null);
@@ -187,6 +210,53 @@ function ListingDetail() {
     }));
   };
 
+  const handleFulfillmentChange = (field) => (event) => {
+    const isChecked = event.target.checked;
+    setEditData((prev) => ({
+      ...prev,
+      [field]: isChecked,
+      ...(field === "localMeetupAvailable" && !isChecked
+        ? { meetupLocationLabel: "" }
+        : {}),
+    }));
+
+    if (field === "competitionMeetupAvailable" && isChecked) {
+      loadCompetitions();
+    }
+
+    if (field === "competitionMeetupAvailable" && !isChecked) {
+      setSelectedCompetitions([]);
+      setCompetitions([]);
+    }
+  };
+
+  const loadCompetitions = async () => {
+    setLoadingCompetitions(true);
+    try {
+      const upcomingCompetitions = await getUpcomingCompetitions(500);
+      setCompetitions(upcomingCompetitions);
+    } catch (error) {
+      console.error("Error loading competitions:", error);
+      setCompetitions([]);
+    } finally {
+      setLoadingCompetitions(false);
+    }
+  };
+
+  const handleCompetitionSearch = async (_, value) => {
+    if (typeof value === "string" && value.length > 2) {
+      setLoadingCompetitions(true);
+      try {
+        const searchResults = await searchCompetitions(value, 100);
+        setCompetitions(searchResults);
+      } catch (error) {
+        console.error("Error searching competitions:", error);
+      } finally {
+        setLoadingCompetitions(false);
+      }
+    }
+  };
+
   const handlePriceChange = (event) => {
     const value = event.target.value;
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
@@ -197,27 +267,34 @@ function ListingDetail() {
     }
   };
 
-  const handleDeliveryChange = (option) => (event) => {
-    setEditData((prev) => ({
-      ...prev,
-      deliveryOptions: {
-        ...prev.deliveryOptions,
-        [option]: event.target.checked,
-      },
-    }));
-  };
-
   const handleSave = async () => {
     try {
       const isDeliveryValid =
-        editData.deliveryOptions.shipping || editData.deliveryOptions.meetup;
+        editData.shippingAvailable ||
+        editData.localMeetupAvailable ||
+        editData.competitionMeetupAvailable;
+      const isMeetupLocationValid =
+        !editData.localMeetupAvailable ||
+        Boolean(editData.meetupLocationLabel.trim());
+      const isCompetitionValid =
+        !editData.competitionMeetupAvailable ||
+        selectedCompetitions.length > 0;
+      const isShippingCostValid =
+        !editData.shippingAvailable ||
+        editData.shippingIncluded ||
+        editData.shippingCost === "" ||
+        !Number.isNaN(parseFloat(editData.shippingCost));
 
       if (
         !editData.title ||
         !editData.price ||
         !editData.condition ||
-        !editData.location ||
-        !isDeliveryValid
+        !editData.description ||
+        !editData.puzzleType ||
+        !isDeliveryValid ||
+        !isMeetupLocationValid ||
+        !isCompetitionValid ||
+        !isShippingCostValid
       ) {
         alert("Please fill in all required fields");
         return;
@@ -229,8 +306,40 @@ function ListingDetail() {
         price: parseFloat(editData.price),
         description: editData.description,
         condition: editData.condition,
-        location: editData.location,
-        deliveryOptions: editData.deliveryOptions,
+        puzzleType: editData.puzzleType,
+        brand: editData.brand.trim(),
+        location: editData.meetupLocationLabel.trim(),
+        meetupLocationLabel: editData.meetupLocationLabel.trim(),
+        deliveryOptions: {
+          shipping: editData.shippingAvailable,
+          meetup:
+            editData.localMeetupAvailable ||
+            editData.competitionMeetupAvailable,
+        },
+        shippingAvailable: editData.shippingAvailable,
+        shippingIncluded: editData.shippingIncluded,
+        shippingCost:
+          editData.shippingIncluded || editData.shippingCost === ""
+            ? 0
+            : parseFloat(editData.shippingCost),
+        localMeetupAvailable: editData.localMeetupAvailable,
+        competitionMeetupAvailable: editData.competitionMeetupAvailable,
+        competitions: selectedCompetitions.map((competition) => ({
+          id: competition.id,
+          name: competition.name,
+          city: competition.city,
+          country: competition.country,
+          startDate: competition.startDate,
+          endDate: competition.endDate,
+          displayName: competition.displayName || competition.name,
+          dateRange: competition.dateRange,
+        })),
+        meetupCompetitionTags: selectedCompetitions.map((competition) => ({
+          id: competition.id,
+          name: competition.name,
+          displayName: competition.displayName || competition.name,
+          dateRange: competition.dateRange,
+        })),
         updatedAt: new Date(),
       });
 
@@ -240,8 +349,31 @@ function ListingDetail() {
         price: parseFloat(editData.price),
         description: editData.description,
         condition: editData.condition,
-        location: editData.location,
-        deliveryOptions: editData.deliveryOptions,
+        puzzleType: editData.puzzleType,
+        brand: editData.brand.trim(),
+        location: editData.meetupLocationLabel.trim(),
+        meetupLocationLabel: editData.meetupLocationLabel.trim(),
+        deliveryOptions: {
+          shipping: editData.shippingAvailable,
+          meetup:
+            editData.localMeetupAvailable ||
+            editData.competitionMeetupAvailable,
+        },
+        shippingAvailable: editData.shippingAvailable,
+        shippingIncluded: editData.shippingIncluded,
+        shippingCost:
+          editData.shippingIncluded || editData.shippingCost === ""
+            ? 0
+            : parseFloat(editData.shippingCost),
+        localMeetupAvailable: editData.localMeetupAvailable,
+        competitionMeetupAvailable: editData.competitionMeetupAvailable,
+        competitions: selectedCompetitions,
+        meetupCompetitionTags: selectedCompetitions.map((competition) => ({
+          id: competition.id,
+          name: competition.name,
+          displayName: competition.displayName || competition.name,
+          dateRange: competition.dateRange,
+        })),
         updatedAt: new Date(),
       }));
 
@@ -511,16 +643,32 @@ function ListingDetail() {
               <Box component="span" sx={{ fontWeight: 600 }}>
                 Condition:
               </Box>{" "}
-              {listing.condition}
+              {getConditionLabel(listing.condition)}
             </Typography>
+            {listing.puzzleType && (
+              <Typography variant="body1" sx={{ mb: 0.5 }}>
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  Puzzle Type:
+                </Box>{" "}
+                {listing.puzzleType}
+              </Typography>
+            )}
+            {listing.brand && (
+              <Typography variant="body1" sx={{ mb: 0.5 }}>
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  Brand:
+                </Box>{" "}
+                {listing.brand}
+              </Typography>
+            )}
             {listing.status === "sold" && (
               <Typography variant="body2" color="text.secondary">
                 Sold
               </Typography>
             )}
-            {listing.location && (
+            {listing.meetupLocationLabel && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Location: {listing.location}
+                Meetup Area: {listing.meetupLocationLabel}
               </Typography>
             )}
 
@@ -536,18 +684,36 @@ function ListingDetail() {
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="h6" gutterBottom>
-              Delivery Options
+              Fulfillment
             </Typography>
-            <Stack direction="row" spacing={2}>
-              {listing.deliveryOptions?.shipping && (
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {listing.shippingAvailable && (
                 <Chip
                   sx={{ px: 1 }}
                   icon={<LocalShipping />}
-                  label="Shipping Available"
+                  label={
+                    listing.shippingIncluded
+                      ? "Ships · Shipping Included"
+                      : listing.shippingCost > 0
+                        ? `Ships · ${formatPrice(listing.shippingCost)} shipping`
+                        : "Ships"
+                  }
                   variant="outlined"
                 />
               )}
-              {listing.deliveryOptions?.meetup && (
+              {listing.localMeetupAvailable && (
+                <Chip
+                  sx={{ px: 1 }}
+                  icon={<LocationOn />}
+                  label={
+                    listing.meetupLocationLabel
+                      ? `Local Meetup · ${listing.meetupLocationLabel}`
+                      : "Local Meetup"
+                  }
+                  variant="outlined"
+                />
+              )}
+              {listing.competitionMeetupAvailable && (
                 <Chip
                   sx={{ px: 1 }}
                   icon={<Groups />}
@@ -556,6 +722,19 @@ function ListingDetail() {
                 />
               )}
             </Stack>
+            {listing.competitionMeetupAvailable &&
+              listing.meetupCompetitionTags?.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+                  {listing.meetupCompetitionTags.map((competition) => (
+                    <Chip
+                      key={competition.id || competition.name}
+                      label={competition.displayName || competition.name}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Stack>
+              )}
 
             <Divider sx={{ my: 2 }} />
 
@@ -654,22 +833,44 @@ function ListingDetail() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth required>
+                  <InputLabel>Puzzle Type</InputLabel>
+                  <Select
+                    value={editData.puzzleType}
+                    label="Puzzle Type"
+                    onChange={handleInputChange("puzzleType")}
+                  >
+                    {PUZZLE_TYPE_OPTIONS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
                   <InputLabel>Condition</InputLabel>
                   <Select
                     value={editData.condition}
                     label="Condition"
                     onChange={handleInputChange("condition")}
                   >
-                    <MenuItem value="new">New</MenuItem>
-                    <MenuItem value="like-new">Like New</MenuItem>
-                    <MenuItem value="excellent">Excellent</MenuItem>
-                    <MenuItem value="good">Good</MenuItem>
-                    <MenuItem value="fair">Fair</MenuItem>
-                    <MenuItem value="used">Used</MenuItem>
+                    {CONDITION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
             </Grid>
+
+            <TextField
+              label="Brand"
+              fullWidth
+              value={editData.brand}
+              onChange={handleInputChange("brand")}
+            />
 
             <TextField
               label="Description"
@@ -680,45 +881,9 @@ function ListingDetail() {
               onChange={handleInputChange("description")}
             />
 
-            <Autocomplete
-              options={locationOptions}
-              freeSolo
-              value={editData.location || null}
-              inputValue={editData.location}
-              onChange={(_, newValue) => {
-                setEditData((prev) => ({
-                  ...prev,
-                  location: newValue || "",
-                }));
-              }}
-              onInputChange={(_, newInputValue, reason) => {
-                if (reason === "reset") {
-                  return;
-                }
-                setEditData((prev) => ({
-                  ...prev,
-                  location: newInputValue,
-                }));
-              }}
-              loading={loadingLocations}
-              noOptionsText={
-                editData.location.trim().length < 2
-                  ? "Start typing a city..."
-                  : "No matching cities found"
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Location"
-                  placeholder="Start typing a city..."
-                  required
-                />
-              )}
-            />
-
             <FormControl required>
               <Typography variant="subtitle1" gutterBottom>
-                Delivery Options
+                Fulfillment Methods
               </Typography>
               <FormGroup>
                 <Box
@@ -731,10 +896,104 @@ function ListingDetail() {
                 >
                   <Typography variant="body1">Shipping</Typography>
                   <Switch
-                    checked={editData.deliveryOptions.shipping}
-                    onChange={handleDeliveryChange("shipping")}
+                    checked={editData.shippingAvailable}
+                    onChange={handleFulfillmentChange("shippingAvailable")}
                   />
                 </Box>
+                {editData.shippingAvailable && (
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">Shipping Included</Typography>
+                      <Switch
+                        checked={editData.shippingIncluded}
+                        onChange={handleFulfillmentChange("shippingIncluded")}
+                      />
+                    </Box>
+                    {!editData.shippingIncluded && (
+                      <TextField
+                        label="Shipping Cost (USD)"
+                        fullWidth
+                        value={editData.shippingCost}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                            setEditData((prev) => ({
+                              ...prev,
+                              shippingCost: value,
+                            }));
+                          }
+                        }}
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                          },
+                        }}
+                        sx={{ mb: 2 }}
+                      />
+                    )}
+                  </>
+                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="body1">Local Meetup</Typography>
+                  <Switch
+                    checked={editData.localMeetupAvailable}
+                    onChange={handleFulfillmentChange("localMeetupAvailable")}
+                  />
+                </Box>
+                {editData.localMeetupAvailable && (
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Autocomplete
+                      options={locationOptions}
+                      freeSolo
+                      value={editData.meetupLocationLabel || null}
+                      inputValue={editData.meetupLocationLabel}
+                      onChange={(_, newValue) => {
+                        setEditData((prev) => ({
+                          ...prev,
+                          meetupLocationLabel: newValue || "",
+                        }));
+                      }}
+                      onInputChange={(_, newInputValue, reason) => {
+                        if (reason === "reset") {
+                          return;
+                        }
+                        setEditData((prev) => ({
+                          ...prev,
+                          meetupLocationLabel: newInputValue,
+                        }));
+                      }}
+                      loading={loadingLocations}
+                      noOptionsText={
+                        editData.meetupLocationLabel.trim().length < 2
+                          ? "Start typing a city..."
+                          : "No matching cities found"
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="General Meetup Area"
+                          placeholder="e.g., UCLA / Westwood"
+                          helperText="Keep this approximate, not an exact address."
+                          required
+                        />
+                      )}
+                    />
+                  </Box>
+                )}
                 <Box
                   sx={{
                     display: "flex",
@@ -744,15 +1003,53 @@ function ListingDetail() {
                 >
                   <Typography variant="body1">Competition Meetup</Typography>
                   <Switch
-                    checked={editData.deliveryOptions.meetup}
-                    onChange={handleDeliveryChange("meetup")}
+                    checked={editData.competitionMeetupAvailable}
+                    onChange={handleFulfillmentChange(
+                      "competitionMeetupAvailable"
+                    )}
                   />
                 </Box>
               </FormGroup>
-              {!editData.deliveryOptions.shipping &&
-                !editData.deliveryOptions.meetup && (
+              {editData.competitionMeetupAvailable && (
+                <Box sx={{ mt: 2 }}>
+                  <Autocomplete
+                    multiple
+                    options={competitions}
+                    getOptionLabel={(option) =>
+                      option.displayName || option.name || ""
+                    }
+                    value={selectedCompetitions}
+                    onChange={(_, newValue) => {
+                      setSelectedCompetitions(newValue);
+                    }}
+                    onInputChange={handleCompetitionSearch}
+                    loading={loadingCompetitions}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search competitions"
+                        placeholder="Type to search competitions..."
+                      />
+                    )}
+                    renderTags={(tagValue, getTagProps) =>
+                      tagValue.map((option, index) => (
+                        <Chip
+                          {...getTagProps({ index })}
+                          key={option.id || option.name}
+                          label={option.displayName || option.name}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))
+                    }
+                  />
+                </Box>
+              )}
+              {!editData.shippingAvailable &&
+                !editData.localMeetupAvailable &&
+                !editData.competitionMeetupAvailable && (
                   <FormHelperText error>
-                    Please select at least one delivery option
+                    Please select at least one fulfillment method
                   </FormHelperText>
                 )}
             </FormControl>

@@ -30,20 +30,29 @@ import { getConnectAccountStatus } from "../utils/stripe";
 import SellerOnboarding from "../components/SellerOnboarding";
 import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
 import { fetchLocationSuggestions } from "../utils/locationSearch";
+import {
+  CONDITION_OPTIONS,
+  PUZZLE_TYPE_OPTIONS,
+} from "../utils/listingUtils";
 
 function Sell() {
   const navigate = useNavigate();
   const [selectedPhotos, setSelectedPhotos] = useState([]);
-  const [deliveryOptions, setDeliveryOptions] = useState({
-    shipping: true,
-    meetup: false,
-  });
   const [listingData, setListingData] = useState({
     title: "",
     price: "",
     description: "",
     condition: "",
-    location: "",
+    puzzleType: "",
+    brand: "",
+  });
+  const [fulfillmentData, setFulfillmentData] = useState({
+    shippingAvailable: true,
+    shippingIncluded: false,
+    shippingCost: "",
+    localMeetupAvailable: false,
+    competitionMeetupAvailable: false,
+    meetupLocationLabel: "",
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -66,7 +75,7 @@ function Sell() {
   }, [currentUser]);
 
   useEffect(() => {
-    const query = listingData.location.trim();
+    const query = fulfillmentData.meetupLocationLabel.trim();
     if (query.length < 2) {
       setLocationOptions([]);
       setLoadingLocations(false);
@@ -98,7 +107,7 @@ function Sell() {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [listingData.location]);
+  }, [fulfillmentData.meetupLocationLabel]);
 
   // Handle URL parameters for onboarding redirect
   useEffect(() => {
@@ -197,24 +206,30 @@ function Sell() {
     });
   };
 
-  const handleDeliveryChange = (option) => (event) => {
+  const handleFulfillmentChange = (field) => (event) => {
     const isChecked = event.target.checked;
 
-    setDeliveryOptions((prev) => ({
+    setFulfillmentData((prev) => ({
       ...prev,
-      [option]: isChecked,
+      [field]: isChecked,
     }));
 
-    // Load competitions when meetup is selected
-    if (option === "meetup" && isChecked) {
+    if (field === "competitionMeetupAvailable" && isChecked) {
       console.log("Meetup option selected, loading competitions");
-      loadCompetitions(); // Always load competitions when meetup is enabled
+      loadCompetitions();
     }
 
-    // Clear selected competitions when meetup is deselected
-    if (option === "meetup" && !isChecked) {
+    if (field === "competitionMeetupAvailable" && !isChecked) {
       setSelectedCompetitions([]);
-      setCompetitions([]); // Also clear the competitions list
+      setCompetitions([]);
+    }
+
+    if (field === "localMeetupAvailable" && !isChecked) {
+      setFulfillmentData((prev) => ({
+        ...prev,
+        meetupLocationLabel: "",
+      }));
+      setLocationOptions([]);
     }
   };
 
@@ -266,9 +281,21 @@ function Sell() {
     // Don't reload competitions when search is cleared - let filterOptions handle it
   };
 
-  const isDeliveryValid = deliveryOptions.shipping || deliveryOptions.meetup;
+  const isDeliveryValid =
+    fulfillmentData.shippingAvailable ||
+    fulfillmentData.localMeetupAvailable ||
+    fulfillmentData.competitionMeetupAvailable;
   const isCompetitionValid =
-    !deliveryOptions.meetup || selectedCompetitions.length > 0;
+    !fulfillmentData.competitionMeetupAvailable ||
+    selectedCompetitions.length > 0;
+  const isMeetupLocationValid =
+    !fulfillmentData.localMeetupAvailable ||
+    Boolean(fulfillmentData.meetupLocationLabel.trim());
+  const isShippingCostValid =
+    !fulfillmentData.shippingAvailable ||
+    fulfillmentData.shippingIncluded ||
+    fulfillmentData.shippingCost === "" ||
+    !Number.isNaN(parseFloat(fulfillmentData.shippingCost));
 
   const handleInputChange = (field) => (event) => {
     setListingData((prev) => ({
@@ -295,9 +322,16 @@ function Sell() {
       listingData.title &&
       listingData.price &&
       listingData.condition &&
-      listingData.location;
+      listingData.description &&
+      listingData.puzzleType;
 
-    if (!isPhotosValid || !isBasicInfoValid || !isDeliveryValid) {
+    if (
+      !isPhotosValid ||
+      !isBasicInfoValid ||
+      !isDeliveryValid ||
+      !isMeetupLocationValid ||
+      !isShippingCostValid
+    ) {
       alert("Please fill in all required fields");
       return;
     }
@@ -340,9 +374,26 @@ function Sell() {
         price: parseFloat(listingData.price),
         description: listingData.description,
         condition: listingData.condition,
-        location: listingData.location,
+        puzzleType: listingData.puzzleType,
+        brand: listingData.brand.trim(),
+        location: fulfillmentData.meetupLocationLabel.trim(),
+        meetupLocationLabel: fulfillmentData.meetupLocationLabel.trim(),
         photos: photosForStorage,
-        deliveryOptions,
+        deliveryOptions: {
+          shipping: fulfillmentData.shippingAvailable,
+          meetup:
+            fulfillmentData.localMeetupAvailable ||
+            fulfillmentData.competitionMeetupAvailable,
+        },
+        shippingAvailable: fulfillmentData.shippingAvailable,
+        shippingIncluded: fulfillmentData.shippingIncluded,
+        shippingCost:
+          fulfillmentData.shippingIncluded || fulfillmentData.shippingCost === ""
+            ? 0
+            : parseFloat(fulfillmentData.shippingCost),
+        localMeetupAvailable: fulfillmentData.localMeetupAvailable,
+        competitionMeetupAvailable:
+          fulfillmentData.competitionMeetupAvailable,
         competitions: selectedCompetitions.map((comp) => ({
           id: comp.id,
           name: comp.name,
@@ -350,6 +401,12 @@ function Sell() {
           country: comp.country,
           startDate: comp.startDate,
           endDate: comp.endDate,
+          displayName: comp.displayName,
+          dateRange: comp.dateRange,
+        })),
+        meetupCompetitionTags: selectedCompetitions.map((comp) => ({
+          id: comp.id,
+          name: comp.name,
           displayName: comp.displayName,
           dateRange: comp.dateRange,
         })),
@@ -392,11 +449,16 @@ function Sell() {
       price: "",
       description: "",
       condition: "",
-      location: "",
+      puzzleType: "",
+      brand: "",
     });
-    setDeliveryOptions({
-      shipping: true,
-      meetup: false,
+    setFulfillmentData({
+      shippingAvailable: true,
+      shippingIncluded: false,
+      shippingCost: "",
+      localMeetupAvailable: false,
+      competitionMeetupAvailable: false,
+      meetupLocationLabel: "",
     });
     setSelectedCompetitions([]);
     setHasAttemptedSubmit(false); // Reset validation state when clearing form
@@ -626,6 +688,25 @@ function Sell() {
                 </Grid>
                 <Grid>
                   <FormControl fullWidth variant="outlined" required>
+                    <InputLabel id="puzzle-type-label">Puzzle Type</InputLabel>
+                    <Select
+                      labelId="puzzle-type-label"
+                      label="Puzzle Type"
+                      value={listingData.puzzleType}
+                      onChange={handleInputChange("puzzleType")}
+                      sx={{ minWidth: 160 }}
+                      required
+                    >
+                      {PUZZLE_TYPE_OPTIONS.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid>
+                  <FormControl fullWidth variant="outlined" required>
                     <InputLabel id="condition-label">Condition</InputLabel>
                     <Select
                       labelId="condition-label"
@@ -635,16 +716,24 @@ function Sell() {
                       sx={{ minWidth: 120 }}
                       required
                     >
-                      <MenuItem value="new">New</MenuItem>
-                      <MenuItem value="like-new">Like New</MenuItem>
-                      <MenuItem value="excellent">Excellent</MenuItem>
-                      <MenuItem value="good">Good</MenuItem>
-                      <MenuItem value="fair">Fair</MenuItem>
-                      <MenuItem value="used">Used</MenuItem>
+                      {CONDITION_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
               </Grid>
+
+              <TextField
+                label="Brand"
+                fullWidth
+                placeholder="e.g., GAN, MoYu, QiYi"
+                variant="outlined"
+                value={listingData.brand}
+                onChange={handleInputChange("brand")}
+              />
 
               <TextField
                 label="Description"
@@ -657,41 +746,6 @@ function Sell() {
                 onChange={handleInputChange("description")}
               />
 
-              <Autocomplete
-                options={locationOptions}
-                freeSolo
-                value={listingData.location || null}
-                inputValue={listingData.location}
-                onChange={(_, newValue) => {
-                  setListingData((prev) => ({
-                    ...prev,
-                    location: newValue || "",
-                  }));
-                }}
-                onInputChange={(_, newInputValue, reason) => {
-                  if (reason === "reset") {
-                    return;
-                  }
-                  setListingData((prev) => ({
-                    ...prev,
-                    location: newInputValue,
-                  }));
-                }}
-                loading={loadingLocations}
-                noOptionsText={
-                  listingData.location.trim().length < 2
-                    ? "Start typing a city..."
-                    : "No matching cities found"
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Location"
-                    placeholder="Start typing a city..."
-                    required
-                  />
-                )}
-              />
             </Stack>
           </CardContent>
         </Card>
@@ -702,7 +756,7 @@ function Sell() {
         >
           <CardContent sx={{ p: 3 }}>
             <Typography variant="subtitle1" component="h2" fontWeight="bold">
-              Delivery Options
+              Fulfillment Methods
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Choose how buyers can receive this item{" "}
@@ -722,12 +776,132 @@ function Sell() {
                     mb: 2,
                   }}
                 >
-                  <Typography variant="body1">Shipping</Typography>
+                  <Box>
+                    <Typography variant="body1">Shipping</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Protected checkout through the app
+                    </Typography>
+                  </Box>
                   <Switch
-                    checked={deliveryOptions.shipping}
-                    onChange={handleDeliveryChange("shipping")}
+                    checked={fulfillmentData.shippingAvailable}
+                    onChange={handleFulfillmentChange("shippingAvailable")}
                   />
                 </Box>
+                {fulfillmentData.shippingAvailable && (
+                  <Stack spacing={2} sx={{ mb: 2 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body1">Shipping Included</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          If off, buyers will see an added shipping cost
+                        </Typography>
+                      </Box>
+                      <Switch
+                        checked={fulfillmentData.shippingIncluded}
+                        onChange={handleFulfillmentChange("shippingIncluded")}
+                      />
+                    </Box>
+                    {!fulfillmentData.shippingIncluded && (
+                      <TextField
+                        label="Shipping Cost (USD)"
+                        fullWidth
+                        placeholder="5.00"
+                        value={fulfillmentData.shippingCost}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                            setFulfillmentData((prev) => ({
+                              ...prev,
+                              shippingCost: value,
+                            }));
+                          }
+                        }}
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                          },
+                        }}
+                      />
+                    )}
+                  </Stack>
+                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 2,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body1">Local Meetup</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Coordinate directly in chat and exchange offline
+                    </Typography>
+                  </Box>
+                  <Switch
+                    checked={fulfillmentData.localMeetupAvailable}
+                    onChange={handleFulfillmentChange("localMeetupAvailable")}
+                  />
+                </Box>
+                {fulfillmentData.localMeetupAvailable && (
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color={
+                        hasAttemptedSubmit && !isMeetupLocationValid
+                          ? "error"
+                          : "text.secondary"
+                      }
+                      gutterBottom
+                    >
+                      Enter a general meetup area: *
+                    </Typography>
+                    <Autocomplete
+                      options={locationOptions}
+                      freeSolo
+                      value={fulfillmentData.meetupLocationLabel || null}
+                      inputValue={fulfillmentData.meetupLocationLabel}
+                      onChange={(_, newValue) => {
+                        setFulfillmentData((prev) => ({
+                          ...prev,
+                          meetupLocationLabel: newValue || "",
+                        }));
+                      }}
+                      onInputChange={(_, newInputValue, reason) => {
+                        if (reason === "reset") {
+                          return;
+                        }
+                        setFulfillmentData((prev) => ({
+                          ...prev,
+                          meetupLocationLabel: newInputValue,
+                        }));
+                      }}
+                      loading={loadingLocations}
+                      noOptionsText={
+                        fulfillmentData.meetupLocationLabel.trim().length < 2
+                          ? "Start typing a city..."
+                          : "No matching cities found"
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="General Meetup Area"
+                          placeholder="e.g., UCLA / Westwood"
+                          helperText="Keep this approximate, not an exact address."
+                          error={hasAttemptedSubmit && !isMeetupLocationValid}
+                          required
+                        />
+                      )}
+                    />
+                  </Box>
+                )}
                 <Box
                   sx={{
                     display: "flex",
@@ -735,16 +909,22 @@ function Sell() {
                     alignItems: "center",
                   }}
                 >
-                  <Typography variant="body1">Competition Meetup</Typography>
+                  <Box>
+                    <Typography variant="body1">Competition Meetup</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Meet at selected competitions
+                    </Typography>
+                  </Box>
                   <Switch
-                    checked={deliveryOptions.meetup}
-                    onChange={handleDeliveryChange("meetup")}
+                    checked={fulfillmentData.competitionMeetupAvailable}
+                    onChange={handleFulfillmentChange(
+                      "competitionMeetupAvailable"
+                    )}
                   />
                 </Box>
               </FormGroup>
 
-              {/* Competition Selection */}
-              {deliveryOptions.meetup && (
+              {fulfillmentData.competitionMeetupAvailable && (
                 <Box sx={{ mt: 2 }}>
                   <Typography
                     variant="body2"
@@ -827,12 +1007,18 @@ function Sell() {
                 </Box>
               )}
 
-              {!deliveryOptions.shipping && !deliveryOptions.meetup && (
+              {!isDeliveryValid && (
                 <FormHelperText error={hasAttemptedSubmit}>
-                  Please select at least one delivery option
+                  Please select at least one fulfillment method
                 </FormHelperText>
               )}
-              {deliveryOptions.meetup && selectedCompetitions.length === 0 && (
+              {fulfillmentData.localMeetupAvailable && !isMeetupLocationValid && (
+                <FormHelperText error={hasAttemptedSubmit}>
+                  Please enter a general meetup area
+                </FormHelperText>
+              )}
+              {fulfillmentData.competitionMeetupAvailable &&
+                selectedCompetitions.length === 0 && (
                 <FormHelperText error={hasAttemptedSubmit}>
                   Please select at least one competition for meetup delivery
                 </FormHelperText>
@@ -854,7 +1040,13 @@ function Sell() {
             variant="contained"
             size="large"
             onClick={handlePublishListing}
-            disabled={isPublishing || !isDeliveryValid || !isCompetitionValid}
+            disabled={
+              isPublishing ||
+              !isDeliveryValid ||
+              !isCompetitionValid ||
+              !isMeetupLocationValid ||
+              !isShippingCostValid
+            }
             sx={{ px: 6, py: 2 }}
           >
             {isPublishing ? "Publishing..." : "Publish Listing"}
