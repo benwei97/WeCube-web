@@ -28,6 +28,10 @@ import {
   startAfter,
 } from "firebase/firestore";
 import { db } from "../../firebase";
+import {
+  getNormalizedFulfillmentFields,
+  getShippingPriceFromListing,
+} from "../utils/listingUtils";
 
 function Browse() {
   const [listings, setListings] = useState([]);
@@ -391,6 +395,14 @@ function Browse() {
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
         {filteredListings.map((listing) => (
           <Box key={listing.id} sx={{ width: "calc(25% - 18px)" }}>
+            {(() => {
+              const normalizedListing = {
+                ...listing,
+                ...getNormalizedFulfillmentFields(listing),
+              };
+              const shippingPrice = getShippingPriceFromListing(normalizedListing);
+
+              return (
             <Card
               sx={{
                 cursor: "pointer",
@@ -455,10 +467,27 @@ function Browse() {
                   variant="h5"
                   color="primary"
                   fontWeight="bold"
-                  sx={{ mb: 1 }}
+                  sx={{ mb: 0.25 }}
                 >
                   {formatPrice(listing.price)}
                 </Typography>
+                {normalizedListing.shippingAvailable && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: normalizedListing.shippingIncluded
+                        ? "success.main"
+                        : "text.secondary",
+                      mb: 1,
+                    }}
+                  >
+                    {normalizedListing.shippingIncluded
+                      ? "Free shipping"
+                      : shippingPrice > 0
+                        ? `+ ${formatPrice(shippingPrice)} shipping`
+                        : "Shipping available"}
+                  </Typography>
+                )}
 
                 <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                   <Chip
@@ -469,15 +498,25 @@ function Browse() {
                 </Stack>
 
                 <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-                  {listing.deliveryOptions?.shipping && (
+                  {normalizedListing.shippingAvailable && (
                     <Chip label="Shipping" size="small" variant="outlined" />
                   )}
-                  {listing.deliveryOptions?.meetup && (
+                  {normalizedListing.localMeetupAvailable && (
+                    <Chip label="Local Meetup" size="small" variant="outlined" />
+                  )}
+                  {normalizedListing.competitionMeetupAvailable && (
+                    <Chip label="At Competition" size="small" variant="outlined" />
+                  )}
+                  {!normalizedListing.localMeetupAvailable &&
+                    !normalizedListing.competitionMeetupAvailable &&
+                    listing.deliveryOptions?.meetup && (
                     <Chip label="Meetup" size="small" variant="outlined" />
                   )}
                 </Stack>
               </CardContent>
             </Card>
+              );
+            })()}
           </Box>
         ))}
       </Box>

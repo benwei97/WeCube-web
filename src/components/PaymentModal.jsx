@@ -37,7 +37,7 @@ function PaymentForm({ listing, onSuccess, onCancel, buyerInfo }) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
 
-  const pricing = calculateTotalAmount(listing.price);
+  const pricing = calculateTotalAmount(listing);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -123,6 +123,10 @@ function PaymentForm({ listing, onSuccess, onCancel, buyerInfo }) {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography>Item Price:</Typography>
             <Typography>{formatPrice(pricing.listingPrice)}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography>Shipping:</Typography>
+            <Typography>{formatPrice(pricing.shippingAmount)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography>Platform Fee (5%):</Typography>

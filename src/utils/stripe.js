@@ -1,4 +1,5 @@
 import { loadStripe } from "@stripe/stripe-js";
+import { getShippingPriceFromListing } from "./listingUtils";
 
 // Initialize Stripe with publishable key and CSP-friendly options
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
@@ -216,12 +217,27 @@ export function calculatePlatformFee(amount, feePercentage = 0.05) {
 /**
  * Calculate total amount including fees
  */
-export function calculateTotalAmount(listingPrice, platformFeePercentage = 0.05) {
+export function calculateTotalAmount(
+  listingOrPrice,
+  platformFeePercentage = 0.05
+) {
+  const listingPrice =
+    typeof listingOrPrice === "number"
+      ? listingOrPrice
+      : Number(listingOrPrice?.price || 0);
+  const shippingAmount =
+    typeof listingOrPrice === "number"
+      ? 0
+      : listingOrPrice?.shippingIncluded
+        ? 0
+        : getShippingPriceFromListing(listingOrPrice);
   const platformFee = calculatePlatformFee(listingPrice, platformFeePercentage);
+
   return {
     listingPrice,
+    shippingAmount,
     platformFee,
-    totalAmount: listingPrice + platformFee,
+    totalAmount: listingPrice + shippingAmount + platformFee,
   };
 }
 

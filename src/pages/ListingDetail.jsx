@@ -46,8 +46,10 @@ import { fetchLocationSuggestions } from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
+  SHIPPING_PROFILE_OPTIONS,
   getConditionLabel,
   getNormalizedFulfillmentFields,
+  getShippingLabel,
 } from "../utils/listingUtils";
 import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
 
@@ -78,7 +80,7 @@ function ListingDetail() {
     meetupLocationLabel: "",
     shippingAvailable: false,
     shippingIncluded: false,
-    shippingCost: "",
+    shippingProfile: "",
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
   });
@@ -179,10 +181,7 @@ function ListingDetail() {
           meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
           shippingAvailable: fulfillmentFields.shippingAvailable,
           shippingIncluded: fulfillmentFields.shippingIncluded,
-          shippingCost:
-            fulfillmentFields.shippingIncluded || !fulfillmentFields.shippingCost
-              ? ""
-              : fulfillmentFields.shippingCost.toString(),
+          shippingProfile: fulfillmentFields.shippingProfile || "",
           localMeetupAvailable: fulfillmentFields.localMeetupAvailable,
           competitionMeetupAvailable:
             fulfillmentFields.competitionMeetupAvailable,
@@ -279,11 +278,10 @@ function ListingDetail() {
       const isCompetitionValid =
         !editData.competitionMeetupAvailable ||
         selectedCompetitions.length > 0;
-      const isShippingCostValid =
+      const isShippingProfileValid =
         !editData.shippingAvailable ||
         editData.shippingIncluded ||
-        editData.shippingCost === "" ||
-        !Number.isNaN(parseFloat(editData.shippingCost));
+        Boolean(editData.shippingProfile);
 
       if (
         !editData.title ||
@@ -294,7 +292,7 @@ function ListingDetail() {
         !isDeliveryValid ||
         !isMeetupLocationValid ||
         !isCompetitionValid ||
-        !isShippingCostValid
+        !isShippingProfileValid
       ) {
         alert("Please fill in all required fields");
         return;
@@ -318,10 +316,8 @@ function ListingDetail() {
         },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingCost:
-          editData.shippingIncluded || editData.shippingCost === ""
-            ? 0
-            : parseFloat(editData.shippingCost),
+        shippingProfile: editData.shippingIncluded ? "" : editData.shippingProfile,
+        shippingCost: 0,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions.map((competition) => ({
@@ -361,10 +357,8 @@ function ListingDetail() {
         },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingCost:
-          editData.shippingIncluded || editData.shippingCost === ""
-            ? 0
-            : parseFloat(editData.shippingCost),
+        shippingProfile: editData.shippingIncluded ? "" : editData.shippingProfile,
+        shippingCost: 0,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions,
@@ -691,13 +685,7 @@ function ListingDetail() {
                 <Chip
                   sx={{ px: 1 }}
                   icon={<LocalShipping />}
-                  label={
-                    listing.shippingIncluded
-                      ? "Ships · Shipping Included"
-                      : listing.shippingCost > 0
-                        ? `Ships · ${formatPrice(listing.shippingCost)} shipping`
-                        : "Ships"
-                  }
+                  label={getShippingLabel(listing, formatPrice)}
                   variant="outlined"
                 />
               )}
@@ -917,26 +905,29 @@ function ListingDetail() {
                       />
                     </Box>
                     {!editData.shippingIncluded && (
-                      <TextField
-                        label="Shipping Cost (USD)"
-                        fullWidth
-                        value={editData.shippingCost}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                      <FormControl fullWidth sx={{ mb: 2 }}>
+                        <InputLabel>Shipping Type</InputLabel>
+                        <Select
+                          value={editData.shippingProfile}
+                          label="Shipping Type"
+                          onChange={(event) => {
                             setEditData((prev) => ({
                               ...prev,
-                              shippingCost: value,
+                              shippingProfile: event.target.value,
                             }));
-                          }
-                        }}
-                        slotProps={{
-                          htmlInput: {
-                            inputMode: "decimal",
-                          },
-                        }}
-                        sx={{ mb: 2 }}
-                      />
+                          }}
+                        >
+                          {SHIPPING_PROFILE_OPTIONS.map((profile) => (
+                            <MenuItem key={profile.value} value={profile.value}>
+                              {profile.label} ({`$${profile.price.toFixed(2)}`})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        <FormHelperText>
+                          Pick the closest package type to keep shipping pricing
+                          consistent.
+                        </FormHelperText>
+                      </FormControl>
                     )}
                   </>
                 )}

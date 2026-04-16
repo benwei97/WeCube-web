@@ -33,6 +33,7 @@ import { fetchLocationSuggestions } from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
+  SHIPPING_PROFILE_OPTIONS,
 } from "../utils/listingUtils";
 
 function Sell() {
@@ -49,7 +50,7 @@ function Sell() {
   const [fulfillmentData, setFulfillmentData] = useState({
     shippingAvailable: true,
     shippingIncluded: false,
-    shippingCost: "",
+    shippingProfile: "single_cube_standard",
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
     meetupLocationLabel: "",
@@ -291,11 +292,10 @@ function Sell() {
   const isMeetupLocationValid =
     !fulfillmentData.localMeetupAvailable ||
     Boolean(fulfillmentData.meetupLocationLabel.trim());
-  const isShippingCostValid =
+  const isShippingProfileValid =
     !fulfillmentData.shippingAvailable ||
     fulfillmentData.shippingIncluded ||
-    fulfillmentData.shippingCost === "" ||
-    !Number.isNaN(parseFloat(fulfillmentData.shippingCost));
+    Boolean(fulfillmentData.shippingProfile);
 
   const handleInputChange = (field) => (event) => {
     setListingData((prev) => ({
@@ -330,7 +330,7 @@ function Sell() {
       !isBasicInfoValid ||
       !isDeliveryValid ||
       !isMeetupLocationValid ||
-      !isShippingCostValid
+      !isShippingProfileValid
     ) {
       alert("Please fill in all required fields");
       return;
@@ -387,10 +387,10 @@ function Sell() {
         },
         shippingAvailable: fulfillmentData.shippingAvailable,
         shippingIncluded: fulfillmentData.shippingIncluded,
-        shippingCost:
-          fulfillmentData.shippingIncluded || fulfillmentData.shippingCost === ""
-            ? 0
-            : parseFloat(fulfillmentData.shippingCost),
+        shippingProfile: fulfillmentData.shippingIncluded
+          ? ""
+          : fulfillmentData.shippingProfile,
+        shippingCost: 0,
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
           fulfillmentData.competitionMeetupAvailable,
@@ -455,7 +455,7 @@ function Sell() {
     setFulfillmentData({
       shippingAvailable: true,
       shippingIncluded: false,
-      shippingCost: "",
+      shippingProfile: "single_cube_standard",
       localMeetupAvailable: false,
       competitionMeetupAvailable: false,
       meetupLocationLabel: "",
@@ -808,26 +808,29 @@ function Sell() {
                       />
                     </Box>
                     {!fulfillmentData.shippingIncluded && (
-                      <TextField
-                        label="Shipping Cost (USD)"
-                        fullWidth
-                        placeholder="5.00"
-                        value={fulfillmentData.shippingCost}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                      <FormControl fullWidth>
+                        <InputLabel>Shipping Type</InputLabel>
+                        <Select
+                          value={fulfillmentData.shippingProfile}
+                          label="Shipping Type"
+                          onChange={(event) => {
                             setFulfillmentData((prev) => ({
                               ...prev,
-                              shippingCost: value,
+                              shippingProfile: event.target.value,
                             }));
-                          }
-                        }}
-                        slotProps={{
-                          htmlInput: {
-                            inputMode: "decimal",
-                          },
-                        }}
-                      />
+                          }}
+                        >
+                          {SHIPPING_PROFILE_OPTIONS.map((profile) => (
+                            <MenuItem key={profile.value} value={profile.value}>
+                              {profile.label} ({`$${profile.price.toFixed(2)}`})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        <FormHelperText>
+                          Pick the closest package type to keep shipping pricing
+                          consistent.
+                        </FormHelperText>
+                      </FormControl>
                     )}
                   </Stack>
                 )}
@@ -1045,7 +1048,7 @@ function Sell() {
               !isDeliveryValid ||
               !isCompetitionValid ||
               !isMeetupLocationValid ||
-              !isShippingCostValid
+              !isShippingProfileValid
             }
             sx={{ px: 6, py: 2 }}
           >
