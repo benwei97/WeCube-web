@@ -65,6 +65,7 @@ function ListingDetail() {
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitions, setCompetitions] = useState([]);
@@ -481,6 +482,32 @@ function ListingDetail() {
     }
   };
 
+  const handleListingStatusUpdate = async (status) => {
+    try {
+      setStatusActionLoading(true);
+      const docRef = doc(db, "listings", id);
+      const updates = {
+        status,
+        updatedAt: new Date(),
+      };
+
+      if (status === "sold") {
+        updates.soldAt = new Date();
+      }
+
+      await updateDoc(docRef, updates);
+      setListing((prev) => ({
+        ...prev,
+        ...updates,
+      }));
+    } catch (error) {
+      console.error(`Error updating listing status to ${status}:`, error);
+      alert("Failed to update listing status");
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
   const getMessageButtonText = () => {
     if (!existingConversation) return "Message Owner";
 
@@ -533,6 +560,30 @@ function ListingDetail() {
   }
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
+  const hasShipping = Boolean(listing.shippingAvailable);
+  const hasMeetup = Boolean(
+    listing.localMeetupAvailable || listing.competitionMeetupAvailable
+  );
+  const hasApprovedConversation = existingConversation?.status === "approved";
+  const messageButtonText = hasMeetup
+    ? hasApprovedConversation
+      ? "Continue Meetup Chat"
+      : "Message for Meetup"
+    : getMessageButtonText();
+
+  if (listing.status === "archived" && !isOwner) {
+    return (
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+        <Typography variant="h4">Listing not available</Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+          This listing has been archived by the seller and is no longer publicly available.
+        </Typography>
+        <Button onClick={() => navigate("/")} sx={{ mt: 2 }} variant="outlined">
+          Back to Browse
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -548,35 +599,79 @@ function ListingDetail() {
           ← Back
         </Button>
         {isOwner ? (
-          <Button
-            variant="contained"
-            startIcon={<Edit />}
-            onClick={handleEditToggle}
-          >
-            Edit Listing
-          </Button>
-        ) : (
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button
-              variant="outlined"
-              color="info"
-              onClick={
-                existingConversation?.status === "approved"
-                  ? () => navigate(`/messages/${existingConversation.id}`)
-                  : openMessageDialog
-              }
-              disabled={isMessageButtonDisabled()}
+              variant="contained"
+              startIcon={<Edit />}
+              onClick={handleEditToggle}
             >
-              {getMessageButtonText()}
+              Edit Listing
             </Button>
             <Button
-              variant="contained"
-              color="success"
-              onClick={handlePurchaseClick}
-              disabled={listing.status === "sold"}
+              variant="outlined"
+              color="warning"
+              onClick={() => handleListingStatusUpdate("sold")}
+              disabled={statusActionLoading || listing.status === "sold"}
             >
-              {listing.status === "sold" ? "Sold" : "Purchase"}
+              {listing.status === "sold" ? "Sold" : "Mark as Sold"}
             </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={() => handleListingStatusUpdate("archived")}
+              disabled={statusActionLoading || listing.status === "archived"}
+            >
+              {listing.status === "archived" ? "Archived" : "Archive"}
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {hasShipping && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handlePurchaseClick}
+                disabled={listing.status === "sold" || listing.status === "archived"}
+              >
+                {listing.status === "sold" ? "Sold" : "Buy Shipped"}
+              </Button>
+            )}
+            {(hasMeetup || !hasShipping) && (
+              <Button
+                variant={hasShipping ? "outlined" : "contained"}
+                color={hasShipping ? "info" : "primary"}
+                onClick={
+                  hasApprovedConversation
+                    ? () => navigate(`/messages/${existingConversation.id}`)
+                    : openMessageDialog
+                }
+                disabled={
+                  isMessageButtonDisabled() ||
+                  listing.status === "sold" ||
+                  listing.status === "archived"
+                }
+              >
+                {messageButtonText}
+              </Button>
+            )}
+            {hasShipping && !hasMeetup && (
+              <Button
+                variant="outlined"
+                color="info"
+                onClick={
+                  hasApprovedConversation
+                    ? () => navigate(`/messages/${existingConversation.id}`)
+                    : openMessageDialog
+                }
+                disabled={
+                  isMessageButtonDisabled() ||
+                  listing.status === "sold" ||
+                  listing.status === "archived"
+                }
+              >
+                {getMessageButtonText()}
+              </Button>
+            )}
           </Box>
         )}
       </Box>
@@ -660,6 +755,11 @@ function ListingDetail() {
                 Sold
               </Typography>
             )}
+            {listing.status === "archived" && (
+              <Typography variant="body2" color="text.secondary">
+                Archived
+              </Typography>
+            )}
             {listing.meetupLocationLabel && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Meetup Area: {listing.meetupLocationLabel}
@@ -680,49 +780,64 @@ function ListingDetail() {
             <Typography variant="h6" gutterBottom>
               Fulfillment
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+            <Stack spacing={2}>
               {listing.shippingAvailable && (
-                <Chip
-                  sx={{ px: 1 }}
-                  icon={<LocalShipping />}
-                  label={getShippingLabel(listing, formatPrice)}
-                  variant="outlined"
-                />
+                <Box>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                  >
+                    <LocalShipping fontSize="small" />
+                    Shipping
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {getShippingLabel(listing, formatPrice)} with protected checkout through the app.
+                  </Typography>
+                </Box>
               )}
               {listing.localMeetupAvailable && (
-                <Chip
-                  sx={{ px: 1 }}
-                  icon={<LocationOn />}
-                  label={
-                    listing.meetupLocationLabel
-                      ? `Local Meetup · ${listing.meetupLocationLabel}`
-                      : "Local Meetup"
-                  }
-                  variant="outlined"
-                />
+                <Box>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                  >
+                    <LocationOn fontSize="small" />
+                    Local Meetup
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {listing.meetupLocationLabel
+                      ? `Meet in ${listing.meetupLocationLabel} and coordinate details in chat.`
+                      : "Coordinate a local exchange directly in chat."}
+                  </Typography>
+                </Box>
               )}
               {listing.competitionMeetupAvailable && (
-                <Chip
-                  sx={{ px: 1 }}
-                  icon={<Groups />}
-                  label="Competition Meetup"
-                  variant="outlined"
-                />
+                <Box>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                  >
+                    <Groups fontSize="small" />
+                    Competition Meetup
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Coordinate in chat and meet at one of these competitions.
+                  </Typography>
+                  {listing.meetupCompetitionTags?.length > 0 && (
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {listing.meetupCompetitionTags.map((competition) => (
+                        <Chip
+                          key={competition.id || competition.name}
+                          label={competition.displayName || competition.name}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
               )}
             </Stack>
-            {listing.competitionMeetupAvailable &&
-              listing.meetupCompetitionTags?.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-                  {listing.meetupCompetitionTags.map((competition) => (
-                    <Chip
-                      key={competition.id || competition.name}
-                      label={competition.displayName || competition.name}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Stack>
-              )}
 
             <Divider sx={{ my: 2 }} />
 

@@ -28,12 +28,14 @@ import {
   startAfter,
 } from "firebase/firestore";
 import { db } from "../../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
 } from "../utils/listingUtils";
 
 function Browse() {
+  const { currentUser } = useAuth();
   const [listings, setListings] = useState([]);
   const [allListings, setAllListings] = useState([]); // For search/filter
   const [filteredListings, setFilteredListings] = useState([]);
@@ -198,7 +200,10 @@ function Browse() {
   const applyFilters = () => {
     // Use allListings for search/filter, listings for pagination
     const sourceListings = isSearching ? allListings : listings;
-    let filtered = [...sourceListings];
+    let filtered = sourceListings.filter(
+      (listing) =>
+        listing.status !== "archived" || listing.userId === currentUser?.uid
+    );
 
     // Search filter
     if (filters.search) {
