@@ -30,6 +30,7 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
+  isSoldListingPubliclyVisible,
 } from "../utils/listingUtils";
 
 function Browse() {
@@ -133,7 +134,8 @@ function Browse() {
     const sourceListings = isSearching ? allListings : listings;
     let filtered = sourceListings.filter(
       (listing) =>
-        listing.status !== "archived" || listing.userId === currentUser?.uid
+        listing.userId === currentUser?.uid ||
+        (listing.status !== "archived" && isSoldListingPubliclyVisible(listing))
     );
 
     // Search filter

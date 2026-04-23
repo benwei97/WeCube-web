@@ -32,6 +32,8 @@ export const SHIPPING_PROFILE_OPTIONS = [
   { value: "heavy_bundle", label: "Heavy bundle", price: 12.99 },
 ];
 
+export const SOLD_VISIBILITY_WINDOW_DAYS = 7;
+
 export function getShippingProfile(profileValue) {
   return (
     SHIPPING_PROFILE_OPTIONS.find((profile) => profile.value === profileValue) ||
@@ -100,6 +102,27 @@ export function getNormalizedFulfillmentFields(listing = {}) {
     shippingProfile: listing.shippingProfile || "",
     shippingCost: getShippingPriceFromListing(listing),
   };
+}
+
+export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
+  if (listing.status !== "sold") {
+    return true;
+  }
+
+  if (!listing.soldAt) {
+    return true;
+  }
+
+  const soldDate = listing.soldAt.toDate
+    ? listing.soldAt.toDate()
+    : new Date(listing.soldAt);
+
+  if (Number.isNaN(soldDate.getTime())) {
+    return true;
+  }
+
+  const visibilityWindowMs = SOLD_VISIBILITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return now.getTime() - soldDate.getTime() <= visibilityWindowMs;
 }
 
 export function getConditionLabel(conditionValue) {

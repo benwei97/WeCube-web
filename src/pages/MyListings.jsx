@@ -9,6 +9,11 @@ import {
   CardMedia,
   Chip,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Stack,
   Tab,
   Tabs,
@@ -16,12 +21,14 @@ import {
 } from "@mui/material";
 import {
   Archive,
+  Delete,
   LocalShipping,
   RestoreFromTrash,
   Visibility,
 } from "@mui/icons-material";
 import {
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -31,6 +38,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { deleteMultipleImages } from "../utils/s3";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
@@ -43,6 +51,11 @@ function MyListings() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusActionLoading, setStatusActionLoading] = useState({});
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    listing: null,
+  });
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -77,7 +90,14 @@ function MyListings() {
   }, [currentUser]);
 
   const activeListings = useMemo(
-    () => listings.filter((listing) => listing.status !== "archived"),
+    () =>
+      listings.filter(
+        (listing) => listing.status !== "sold" && listing.status !== "archived"
+      ),
+    [listings]
+  );
+  const soldListings = useMemo(
+    () => listings.filter((listing) => listing.status === "sold"),
     [listings]
   );
   const archivedListings = useMemo(
@@ -85,7 +105,12 @@ function MyListings() {
     [listings]
   );
 
-  const visibleListings = tab === "archived" ? archivedListings : activeListings;
+  const visibleListings =
+    tab === "sold"
+      ? soldListings
+      : tab === "archived"
+        ? archivedListings
+        : activeListings;
 
   const formatPrice = (price) =>
     new Intl.NumberFormat("en-US", {
@@ -129,6 +154,45 @@ function MyListings() {
         ...prev,
         [listingId]: false,
       }));
+    }
+  };
+
+  const handleDeleteClick = (listing) => {
+    setDeleteDialog({
+      open: true,
+      listing,
+    });
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleteLoading) return;
+    setDeleteDialog({
+      open: false,
+      listing: null,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteDialog.listing) return;
+
+    setDeleteLoading(true);
+    try {
+      if (deleteDialog.listing.photos?.length) {
+        await deleteMultipleImages(
+          deleteDialog.listing.photos.map((photo) => photo.s3Key)
+        );
+      }
+
+      await deleteDoc(doc(db, "listings", deleteDialog.listing.id));
+      setDeleteDialog({
+        open: false,
+        listing: null,
+      });
+    } catch (error) {
+      console.error("Error deleting listing:", error);
+      alert(`Failed to delete listing: ${error.message}`);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -265,6 +329,15 @@ function MyListings() {
                 Archive
               </Button>
             )}
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Delete />}
+              onClick={() => handleDeleteClick(listing)}
+              disabled={deleteLoading}
+            >
+              Delete
+            </Button>
           </Stack>
         </CardContent>
       </Card>
@@ -296,7 +369,7 @@ function MyListings() {
         My Listings
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Manage your live marketplace listings and anything you have archived.
+        Manage active listings, sold history, and anything you have archived.
       </Typography>
 
       <Tabs
@@ -305,6 +378,7 @@ function MyListings() {
         sx={{ mb: 3 }}
       >
         <Tab label={`Active (${activeListings.length})`} value="active" />
+        <Tab label={`Sold (${soldListings.length})`} value="sold" />
         <Tab label={`Archived (${archivedListings.length})`} value="archived" />
       </Tabs>
 
@@ -312,7 +386,9 @@ function MyListings() {
         <Alert severity="info">
           {tab === "archived"
             ? "You do not have any archived listings yet."
-            : "You do not have any active listings yet."}
+            : tab === "sold"
+              ? "You do not have any sold listings yet."
+              : "You do not have any active listings yet."}
         </Alert>
       ) : (
         <Box
@@ -325,6 +401,35 @@ function MyListings() {
           {visibleListings.map(renderListingCard)}
         </Box>
       )}
+
+      <Dialog
+        open={deleteDialog.open}
+        onClose={handleDeleteCancel}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Listing</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteDialog.listing
+              ? `Permanently delete "${deleteDialog.listing.title}"? This cannot be undone.`
+              : "Permanently delete this listing? This cannot be undone."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} color="inherit" disabled={deleteLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleteLoading}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
