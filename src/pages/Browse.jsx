@@ -21,11 +21,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
-  query,
-  getDocs,
+  onSnapshot,
   orderBy,
-  limit,
-  startAfter,
+  query,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -42,7 +40,7 @@ function Browse() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDoc, setLastDoc] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(4);
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
@@ -55,12 +53,60 @@ function Browse() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchListings();
+    const listingsQuery = query(
+      collection(db, "listings"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      listingsQuery,
+      (listingsSnapshot) => {
+        const listingsData = listingsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setAllListings(listingsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error subscribing to listings:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [listings, allListings, filters]);
+  }, [listings, allListings, filters, currentUser, isSearching]);
+
+  useEffect(() => {
+    setListings(allListings.slice(0, visibleCount));
+    setHasMore(allListings.length > visibleCount);
+  }, [allListings, visibleCount]);
+
+  useEffect(() => {
+    const prices = allListings
+      .map((listing) => listing.price)
+      .filter((price) => price && !isNaN(price));
+    const calculatedMaxPrice = prices.length > 0 ? Math.max(...prices) : 1000;
+    const roundedMaxPrice = Math.ceil(calculatedMaxPrice / 10) * 10;
+
+    setMaxPrice(roundedMaxPrice);
+    setFilters((prev) => {
+      const [minPrice, maxSelectedPrice] = prev.priceRange;
+
+      return {
+        ...prev,
+        priceRange: [
+          Math.min(minPrice, roundedMaxPrice),
+          Math.min(maxSelectedPrice, roundedMaxPrice) || roundedMaxPrice,
+        ],
+      };
+    });
+  }, [allListings]);
 
   // Check if user is actively searching/filtering
   useEffect(() => {
@@ -72,128 +118,13 @@ function Browse() {
       filters.deliveryOption;
     setIsSearching(searching);
 
-    // If user starts searching, load all listings
-    if (searching && allListings.length === 0) {
-      fetchAllListings();
-    }
-  }, [filters, maxPrice, allListings.length]);
-
-  const fetchListings = async (isLoadMore = false) => {
-    try {
-      if (isLoadMore) {
-        setLoadingMore(true);
-      }
-
-      // Build query for paginated results (request one extra to check if there are more)
-      const requestLimit = 4;
-      let listingsQuery = query(
-        collection(db, "listings"),
-        orderBy("createdAt", "desc"),
-        limit(requestLimit + 1)
-      );
-
-      // Add pagination cursor if loading more
-      if (isLoadMore && lastDoc) {
-        listingsQuery = query(
-          collection(db, "listings"),
-          orderBy("createdAt", "desc"),
-          startAfter(lastDoc),
-          limit(requestLimit + 1)
-        );
-      }
-
-      const listingsSnapshot = await getDocs(listingsQuery);
-      const allDocs = listingsSnapshot.docs;
-
-      // Check if there are more items than our limit
-      const hasMoreItems = allDocs.length > requestLimit;
-      setHasMore(hasMoreItems);
-
-      // Only take the requested number of items (remove the extra one we fetched)
-      const docsToUse = hasMoreItems ? allDocs.slice(0, requestLimit) : allDocs;
-      const listingsData = docsToUse.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      // Update last document for pagination (use the last item we're actually displaying)
-      const lastDocument = docsToUse[docsToUse.length - 1];
-      setLastDoc(lastDocument);
-
-      if (isLoadMore) {
-        // Filter out any duplicates before adding
-        setListings((prev) => {
-          const existingIds = new Set(prev.map((item) => item.id));
-          const newItems = listingsData.filter(
-            (item) => !existingIds.has(item.id)
-          );
-          console.log(
-            `Loading more: ${newItems.length} new items, ${
-              listingsData.length - newItems.length
-            } duplicates filtered`
-          );
-          return [...prev, ...newItems];
-        });
-        setLoadingMore(false);
-      } else {
-        setListings(listingsData);
-
-        // Calculate max price from initial listings (will be updated when all listings load)
-        const prices = listingsData
-          .map((listing) => listing.price)
-          .filter((price) => price && !isNaN(price));
-
-        const calculatedMaxPrice =
-          prices.length > 0 ? Math.max(...prices) : 1000;
-        const roundedMaxPrice = Math.ceil(calculatedMaxPrice / 10) * 10;
-
-        setMaxPrice(roundedMaxPrice);
-        setFilters((prev) => ({
-          ...prev,
-          priceRange: [0, roundedMaxPrice],
-        }));
-
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error("Error fetching listings:", error);
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  const fetchAllListings = async () => {
-    try {
-      const allListingsQuery = query(
-        collection(db, "listings"),
-        orderBy("createdAt", "desc")
-      );
-      const allListingsSnapshot = await getDocs(allListingsQuery);
-      const allListingsData = allListingsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setAllListings(allListingsData);
-
-      // Recalculate max price from all listings
-      const allPrices = allListingsData
-        .map((listing) => listing.price)
-        .filter((price) => price && !isNaN(price));
-
-      if (allPrices.length > 0) {
-        const calculatedMaxPrice = Math.max(...allPrices);
-        const roundedMaxPrice = Math.ceil(calculatedMaxPrice / 10) * 10;
-        setMaxPrice(roundedMaxPrice);
-      }
-    } catch (error) {
-      console.error("Error fetching all listings:", error);
-    }
-  };
+  }, [filters, maxPrice]);
 
   const loadMoreListings = () => {
     if (!isSearching && hasMore && !loadingMore) {
-      fetchListings(true);
+      setLoadingMore(true);
+      setVisibleCount((prev) => prev + 4);
+      setLoadingMore(false);
     }
   };
 
@@ -234,11 +165,15 @@ function Browse() {
     // Delivery option filter
     if (filters.deliveryOption) {
       filtered = filtered.filter((listing) => {
+        const normalizedListing = getNormalizedFulfillmentFields(listing);
         if (filters.deliveryOption === "shipping") {
-          return listing.deliveryOptions?.shipping;
+          return normalizedListing.shippingAvailable;
         }
         if (filters.deliveryOption === "meetup") {
-          return listing.deliveryOptions?.meetup;
+          return (
+            normalizedListing.localMeetupAvailable ||
+            normalizedListing.competitionMeetupAvailable
+          );
         }
         return true;
       });

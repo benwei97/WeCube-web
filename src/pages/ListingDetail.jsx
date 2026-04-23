@@ -37,7 +37,7 @@ import {
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { createConversationRequest, getExistingConversation } from "../utils/messaging";
@@ -87,8 +87,82 @@ function ListingDetail() {
   });
 
   useEffect(() => {
-    fetchListing();
-  }, [id]);
+    let cancelled = false;
+
+    const unsubscribe = onSnapshot(
+      doc(db, "listings", id),
+      async (docSnap) => {
+        if (!docSnap.exists()) {
+          if (!cancelled) {
+            setListing(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const listingData = { id: docSnap.id, ...docSnap.data() };
+        const fulfillmentFields = getNormalizedFulfillmentFields(listingData);
+        let sellerData = null;
+
+        try {
+          // Seller profile data is useful, but it should not prevent the listing
+          // itself from rendering if that read is blocked or missing.
+          const sellerDoc = await getDoc(doc(db, "users", listingData.userId));
+          sellerData = sellerDoc.exists() ? sellerDoc.data() : null;
+        } catch (sellerError) {
+          console.error("Error fetching seller profile:", sellerError);
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setListing({
+          ...listingData,
+          ...fulfillmentFields,
+          stripeAccountId: sellerData?.stripeAccountId,
+          sellerAvatarUrl: sellerData?.avatarUrl || "",
+          sellerReviewCount: sellerData?.reviewCount || 0,
+          sellerRating: sellerData?.averageRating || null,
+          sellerName:
+            `${sellerData?.firstName || ""} ${sellerData?.lastName || ""}`.trim() ||
+            "Seller",
+        });
+
+        if (!editMode) {
+          setEditData({
+            title: listingData.title,
+            price: listingData.price.toString(),
+            description: listingData.description || "",
+            condition: listingData.condition,
+            puzzleType: listingData.puzzleType || "",
+            brand: listingData.brand || "",
+            meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
+            shippingAvailable: fulfillmentFields.shippingAvailable,
+            shippingIncluded: fulfillmentFields.shippingIncluded,
+            shippingProfile: fulfillmentFields.shippingProfile || "",
+            localMeetupAvailable: fulfillmentFields.localMeetupAvailable,
+            competitionMeetupAvailable:
+              fulfillmentFields.competitionMeetupAvailable,
+          });
+          setSelectedCompetitions(fulfillmentFields.meetupCompetitionTags);
+        }
+
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error subscribing to listing:", error);
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [id, editMode]);
 
   useEffect(() => {
     // Check for existing conversation when user and listing are loaded
@@ -138,64 +212,6 @@ function ListingDetail() {
       setExistingConversation(conversation);
     } catch (error) {
       console.error("Error checking existing conversation:", error);
-    }
-  };
-
-  const fetchListing = async () => {
-    try {
-      const docRef = doc(db, "listings", id);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const listingData = { id: docSnap.id, ...docSnap.data() };
-        const fulfillmentFields = getNormalizedFulfillmentFields(listingData);
-        let sellerData = null;
-
-        try {
-          // Seller profile data is useful, but it should not prevent the listing
-          // itself from rendering if that read is blocked or missing.
-          const sellerDoc = await getDoc(doc(db, "users", listingData.userId));
-          sellerData = sellerDoc.exists() ? sellerDoc.data() : null;
-        } catch (sellerError) {
-          console.error("Error fetching seller profile:", sellerError);
-        }
-
-        setListing({
-          ...listingData,
-          ...fulfillmentFields,
-          stripeAccountId: sellerData?.stripeAccountId,
-          sellerAvatarUrl: sellerData?.avatarUrl || "",
-          sellerReviewCount: sellerData?.reviewCount || 0,
-          sellerRating: sellerData?.averageRating || null,
-          sellerName:
-            `${sellerData?.firstName || ""} ${sellerData?.lastName || ""}`.trim() ||
-            "Seller",
-        });
-
-        setEditData({
-          title: listingData.title,
-          price: listingData.price.toString(),
-          description: listingData.description || "",
-          condition: listingData.condition,
-          puzzleType: listingData.puzzleType || "",
-          brand: listingData.brand || "",
-          meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
-          shippingAvailable: fulfillmentFields.shippingAvailable,
-          shippingIncluded: fulfillmentFields.shippingIncluded,
-          shippingProfile: fulfillmentFields.shippingProfile || "",
-          localMeetupAvailable: fulfillmentFields.localMeetupAvailable,
-          competitionMeetupAvailable:
-            fulfillmentFields.competitionMeetupAvailable,
-        });
-        setSelectedCompetitions(fulfillmentFields.meetupCompetitionTags);
-      } else {
-        console.log("No such document!");
-        setListing(null);
-      }
-    } catch (error) {
-      console.error("Error fetching listing:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
