@@ -1,0 +1,332 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardMedia,
+  Chip,
+  Divider,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+} from "@mui/material";
+import {
+  Archive,
+  LocalShipping,
+  RestoreFromTrash,
+  Visibility,
+} from "@mui/icons-material";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  getNormalizedFulfillmentFields,
+  getShippingPriceFromListing,
+} from "../utils/listingUtils";
+
+function MyListings() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState("active");
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statusActionLoading, setStatusActionLoading] = useState({});
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setListings([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const listingsQuery = query(
+      collection(db, "listings"),
+      where("userId", "==", currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      listingsQuery,
+      (snapshot) => {
+        const nextListings = snapshot.docs.map((listingDoc) => ({
+          id: listingDoc.id,
+          ...listingDoc.data(),
+        }));
+        setListings(nextListings);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error subscribing to my listings:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const activeListings = useMemo(
+    () => listings.filter((listing) => listing.status !== "archived"),
+    [listings]
+  );
+  const archivedListings = useMemo(
+    () => listings.filter((listing) => listing.status === "archived"),
+    [listings]
+  );
+
+  const visibleListings = tab === "archived" ? archivedListings : activeListings;
+
+  const formatPrice = (price) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(price);
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return null;
+    const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
+  };
+
+  const handleStatusUpdate = async (listingId, status) => {
+    setStatusActionLoading((prev) => ({
+      ...prev,
+      [listingId]: true,
+    }));
+
+    try {
+      const updates = {
+        status,
+        updatedAt: new Date(),
+      };
+
+      if (status === "archived") {
+        updates.archivedAt = new Date();
+      }
+
+      if (status === "active") {
+        updates.archivedAt = null;
+      }
+
+      await updateDoc(doc(db, "listings", listingId), updates);
+    } catch (error) {
+      console.error(`Error updating listing ${listingId} to ${status}:`, error);
+      alert("Failed to update listing status");
+    } finally {
+      setStatusActionLoading((prev) => ({
+        ...prev,
+        [listingId]: false,
+      }));
+    }
+  };
+
+  const renderListingCard = (listing) => {
+    const normalizedListing = {
+      ...listing,
+      ...getNormalizedFulfillmentFields(listing),
+    };
+    const shippingPrice = getShippingPriceFromListing(normalizedListing);
+    const soldDate = formatDate(listing.soldAt);
+    const archivedDate = formatDate(listing.archivedAt || listing.updatedAt);
+
+    return (
+      <Card key={listing.id} sx={{ display: "flex", flexDirection: "column" }}>
+        {listing.photos?.[0] ? (
+          <CardMedia
+            component="img"
+            height="200"
+            image={`https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`}
+            alt={listing.title}
+            sx={{ objectFit: "contain", backgroundColor: "grey.50" }}
+          />
+        ) : (
+          <Box
+            sx={{
+              height: 200,
+              backgroundColor: "grey.100",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              No Image
+            </Typography>
+          </Box>
+        )}
+
+        <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, flexGrow: 1 }}>
+          <Box>
+            <Typography variant="h6" gutterBottom noWrap>
+              {listing.title}
+            </Typography>
+            <Typography variant="h5" color="primary" fontWeight="bold">
+              {formatPrice(listing.price)}
+            </Typography>
+            {normalizedListing.shippingAvailable && (
+              <Typography variant="body2" color="text.secondary">
+                {normalizedListing.shippingIncluded
+                  ? "Shipping included"
+                  : shippingPrice > 0
+                    ? `${formatPrice(shippingPrice)} shipping`
+                    : "Shipping available"}
+              </Typography>
+            )}
+          </Box>
+
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Chip
+              label={
+                listing.status === "sold"
+                  ? "Sold"
+                  : listing.status === "archived"
+                    ? "Archived"
+                    : "Active"
+              }
+              color={
+                listing.status === "sold"
+                  ? "default"
+                  : listing.status === "archived"
+                    ? "warning"
+                    : "success"
+              }
+              size="small"
+            />
+            {normalizedListing.shippingAvailable && (
+              <Chip
+                icon={<LocalShipping />}
+                label="Ships"
+                size="small"
+                variant="outlined"
+              />
+            )}
+            {normalizedListing.localMeetupAvailable && (
+              <Chip label="Local Meetup" size="small" variant="outlined" />
+            )}
+            {normalizedListing.competitionMeetupAvailable && (
+              <Chip label="At Competition" size="small" variant="outlined" />
+            )}
+          </Stack>
+
+          <Box sx={{ color: "text.secondary" }}>
+            {listing.puzzleType && (
+              <Typography variant="body2">Type: {listing.puzzleType}</Typography>
+            )}
+            {listing.brand && (
+              <Typography variant="body2">Brand: {listing.brand}</Typography>
+            )}
+            {soldDate && listing.status === "sold" && (
+              <Typography variant="body2">Sold on {soldDate}</Typography>
+            )}
+            {archivedDate && listing.status === "archived" && (
+              <Typography variant="body2">Archived on {archivedDate}</Typography>
+            )}
+          </Box>
+
+          <Divider />
+
+          <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
+            <Button
+              variant="outlined"
+              startIcon={<Visibility />}
+              onClick={() => navigate(`/listing/${listing.id}`)}
+            >
+              View
+            </Button>
+            {listing.status === "archived" ? (
+              <Button
+                variant="contained"
+                startIcon={<RestoreFromTrash />}
+                onClick={() => handleStatusUpdate(listing.id, "active")}
+                disabled={Boolean(statusActionLoading[listing.id])}
+              >
+                Unarchive
+              </Button>
+            ) : (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<Archive />}
+                onClick={() => handleStatusUpdate(listing.id, "archived")}
+                disabled={Boolean(statusActionLoading[listing.id])}
+              >
+                Archive
+              </Button>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (!currentUser) {
+    return (
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+          My Listings
+        </Typography>
+        <Alert severity="info">Sign in to view and manage your listings.</Alert>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+        <Typography variant="h4">Loading...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+        My Listings
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your live marketplace listings and anything you have archived.
+      </Typography>
+
+      <Tabs
+        value={tab}
+        onChange={(_, nextTab) => setTab(nextTab)}
+        sx={{ mb: 3 }}
+      >
+        <Tab label={`Active (${activeListings.length})`} value="active" />
+        <Tab label={`Archived (${archivedListings.length})`} value="archived" />
+      </Tabs>
+
+      {visibleListings.length === 0 ? (
+        <Alert severity="info">
+          {tab === "archived"
+            ? "You do not have any archived listings yet."
+            : "You do not have any active listings yet."}
+        </Alert>
+      ) : (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 3,
+          }}
+        >
+          {visibleListings.map(renderListingCard)}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export default MyListings;

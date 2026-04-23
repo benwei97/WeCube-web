@@ -11,6 +11,7 @@ import Competitions from "./pages/Competitions";
 import Sell from "./pages/Sell";
 import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
+import MyListings from "./pages/MyListings";
 
 function App() {
   return (
@@ -35,15 +36,7 @@ function App() {
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
-              <Route
-                path="/my-listings"
-                element={
-                  <div>
-                    <h1>My Listings</h1>
-                    <p>Coming soon...</p>
-                  </div>
-                }
-              />
+              <Route path="/my-listings" element={<MyListings />} />
               <Route
                 path="/my-purchases"
                 element={
