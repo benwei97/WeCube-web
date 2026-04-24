@@ -41,6 +41,7 @@ import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { createConversationRequest, getExistingConversation } from "../utils/messaging";
+import { subscribeToSellerReviews } from "../utils/reviews";
 import PaymentModal from "../components/PaymentModal";
 import { fetchLocationSuggestions } from "../utils/locationSearch";
 import {
@@ -170,6 +171,75 @@ function ListingDetail() {
       checkExistingConversation();
     }
   }, [currentUser, listing]);
+
+  useEffect(() => {
+    if (!listing?.userId) {
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "users", listing.userId),
+      (sellerDoc) => {
+        const sellerData = sellerDoc.exists() ? sellerDoc.data() : null;
+        setListing((prev) => {
+          if (!prev || prev.userId !== listing.userId) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            stripeAccountId: sellerData?.stripeAccountId,
+            sellerAvatarUrl: sellerData?.avatarUrl || "",
+            sellerReviewCount: sellerData?.reviewCount || 0,
+            sellerRating: sellerData?.averageRating || null,
+            sellerName:
+              `${sellerData?.firstName || ""} ${sellerData?.lastName || ""}`.trim() ||
+              "Seller",
+          };
+        });
+      },
+      (error) => {
+        console.error("Error subscribing to seller profile:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [listing?.userId]);
+
+  useEffect(() => {
+    if (!listing?.userId) {
+      return undefined;
+    }
+
+    const unsubscribe = subscribeToSellerReviews(
+      listing.userId,
+      (reviews) => {
+        const reviewCount = reviews.length;
+        const averageRating =
+          reviewCount > 0
+            ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+              reviewCount
+            : null;
+
+        setListing((prev) => {
+          if (!prev || prev.userId !== listing.userId) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            sellerReviewCount: reviewCount,
+            sellerRating: averageRating,
+          };
+        });
+      },
+      (error) => {
+        console.error("Error subscribing to seller reviews:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [listing?.userId]);
 
   useEffect(() => {
     const query = editData.meetupLocationLabel.trim();
@@ -889,6 +959,14 @@ function ListingDetail() {
                     No reviews yet
                   </Typography>
                 )}
+              </Box>
+              <Box sx={{ ml: "auto" }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(`/seller/${listing.userId}`)}
+                >
+                  View Seller
+                </Button>
               </Box>
             </Stack>
 
