@@ -245,6 +245,14 @@ function Dashboard() {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         Manage your listings and track your sales performance
       </Typography>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 4 }}>
+        <Button
+          variant="outlined"
+          onClick={() => navigate(`/seller/${currentUser.uid}`)}
+        >
+          View My Seller Profile
+        </Button>
+      </Box>
 
       <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
         <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
