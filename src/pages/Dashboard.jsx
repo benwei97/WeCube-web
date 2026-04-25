@@ -44,10 +44,12 @@ import {
   orderBy,
   doc,
   deleteDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { deleteMultipleImages } from "../utils/s3";
+import { submitTransactionReview, subscribeToUserReviews } from "../utils/reviews";
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -59,11 +61,21 @@ function Dashboard() {
   const [userListings, setUserListings] = useState([]);
   const [pastSales, setPastSales] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewsByListingId, setReviewsByListingId] = useState({});
   const [deleteDialog, setDeleteDialog] = useState({
     open: false,
     listing: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reviewDialog, setReviewDialog] = useState({
+    open: false,
+    listing: null,
+  });
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    comment: "",
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedListing, setSelectedListing] = useState(null);
   const { currentUser } = useAuth();
@@ -73,6 +85,23 @@ function Dashboard() {
     if (currentUser) {
       fetchDashboardData();
     }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setReviewsByListingId({});
+      return undefined;
+    }
+
+    const unsubscribe = subscribeToUserReviews(
+      currentUser.uid,
+      setReviewsByListingId,
+      (error) => {
+        console.error("Error subscribing to seller-authored reviews:", error);
+      }
+    );
+
+    return () => unsubscribe();
   }, [currentUser]);
 
   const fetchDashboardData = async () => {
@@ -102,13 +131,37 @@ function Dashboard() {
       const soldListingsData = listings.filter(
         (listing) => listing.status === "sold"
       );
-      const sales = soldListingsData.map((listing) => ({
-        id: listing.id,
-        title: listing.title,
-        price: listing.price,
-        soldDate: listing.soldAt || listing.updatedAt || listing.createdAt,
-        buyer: listing.buyerId || listing.soldTo || "Unknown",
-      }));
+      const sales = await Promise.all(
+        soldListingsData.map(async (listing) => {
+          let buyerName = listing.soldTo || "Unknown";
+
+          if (listing.buyerId) {
+            try {
+              const buyerDoc = await getDoc(doc(db, "users", listing.buyerId));
+              if (buyerDoc.exists()) {
+                const buyerData = buyerDoc.data();
+                buyerName =
+                  `${buyerData.firstName || ""} ${buyerData.lastName || ""}`.trim() ||
+                  buyerData.email ||
+                  buyerName;
+              }
+            } catch (error) {
+              console.error("Error fetching buyer profile for dashboard sale:", error);
+            }
+          }
+
+          return {
+            id: listing.id,
+            title: listing.title,
+            price: listing.price,
+            soldDate: listing.soldAt || listing.updatedAt || listing.createdAt,
+            buyerId: listing.buyerId || null,
+            buyerName,
+            soldMethod: listing.soldMethod || "",
+            ...listing,
+          };
+        })
+      );
 
       const totalSales = soldListings.length || 0;
       const totalEarnings = soldListingsData.reduce(
@@ -227,6 +280,51 @@ function Dashboard() {
       handleDeleteClick(selectedListing);
     }
     handleMenuClose();
+  };
+
+  const openReviewDialog = (listing) => {
+    const existingReview = reviewsByListingId[listing.id];
+    setReviewDialog({
+      open: true,
+      listing,
+    });
+    setReviewForm({
+      rating: existingReview?.rating || 5,
+      comment: existingReview?.comment || "",
+    });
+  };
+
+  const closeReviewDialog = () => {
+    if (submittingReview) return;
+    setReviewDialog({
+      open: false,
+      listing: null,
+    });
+    setReviewForm({
+      rating: 5,
+      comment: "",
+    });
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!reviewDialog.listing) return;
+
+    setSubmittingReview(true);
+    try {
+      await submitTransactionReview({
+        listing: reviewDialog.listing,
+        reviewer: currentUser,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+        recipientName: reviewDialog.listing.buyerName || "Buyer",
+      });
+      closeReviewDialog();
+    } catch (error) {
+      console.error("Error submitting buyer review:", error);
+      alert(error.message || "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   if (loading) {
@@ -467,11 +565,33 @@ function Dashboard() {
                         {sale.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Sold to {sale.buyer}
+                        Sold to {sale.buyerName}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(sale.soldDate)}
                       </Typography>
+                      {sale.buyerId ? (
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => navigate(`/user/${sale.buyerId}`)}
+                          >
+                            View Buyer
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => openReviewDialog(sale)}
+                          >
+                            {reviewsByListingId[sale.id] ? "Edit Buyer Review" : "Review Buyer"}
+                          </Button>
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                          Buyer review unavailable until the sale is attributed to a buyer.
+                        </Typography>
+                      )}
                     </Box>
                     <Typography
                       variant="h6"
@@ -546,6 +666,80 @@ function Dashboard() {
             startIcon={<Delete />}
           >
             {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={reviewDialog.open} onClose={closeReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {reviewsByListingId[reviewDialog.listing?.id] ? "Edit Buyer Review" : "Review Buyer"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {reviewDialog.listing?.buyerName || "Buyer"} • {reviewDialog.listing?.title}
+            </Typography>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Rating
+              </Typography>
+              <select
+                value={reviewForm.rating}
+                onChange={(event) =>
+                  setReviewForm((prev) => ({
+                    ...prev,
+                    rating: Number(event.target.value),
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  height: 40,
+                  borderRadius: 4,
+                  border: "1px solid #d1d5db",
+                  padding: "0 12px",
+                }}
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} {value === 1 ? "star" : "stars"}
+                  </option>
+                ))}
+              </select>
+            </Box>
+            <DialogContentText>
+              Leave feedback for the buyer on this completed transaction.
+            </DialogContentText>
+            <textarea
+              value={reviewForm.comment}
+              onChange={(event) =>
+                setReviewForm((prev) => ({
+                  ...prev,
+                  comment: event.target.value,
+                }))
+              }
+              placeholder="How did the buyer handle communication and pickup?"
+              rows={4}
+              style={{
+                width: "100%",
+                borderRadius: 4,
+                border: "1px solid #d1d5db",
+                padding: 12,
+                fontFamily: "inherit",
+                fontSize: 14,
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReviewDialog} color="inherit" disabled={submittingReview}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleReviewSubmit}
+            variant="contained"
+            disabled={submittingReview}
+          >
+            Save Review
           </Button>
         </DialogActions>
       </Dialog>

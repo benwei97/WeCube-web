@@ -20,7 +20,7 @@ import {
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { submitListingReview, subscribeToUserReviews } from "../utils/reviews";
+import { submitTransactionReview, subscribeToUserReviews } from "../utils/reviews";
 
 function MyPurchases() {
   const { currentUser } = useAuth();
@@ -121,11 +121,12 @@ function MyPurchases() {
 
     setSubmittingReview(true);
     try {
-      await submitListingReview({
+      await submitTransactionReview({
         listing: reviewDialog.listing,
         reviewer: currentUser,
         rating: reviewForm.rating,
         comment: reviewForm.comment,
+        recipientName: reviewDialog.listing.sellerName || "Seller",
       });
       closeReviewDialog();
     } catch (error) {

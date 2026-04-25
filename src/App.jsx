@@ -37,6 +37,7 @@ function App() {
               <Route path="/sell" element={<Sell />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/seller/:userId" element={<SellerProfile />} />
+              <Route path="/user/:userId" element={<SellerProfile />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
               <Route path="/my-listings" element={<MyListings />} />

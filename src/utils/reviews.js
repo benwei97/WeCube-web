@@ -18,27 +18,48 @@ export async function getExistingReview(listingId, reviewerId) {
   return reviewDoc.exists() ? { id: reviewDoc.id, ...reviewDoc.data() } : null;
 }
 
-export async function submitListingReview({
+export async function submitTransactionReview({
   listing,
   reviewer,
   rating,
   comment,
+  recipientId,
+  recipientName,
+  recipientRole,
 }) {
   if (!listing?.id || !reviewer?.uid) {
     throw new Error("Missing review context");
   }
 
-  if (listing.buyerId !== reviewer.uid) {
-    throw new Error("Only the buyer can review this purchase");
-  }
+  const isBuyerReviewer = listing.buyerId === reviewer.uid;
+  const isSellerReviewer = listing.userId === reviewer.uid;
 
-  if (listing.userId === reviewer.uid) {
-    throw new Error("You cannot review your own listing");
+  if (!isBuyerReviewer && !isSellerReviewer) {
+    throw new Error("Only the buyer or seller can review this transaction");
   }
 
   const normalizedRating = Number(rating);
   if (!Number.isFinite(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
     throw new Error("Rating must be between 1 and 5");
+  }
+
+  let resolvedRecipientId = recipientId;
+  let resolvedRecipientRole = recipientRole;
+
+  if (isBuyerReviewer) {
+    resolvedRecipientId = listing.userId;
+    resolvedRecipientRole = "seller";
+  } else if (isSellerReviewer) {
+    if (!listing.buyerId) {
+      throw new Error("This sale is not attributed to a buyer yet");
+    }
+
+    resolvedRecipientId = listing.buyerId;
+    resolvedRecipientRole = "buyer";
+  }
+
+  if (!resolvedRecipientId || resolvedRecipientId === reviewer.uid) {
+    throw new Error("Invalid review recipient");
   }
 
   const reviewId = getReviewDocId(listing.id, reviewer.uid);
@@ -52,9 +73,15 @@ export async function submitListingReview({
       listingId: listing.id,
       listingTitle: listing.title,
       sellerId: listing.userId,
+      buyerId: listing.buyerId || null,
       reviewerId: reviewer.uid,
       reviewerName:
-        `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() || "Buyer",
+        `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() ||
+        (isBuyerReviewer ? "Buyer" : "Seller"),
+      reviewerRole: isBuyerReviewer ? "buyer" : "seller",
+      recipientId: resolvedRecipientId,
+      recipientName: recipientName || "",
+      recipientRole: resolvedRecipientRole,
       rating: normalizedRating,
       comment: comment.trim(),
       createdAt: existingReview.exists() ? existingReview.data().createdAt : now,
@@ -64,10 +91,32 @@ export async function submitListingReview({
   );
 }
 
-export function subscribeToSellerReviews(sellerId, callback, onError) {
+export async function getUserReviewSummary(userId) {
+  const reviews = await new Promise((resolve, reject) => {
+    const unsubscribe = subscribeToReceivedReviews(
+      userId,
+      (nextReviews) => {
+        unsubscribe();
+        resolve(nextReviews);
+      },
+      reject
+    );
+  });
+
+  const reviewCount = reviews.length;
+  const averageRating =
+    reviewCount > 0
+      ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+        reviewCount
+      : null;
+
+  return { reviewCount, averageRating };
+}
+
+export function subscribeToReceivedReviews(userId, callback, onError) {
   const reviewsQuery = query(
     collection(db, "reviews"),
-    where("sellerId", "==", sellerId)
+    where("recipientId", "==", userId)
   );
 
   return onSnapshot(
@@ -87,6 +136,10 @@ export function subscribeToSellerReviews(sellerId, callback, onError) {
     },
     onError
   );
+}
+
+export function subscribeToSellerReviews(sellerId, callback, onError) {
+  return subscribeToReceivedReviews(sellerId, callback, onError);
 }
 
 export function subscribeToUserReviews(reviewerId, callback, onError) {

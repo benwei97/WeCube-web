@@ -109,7 +109,7 @@ function SellerProfile() {
   if (!seller) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Seller not found</Typography>
+        <Typography variant="h4">Profile not found</Typography>
         <Button onClick={() => navigate(-1)} sx={{ mt: 2 }} variant="outlined">
           Back
         </Button>
@@ -176,7 +176,7 @@ function SellerProfile() {
             Active Listings
           </Typography>
           {activeListings.length === 0 ? (
-            <Alert severity="info">This seller does not have any active listings right now.</Alert>
+            <Alert severity="info">This user does not have any active listings right now.</Alert>
           ) : (
             <Stack spacing={2}>
               {activeListings.slice(0, 6).map((listing) => {

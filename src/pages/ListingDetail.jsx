@@ -18,6 +18,9 @@ import {
   DialogActions,
   TextField,
   Autocomplete,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
   FormControl,
   InputLabel,
   Select,
@@ -40,7 +43,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { createConversationRequest, getExistingConversation } from "../utils/messaging";
+import {
+  createConversationRequest,
+  getExistingConversation,
+  getListingBuyerOptions,
+} from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import PaymentModal from "../components/PaymentModal";
 import { fetchLocationSuggestions } from "../utils/locationSearch";
@@ -67,6 +74,11 @@ function ListingDetail() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
+  const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
+  const [saleAttributionMode, setSaleAttributionMode] = useState("attributed");
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
+  const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitions, setCompetitions] = useState([]);
@@ -568,6 +580,41 @@ function ListingDetail() {
     }
   };
 
+  const openMarkSoldDialog = async () => {
+    setShowMarkSoldDialog(true);
+    setLoadingBuyerOptions(true);
+
+    try {
+      const options = await getListingBuyerOptions(id, listing.userId);
+      setBuyerOptions(options);
+
+      if (options.length > 0) {
+        setSaleAttributionMode("attributed");
+        if (options.length === 1) {
+          setSelectedBuyerId(options[0].buyerId);
+        }
+      } else {
+        setSaleAttributionMode("off_app");
+        setSelectedBuyerId("");
+      }
+    } catch (error) {
+      console.error("Error loading buyer options for sale attribution:", error);
+      setBuyerOptions([]);
+      setSaleAttributionMode("off_app");
+    } finally {
+      setLoadingBuyerOptions(false);
+    }
+  };
+
+  const closeMarkSoldDialog = () => {
+    if (statusActionLoading) return;
+    setShowMarkSoldDialog(false);
+    setSaleAttributionMode("attributed");
+    setBuyerOptions([]);
+    setLoadingBuyerOptions(false);
+    setSelectedBuyerId("");
+  };
+
   const handleListingStatusUpdate = async (status) => {
     try {
       setStatusActionLoading(true);
@@ -588,6 +635,45 @@ function ListingDetail() {
       }));
     } catch (error) {
       console.error(`Error updating listing status to ${status}:`, error);
+      alert("Failed to update listing status");
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleConfirmMarkSold = async () => {
+    if (saleAttributionMode === "attributed" && !selectedBuyerId) {
+      alert("Select the buyer who completed the sale, or choose sold off app.");
+      return;
+    }
+
+    try {
+      setStatusActionLoading(true);
+      const now = new Date();
+      const selectedBuyer = buyerOptions.find((option) => option.buyerId === selectedBuyerId);
+      const updates = {
+        status: "sold",
+        soldAt: now,
+        updatedAt: now,
+        soldMethod:
+          saleAttributionMode === "attributed"
+            ? "meetup_in_app"
+            : "meetup_off_app",
+        buyerId: saleAttributionMode === "attributed" ? selectedBuyerId : null,
+        soldConversationId:
+          saleAttributionMode === "attributed"
+            ? selectedBuyer?.conversationId || null
+            : null,
+      };
+
+      await updateDoc(doc(db, "listings", id), updates);
+      setListing((prev) => ({
+        ...prev,
+        ...updates,
+      }));
+      closeMarkSoldDialog();
+    } catch (error) {
+      console.error("Error marking listing as sold:", error);
       alert("Failed to update listing status");
     } finally {
       setStatusActionLoading(false);
@@ -696,7 +782,7 @@ function ListingDetail() {
             <Button
               variant="outlined"
               color="warning"
-              onClick={() => handleListingStatusUpdate("sold")}
+              onClick={openMarkSoldDialog}
               disabled={statusActionLoading || listing.status === "sold"}
             >
               {listing.status === "sold" ? "Sold" : "Mark as Sold"}
@@ -981,6 +1067,93 @@ function ListingDetail() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={showMarkSoldDialog}
+        onClose={closeMarkSoldDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Mark Listing as Sold</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              For meetup or in-person deals, choose the buyer who completed the sale so reviews can be tied to the right transaction.
+            </Typography>
+
+            <RadioGroup
+              value={saleAttributionMode}
+              onChange={(event) => setSaleAttributionMode(event.target.value)}
+            >
+              <FormControlLabel
+                value="attributed"
+                control={<Radio />}
+                disabled={loadingBuyerOptions || buyerOptions.length === 0}
+                label="Sold to a buyer from WeCube messages"
+              />
+              <FormControlLabel
+                value="off_app"
+                control={<Radio />}
+                label="Sold off app or without a matched buyer"
+              />
+            </RadioGroup>
+
+            {loadingBuyerOptions ? (
+              <Typography variant="body2" color="text.secondary">
+                Loading buyer conversations...
+              </Typography>
+            ) : saleAttributionMode === "attributed" ? (
+              buyerOptions.length > 0 ? (
+                <FormControl fullWidth>
+                  <InputLabel>Completed Buyer</InputLabel>
+                  <Select
+                    value={selectedBuyerId}
+                    label="Completed Buyer"
+                    onChange={(event) => setSelectedBuyerId(event.target.value)}
+                  >
+                    {buyerOptions.map((option) => (
+                      <MenuItem key={option.conversationId} value={option.buyerId}>
+                        {option.buyerName} {option.status === "approved" ? "• approved chat" : "• pending request"}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Only sales attributed to a buyer in-app will unlock buyer reviews.
+                  </FormHelperText>
+                </FormControl>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No eligible buyer conversations were found for this listing. Mark it as sold off app if the sale happened outside WeCube.
+                </Typography>
+              )
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                This will mark the listing as sold without linking it to a buyer, so no buyer review will unlock from this sale.
+              </Typography>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeMarkSoldDialog} color="inherit" disabled={statusActionLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmMarkSold}
+            variant="contained"
+            color="warning"
+            disabled={
+              statusActionLoading ||
+              loadingBuyerOptions ||
+              (saleAttributionMode === "attributed" &&
+                buyerOptions.length > 0 &&
+                !selectedBuyerId)
+            }
+          >
+            {saleAttributionMode === "attributed" ? "Mark Sold to Buyer" : "Mark Sold Off App"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog

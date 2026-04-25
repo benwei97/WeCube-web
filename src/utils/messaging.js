@@ -507,3 +507,73 @@ export async function getPendingRequests(sellerId) {
     throw error;
   }
 }
+
+/**
+ * Get buyer options for a seller to attribute a completed listing sale.
+ * Prioritizes approved conversations but also includes pending requests.
+ */
+export async function getListingBuyerOptions(listingId, sellerId) {
+  try {
+    const conversationsQuery = query(
+      collection(db, "conversations"),
+      where("listingId", "==", listingId),
+      where("sellerId", "==", sellerId)
+    );
+
+    const snapshot = await getDocs(conversationsQuery);
+    const conversations = snapshot.docs
+      .map((conversationDoc) => ({
+        id: conversationDoc.id,
+        ...conversationDoc.data(),
+      }))
+      .filter((conversation) => conversation.status === "approved" || conversation.status === "pending")
+      .sort((a, b) => {
+        const statusWeight = {
+          approved: 0,
+          pending: 1,
+        };
+        const aStatus = statusWeight[a.status] ?? 99;
+        const bStatus = statusWeight[b.status] ?? 99;
+        if (aStatus !== bStatus) {
+          return aStatus - bStatus;
+        }
+
+        const aTime = a.lastMessageAt?.toMillis?.() || 0;
+        const bTime = b.lastMessageAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
+    const buyerOptions = await Promise.all(
+      conversations.map(async (conversation) => {
+        let buyerName = "Buyer";
+
+        try {
+          const buyerDoc = await getDoc(doc(db, "users", conversation.buyerId));
+          if (buyerDoc.exists()) {
+            const buyerData = buyerDoc.data();
+            buyerName =
+              `${buyerData.firstName || ""} ${buyerData.lastName || ""}`.trim() ||
+              buyerData.email ||
+              "Buyer";
+          }
+        } catch (error) {
+          console.error("Error fetching buyer profile for sale attribution:", error);
+        }
+
+        return {
+          buyerId: conversation.buyerId,
+          buyerName,
+          conversationId: conversation.id,
+          status: conversation.status,
+          lastMessage: conversation.lastMessage || "",
+          lastMessageAt: conversation.lastMessageAt || null,
+        };
+      })
+    );
+
+    return buyerOptions;
+  } catch (error) {
+    console.error("Error getting listing buyer options:", error);
+    throw error;
+  }
+}
