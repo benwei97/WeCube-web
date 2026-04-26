@@ -1,281 +1,131 @@
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Button,
-  Stack,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-} from "@mui/material";
-import {
-  TrendingUp,
-  Inventory,
-  AttachMoney,
-  ShoppingCart,
-  Edit,
-  Delete,
-  MoreVert,
-} from "@mui/icons-material";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  doc,
-  deleteDoc,
-  getDoc,
-} from "firebase/firestore";
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
+import { Star } from "@mui/icons-material";
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { deleteMultipleImages } from "../utils/s3";
-import { subscribeToUserReviews } from "../utils/reviews";
+import { subscribeToReceivedReviews } from "../utils/reviews";
 
 function Dashboard() {
-  const [stats, setStats] = useState({
-    totalListings: 0,
-    activeListings: 0,
-    totalSales: 0,
-    totalEarnings: 0,
-  });
-  const [userListings, setUserListings] = useState([]);
-  const [pastSales, setPastSales] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [reviewsByListingId, setReviewsByListingId] = useState({});
-  const [deleteDialog, setDeleteDialog] = useState({
-    open: false,
-    listing: null,
-  });
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState(null);
-  const [selectedListing, setSelectedListing] = useState(null);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (currentUser) {
-      fetchDashboardData();
-    }
-  }, [currentUser]);
+  const [receivedReviews, setReceivedReviews] = useState([]);
+  const [listings, setListings] = useState([]);
+  const [purchaseCount, setPurchaseCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser?.uid) {
-      setReviewsByListingId({});
+      setReceivedReviews([]);
+      setListings([]);
+      setPurchaseCount(0);
+      setLoading(false);
       return undefined;
     }
 
-    const unsubscribe = subscribeToUserReviews(
-      currentUser.uid,
-      setReviewsByListingId,
+    setLoading(true);
+
+    const listingsQuery = query(
+      collection(db, "listings"),
+      where("userId", "==", currentUser.uid)
+    );
+    const purchasesQuery = query(
+      collection(db, "listings"),
+      where("buyerId", "==", currentUser.uid)
+    );
+
+    const unsubscribeListings = onSnapshot(
+      listingsQuery,
+      (snapshot) => {
+        const nextListings = snapshot.docs.map((listingDoc) => ({
+          id: listingDoc.id,
+          ...listingDoc.data(),
+        }));
+        setListings(nextListings);
+        setLoading(false);
+      },
       (error) => {
-        console.error("Error subscribing to seller-authored reviews:", error);
+        console.error("Error subscribing to dashboard listings:", error);
+        setLoading(false);
       }
     );
 
-    return () => unsubscribe();
-  }, [currentUser]);
+    const unsubscribeReviews = subscribeToReceivedReviews(
+      currentUser.uid,
+      setReceivedReviews,
+      (error) => {
+        console.error("Error subscribing to dashboard reviews:", error);
+      }
+    );
 
-  const fetchDashboardData = async () => {
-    try {
-      const listingsQuery = query(
-        collection(db, "listings"),
-        where("userId", "==", currentUser.uid),
-        orderBy("createdAt", "desc")
-      );
-      const listingsSnapshot = await getDocs(listingsQuery);
-      const listings = listingsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setUserListings(listings);
-      console.log(listings);
-
-      const totalListings = listings.length;
-      const activeListings = listings.filter(
-        (listing) => listing.status === "active"
-      ).length;
-      const soldListings = listings.filter(
-        (listing) => listing.status === "sold"
-      ).length;
-
-      const soldListingsData = listings.filter(
-        (listing) => listing.status === "sold"
-      );
-      const sales = await Promise.all(
-        soldListingsData.map(async (listing) => {
-          let buyerName = listing.soldTo || "Unknown";
-
-          if (listing.buyerId) {
-            try {
-              const buyerDoc = await getDoc(doc(db, "users", listing.buyerId));
-              if (buyerDoc.exists()) {
-                const buyerData = buyerDoc.data();
-                buyerName =
-                  `${buyerData.firstName || ""} ${buyerData.lastName || ""}`.trim() ||
-                  buyerData.email ||
-                  buyerName;
-              }
-            } catch (error) {
-              console.error("Error fetching buyer profile for dashboard sale:", error);
-            }
-          }
-
-          return {
-            id: listing.id,
-            title: listing.title,
-            price: listing.price,
-            soldDate: listing.soldAt || listing.updatedAt || listing.createdAt,
-            buyerId: listing.buyerId || null,
-            buyerName,
-            soldMethod: listing.soldMethod || "",
-            ...listing,
-          };
-        })
-      );
-
-      const totalSales = soldListings.length || 0;
-      const totalEarnings = soldListingsData.reduce(
-        (sum, listing) => sum + listing.price,
-        0
-      );
-
-      setStats({
-        totalListings,
-        activeListings,
-        totalSales,
-        totalEarnings,
+    let cancelled = false;
+    getDocs(purchasesQuery)
+      .then((snapshot) => {
+        if (!cancelled) {
+          setPurchaseCount(snapshot.size);
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading purchase count:", error);
       });
 
-      setPastSales(sales);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setLoading(false);
-    }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  };
-
-  const formatDate = (date) => {
-    if (!date) return "N/A";
-    const dateObj = date.toDate ? date.toDate() : new Date(date);
-    return dateObj.toLocaleDateString();
-  };
-
-  const getConditionColor = (condition) => {
-    const colors = {
-      new: "success",
-      "like-new": "success",
-      excellent: "info",
-      good: "warning",
-      fair: "warning",
-      used: "default",
+    return () => {
+      cancelled = true;
+      unsubscribeListings();
+      unsubscribeReviews();
     };
-    return colors[condition] || "default";
+  }, [currentUser]);
+
+  const userName =
+    `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim() || "Your Account";
+
+  const reviewSummary = useMemo(() => {
+    const reviewCount = receivedReviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? receivedReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          reviewCount
+        : null;
+    return { reviewCount, averageRating };
+  }, [receivedReviews]);
+
+  const sellingSummary = useMemo(() => {
+    const activeListings = listings.filter(
+      (listing) => listing.status !== "sold" && listing.status !== "archived"
+    ).length;
+    const soldListings = listings.filter((listing) => listing.status === "sold").length;
+    const archivedListings = listings.filter((listing) => listing.status === "archived").length;
+    return {
+      totalListings: listings.length,
+      activeListings,
+      soldListings,
+      archivedListings,
+    };
+  }, [listings]);
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+    const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString();
   };
 
-  const handleDeleteClick = (listing) => {
-    setDeleteDialog({ open: true, listing });
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialog({ open: false, listing: null });
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteDialog.listing) return;
-
-    setIsDeleting(true);
-    try {
-      const listing = deleteDialog.listing;
-
-      // Step 1: Delete images from S3
-      if (listing.photos && listing.photos.length > 0) {
-        const s3Keys = listing.photos.map((photo) => photo.s3Key);
-        await deleteMultipleImages(s3Keys);
-      }
-
-      // Step 2: Delete listing from Firestore
-      await deleteDoc(doc(db, "listings", listing.id));
-
-      // Step 3: Update local state
-      setUserListings((prev) => prev.filter((l) => l.id !== listing.id));
-
-      // Update stats
-      setStats((prev) => ({
-        ...prev,
-        totalListings: prev.totalListings - 1,
-        activeListings:
-          listing.status === "active"
-            ? prev.activeListings - 1
-            : prev.activeListings,
-        totalSales:
-          listing.status === "sold" ? prev.totalSales - 1 : prev.totalSales,
-      }));
-
-      console.log("Listing deleted successfully:", listing.id);
-      setDeleteDialog({ open: false, listing: null });
-    } catch (error) {
-      console.error("Error deleting listing:", error);
-      alert(`Failed to delete listing: ${error.message}`);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleMenuOpen = (event, listing) => {
-    setMenuAnchor(event.currentTarget);
-    setSelectedListing(listing);
-  };
-
-  const handleMenuClose = () => {
-    setMenuAnchor(null);
-    setSelectedListing(null);
-  };
-
-  const handleEditClick = () => {
-    if (selectedListing) {
-      navigate(`/listing/${selectedListing.id}`);
-    }
-    handleMenuClose();
-  };
-
-  const handleDeleteMenuClick = () => {
-    if (selectedListing) {
-      handleDeleteClick(selectedListing);
-    }
-    handleMenuClose();
-  };
+  const recentReviews = receivedReviews.slice(0, 3);
 
   if (loading) {
     return (
-      <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
         <Typography variant="h4">Loading...</Typography>
       </Box>
     );
@@ -284,338 +134,179 @@ function Dashboard() {
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-        Dashboard
+        Account
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Manage your listings and track your sales performance
+        Your profile, feedback, and the quickest way back into marketplace activity.
       </Typography>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 4 }}>
-        <Button
-          variant="outlined"
-          onClick={() => navigate(`/seller/${currentUser.uid}`)}
-        >
-          View My Seller Profile
-        </Button>
-      </Box>
 
-      <Box sx={{ display: "flex", gap: 3, mb: 4, flexWrap: "wrap" }}>
-        <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
-          <CardContent>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 1,
-                p: 2,
-              }}
-            >
-              <Inventory sx={{ fontSize: 24 }} />
-              <Typography variant="h5" fontWeight="bold">
-                {stats.totalListings}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Listings
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
-          <CardContent>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 1,
-                p: 2,
-              }}
-            >
-              <TrendingUp sx={{ fontSize: 24 }} />
-              <Typography variant="h5" fontWeight="bold">
-                {stats.activeListings}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Active Listings
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
-          <CardContent>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 1,
-                p: 2,
-              }}
-            >
-              <ShoppingCart sx={{ fontSize: 24 }} />
-              <Typography variant="h5" fontWeight="bold">
-                {stats.totalSales}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Sales
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
-          <CardContent>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 1,
-                p: 2,
-              }}
-            >
-              <AttachMoney sx={{ fontSize: 24 }} />
-              <Typography variant="h5" fontWeight="bold">
-                {formatPrice(stats.totalEarnings)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Earnings
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-
-      <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-        <Box sx={{ flex: "2 1 400px", minWidth: 400 }}>
-          <Paper sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 3,
-              }}
-            >
-              <Typography variant="h5" fontWeight="bold">
-                My Listings
-              </Typography>
-              <Button variant="outlined" href="/sell">
-                Create New Listing
-              </Button>
-            </Box>
-
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ width: 300 }}>Item</TableCell>
-                    <TableCell>Price</TableCell>
-                    <TableCell>Condition</TableCell>
-                    <TableCell>Date Listed</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell sx={{ width: 50 }}></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody sx={{ minHeight: 200 }}>
-                  {userListings.map((listing) => (
-                    <TableRow key={listing.id}>
-                      <TableCell>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 2 }}
-                        >
-                          <Typography
-                            variant="body2"
-                            title={listing.title}
-                            sx={{
-                              maxWidth: 200,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              cursor: "pointer",
-                              textDecoration: "none",
-                              "&:hover": {
-                                color: "primary.main",
-                              },
-                            }}
-                            onClick={() => navigate(`/listing/${listing.id}`)}
-                          >
-                            {listing.title}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>{formatPrice(listing.price)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={listing.condition}
-                          color={getConditionColor(listing.condition)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{formatDate(listing.createdAt)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={listing.status === "sold" ? "Sold" : "Active"}
-                          color={
-                            listing.status === "sold" ? "default" : "success"
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          onClick={(e) => handleMenuOpen(e, listing)}
-                          size="small"
-                        >
-                          <MoreVert />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {userListings.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          No listings yet. Create your first listing!
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Box>
-
-        {/* Past Sales Section */}
-        <Box sx={{ flex: "1 1 300px", minWidth: 300 }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-              Recent Sales
-            </Typography>
-
-            <Stack spacing={2}>
-              {pastSales.map((sale, index) => (
-                <Box key={sale.id}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body1" fontWeight="medium">
-                        {sale.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Sold to {sale.buyerName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(sale.soldDate)}
-                      </Typography>
-                      {sale.buyerId ? (
-                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate(`/user/${sale.buyerId}`)}
-                          >
-                            View Buyer
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => navigate("/my-reviews")}
-                          >
-                            {reviewsByListingId[sale.id] ? "Manage Review" : "Review in My Reviews"}
-                          </Button>
-                        </Stack>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-                          Buyer review unavailable until the sale is attributed to a buyer.
-                        </Typography>
-                      )}
-                    </Box>
-                    <Typography
-                      variant="h6"
-                      color="success.main"
-                      fontWeight="bold"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      {formatPrice(sale.price)}
-                    </Typography>
-                  </Box>
-                  {index < pastSales.length - 1 && <Divider sx={{ mt: 2 }} />}
-                </Box>
-              ))}
-              {pastSales.length === 0 && (
-                <Box sx={{ textAlign: "center", py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No sales yet. Start selling to see your transaction history!
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          </Paper>
-        </Box>
-      </Box>
-
-      {/* Actions Menu */}
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={handleMenuClose}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-      >
-        <MenuItem onClick={handleEditClick}>
-          <ListItemIcon>
-            <Edit fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleDeleteMenuClick}>
-          <ListItemIcon>
-            <Delete fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
-        </MenuItem>
-      </Menu>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialog.open}
-        onClose={handleDeleteCancel}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-      >
-        <DialogTitle id="delete-dialog-title">Delete Listing</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete "{deleteDialog.listing?.title}"?
-            This action cannot be undone and will permanently remove the listing
-            and all associated images.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDeleteCancel} disabled={isDeleting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
-            disabled={isDeleting}
-            startIcon={<Delete />}
+      <Stack spacing={3}>
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight="bold" gutterBottom>
+            About
+          </Typography>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "flex-start", sm: "center" }}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Avatar src={currentUser?.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
+              {userName.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                {userName}
+              </Typography>
+              {currentUser?.email && (
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {currentUser.email}
+                </Typography>
+              )}
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Member since {formatDate(currentUser?.createdAt)}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
 
+        <Paper sx={{ p: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Feedback
+              </Typography>
+              {reviewSummary.reviewCount > 0 ? (
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}
+                >
+                  <Star fontSize="inherit" />
+                  {reviewSummary.averageRating?.toFixed(1) || "0.0"} ·{" "}
+                  {reviewSummary.reviewCount} review
+                  {reviewSummary.reviewCount === 1 ? "" : "s"}
+                </Typography>
+              ) : (
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                  No reviews yet
+                </Typography>
+              )}
+            </Box>
+            <Button variant="outlined" onClick={() => navigate(`/user/${currentUser.uid}`)}>
+              View Public Profile
+            </Button>
+          </Box>
+
+          {recentReviews.length === 0 ? (
+            <Alert severity="info">You have not received any reviews yet.</Alert>
+          ) : (
+            <Stack spacing={2}>
+              {recentReviews.map((review) => (
+                <Card key={review.id} variant="outlined">
+                  <CardContent>
+                    <Typography variant="body1" fontWeight={600}>
+                      {review.reviewerName || "User"}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}
+                    >
+                      <Star fontSize="inherit" />
+                      {Number(review.rating || 0).toFixed(1)}
+                      {review.listingTitle ? ` • ${review.listingTitle}` : ""}
+                    </Typography>
+                    {review.comment && <Typography variant="body1">{review.comment}</Typography>}
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h5" fontWeight="bold" gutterBottom>
+            Quick Access
+          </Typography>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 2,
+            }}
+          >
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  My Listings
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Manage active, sold, and archived listings.
+                </Typography>
+                <Button variant="contained" onClick={() => navigate("/my-listings")}>
+                  Open My Listings
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  My Purchases
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  View items you bought and revisit completed transactions.
+                </Typography>
+                <Button variant="contained" onClick={() => navigate("/my-purchases")}>
+                  Open My Purchases
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  My Reviews
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Finish pending reviews and manage feedback you have written.
+                </Typography>
+                <Button variant="contained" onClick={() => navigate("/my-reviews")}>
+                  Open My Reviews
+                </Button>
+              </CardContent>
+            </Card>
+          </Box>
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight="bold" gutterBottom>
+            Selling History
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            A lightweight summary of your marketplace activity. More detailed management still lives in My Listings.
+          </Typography>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+            <Chip label={`${sellingSummary.totalListings} total listing${sellingSummary.totalListings === 1 ? "" : "s"}`} />
+            <Chip label={`${sellingSummary.activeListings} active`} />
+            <Chip label={`${sellingSummary.soldListings} sold`} />
+            <Chip label={`${sellingSummary.archivedListings} archived`} />
+            <Chip label={`${purchaseCount} purchase${purchaseCount === 1 ? "" : "s"}`} />
+          </Stack>
+          <Button variant="text" onClick={() => navigate("/my-listings")}>
+            Go to My Listings
+          </Button>
+        </Paper>
+      </Stack>
     </Box>
   );
 }
