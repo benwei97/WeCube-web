@@ -164,3 +164,84 @@ export function subscribeToUserReviews(reviewerId, callback, onError) {
     onError
   );
 }
+
+export function subscribeToPendingReviewCount(userId, callback, onError) {
+  const authoredReviewsQuery = query(
+    collection(db, "reviews"),
+    where("reviewerId", "==", userId)
+  );
+  const purchasesQuery = query(
+    collection(db, "listings"),
+    where("buyerId", "==", userId)
+  );
+  const salesQuery = query(
+    collection(db, "listings"),
+    where("userId", "==", userId)
+  );
+
+  let authoredReviews = [];
+  let purchases = [];
+  let sales = [];
+
+  const emitCount = () => {
+    const reviewedListingIds = new Set(authoredReviews.map((review) => review.listingId));
+    const pendingPurchaseReviews = purchases.filter(
+      (listing) => listing.status === "sold" && !reviewedListingIds.has(listing.id)
+    ).length;
+    const pendingSellerReviews = sales.filter(
+      (listing) =>
+        listing.status === "sold" &&
+        Boolean(listing.buyerId) &&
+        !reviewedListingIds.has(listing.id)
+    ).length;
+
+    callback(pendingPurchaseReviews + pendingSellerReviews);
+  };
+
+  const handleError = (error) => {
+    if (onError) {
+      onError(error);
+    } else {
+      console.error("Error subscribing to pending review count:", error);
+    }
+  };
+
+  const unsubscribeReviews = onSnapshot(
+    authoredReviewsQuery,
+    (snapshot) => {
+      authoredReviews = snapshot.docs.map((reviewDoc) => reviewDoc.data());
+      emitCount();
+    },
+    handleError
+  );
+
+  const unsubscribePurchases = onSnapshot(
+    purchasesQuery,
+    (snapshot) => {
+      purchases = snapshot.docs.map((listingDoc) => ({
+        id: listingDoc.id,
+        ...listingDoc.data(),
+      }));
+      emitCount();
+    },
+    handleError
+  );
+
+  const unsubscribeSales = onSnapshot(
+    salesQuery,
+    (snapshot) => {
+      sales = snapshot.docs.map((listingDoc) => ({
+        id: listingDoc.id,
+        ...listingDoc.data(),
+      }));
+      emitCount();
+    },
+    handleError
+  );
+
+  return () => {
+    unsubscribeReviews();
+    unsubscribePurchases();
+    unsubscribeSales();
+  };
+}

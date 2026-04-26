@@ -13,6 +13,7 @@ import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
 import MyListings from "./pages/MyListings";
 import MyPurchases from "./pages/MyPurchases";
+import MyReviews from "./pages/MyReviews";
 import SellerProfile from "./pages/SellerProfile";
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
               <Route path="/messages/:conversationId" element={<Messages />} />
               <Route path="/my-listings" element={<MyListings />} />
               <Route path="/my-purchases" element={<MyPurchases />} />
+              <Route path="/my-reviews" element={<MyReviews />} />
               <Route
                 path="/settings"
                 element={

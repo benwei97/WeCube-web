@@ -26,6 +26,7 @@ import {
   subscribeToPendingRequests,
   subscribeToUserConversations,
 } from "../utils/messaging";
+import { subscribeToPendingReviewCount } from "../utils/reviews";
 import logo from "../assets/wecube-logo.png";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -37,6 +38,7 @@ function Header() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [unreadConversationCount, setUnreadConversationCount] = useState(0);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -62,13 +64,23 @@ function Header() {
         }
       );
 
+      const unsubscribePendingReviews = subscribeToPendingReviewCount(
+        currentUser.uid,
+        setPendingReviewCount,
+        (error) => {
+          console.error("Error subscribing to pending reviews:", error);
+        }
+      );
+
       return () => {
         unsubscribeConversations();
         unsubscribePending();
+        unsubscribePendingReviews();
       };
     } else {
       setUnreadConversationCount(0);
       setPendingRequestCount(0);
+      setPendingReviewCount(0);
     }
   }, [currentUser]);
 
@@ -233,6 +245,14 @@ function Header() {
               </MenuItem>
               <MenuItem onClick={() => handleMenuNavigation("/my-purchases")}>
                 My Purchases
+              </MenuItem>
+              <MenuItem onClick={() => handleMenuNavigation("/my-reviews")}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", gap: 2 }}>
+                  <span>My Reviews</span>
+                  {pendingReviewCount > 0 && (
+                    <Badge badgeContent={pendingReviewCount} color="error" />
+                  )}
+                </Box>
               </MenuItem>
               <Divider />
               <MenuItem onClick={() => handleMenuNavigation("/settings")}>

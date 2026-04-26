@@ -49,7 +49,7 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { deleteMultipleImages } from "../utils/s3";
-import { submitTransactionReview, subscribeToUserReviews } from "../utils/reviews";
+import { subscribeToUserReviews } from "../utils/reviews";
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -67,15 +67,6 @@ function Dashboard() {
     listing: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [reviewDialog, setReviewDialog] = useState({
-    open: false,
-    listing: null,
-  });
-  const [reviewForm, setReviewForm] = useState({
-    rating: 5,
-    comment: "",
-  });
-  const [submittingReview, setSubmittingReview] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedListing, setSelectedListing] = useState(null);
   const { currentUser } = useAuth();
@@ -280,51 +271,6 @@ function Dashboard() {
       handleDeleteClick(selectedListing);
     }
     handleMenuClose();
-  };
-
-  const openReviewDialog = (listing) => {
-    const existingReview = reviewsByListingId[listing.id];
-    setReviewDialog({
-      open: true,
-      listing,
-    });
-    setReviewForm({
-      rating: existingReview?.rating || 5,
-      comment: existingReview?.comment || "",
-    });
-  };
-
-  const closeReviewDialog = () => {
-    if (submittingReview) return;
-    setReviewDialog({
-      open: false,
-      listing: null,
-    });
-    setReviewForm({
-      rating: 5,
-      comment: "",
-    });
-  };
-
-  const handleReviewSubmit = async () => {
-    if (!reviewDialog.listing) return;
-
-    setSubmittingReview(true);
-    try {
-      await submitTransactionReview({
-        listing: reviewDialog.listing,
-        reviewer: currentUser,
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
-        recipientName: reviewDialog.listing.buyerName || "Buyer",
-      });
-      closeReviewDialog();
-    } catch (error) {
-      console.error("Error submitting buyer review:", error);
-      alert(error.message || "Failed to submit review");
-    } finally {
-      setSubmittingReview(false);
-    }
   };
 
   if (loading) {
@@ -582,9 +528,9 @@ function Dashboard() {
                           <Button
                             size="small"
                             variant="contained"
-                            onClick={() => openReviewDialog(sale)}
+                            onClick={() => navigate("/my-reviews")}
                           >
-                            {reviewsByListingId[sale.id] ? "Edit Buyer Review" : "Review Buyer"}
+                            {reviewsByListingId[sale.id] ? "Manage Review" : "Review in My Reviews"}
                           </Button>
                         </Stack>
                       ) : (
@@ -670,79 +616,6 @@ function Dashboard() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={reviewDialog.open} onClose={closeReviewDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {reviewsByListingId[reviewDialog.listing?.id] ? "Edit Buyer Review" : "Review Buyer"}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {reviewDialog.listing?.buyerName || "Buyer"} • {reviewDialog.listing?.title}
-            </Typography>
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Rating
-              </Typography>
-              <select
-                value={reviewForm.rating}
-                onChange={(event) =>
-                  setReviewForm((prev) => ({
-                    ...prev,
-                    rating: Number(event.target.value),
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  height: 40,
-                  borderRadius: 4,
-                  border: "1px solid #d1d5db",
-                  padding: "0 12px",
-                }}
-              >
-                {[5, 4, 3, 2, 1].map((value) => (
-                  <option key={value} value={value}>
-                    {value} {value === 1 ? "star" : "stars"}
-                  </option>
-                ))}
-              </select>
-            </Box>
-            <DialogContentText>
-              Leave feedback for the buyer on this completed transaction.
-            </DialogContentText>
-            <textarea
-              value={reviewForm.comment}
-              onChange={(event) =>
-                setReviewForm((prev) => ({
-                  ...prev,
-                  comment: event.target.value,
-                }))
-              }
-              placeholder="How did the buyer handle communication and pickup?"
-              rows={4}
-              style={{
-                width: "100%",
-                borderRadius: 4,
-                border: "1px solid #d1d5db",
-                padding: 12,
-                fontFamily: "inherit",
-                fontSize: 14,
-              }}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeReviewDialog} color="inherit" disabled={submittingReview}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleReviewSubmit}
-            variant="contained"
-            disabled={submittingReview}
-          >
-            Save Review
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
