@@ -365,6 +365,9 @@ function MyListings() {
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Button onClick={() => navigate("/dashboard")} variant="outlined" sx={{ mb: 3 }}>
+        Back to Account
+      </Button>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         My Listings
       </Typography>
