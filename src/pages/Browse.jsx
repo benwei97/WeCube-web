@@ -3,7 +3,6 @@ import {
   Typography,
   Card,
   CardContent,
-  CardMedia,
   TextField,
   FormControl,
   InputLabel,
@@ -26,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { ListingCardMediaFrame } from "../components/ListingStatusDecorators";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
@@ -365,65 +365,65 @@ function Browse() {
               }}
               onClick={() => handleListingClick(listing.id)}
             >
-              {normalizedListing.competitionMeetupAvailable && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 12,
-                    left: 12,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: hasCompetitionMatch
-                      ? "success.main"
-                      : "rgba(255,255,255,0.92)",
-                    border: "1px solid",
-                    borderColor: hasCompetitionMatch ? "success.dark" : "divider",
-                    color: hasCompetitionMatch ? "common.white" : "text.secondary",
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    zIndex: 1,
-                  }}
-                  aria-label={
-                    hasCompetitionMatch
-                      ? "Available at a competition you are attending"
-                      : "Available at competition"
-                  }
-                  title={
-                    hasCompetitionMatch
-                      ? "Available at a competition you are attending"
-                      : "Available at competition"
-                  }
-                >
-                  C
-                </Box>
-              )}
-              {listing.photos && listing.photos[0] ? (
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={`https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`}
-                  alt={listing.title}
-                  sx={{ objectFit: "contain" }}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    height: 200,
-                    backgroundColor: "grey.200",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    No Image
-                  </Typography>
-                </Box>
-              )}
+              <ListingCardMediaFrame
+                imageUrl={
+                  listing.photos?.[0]
+                    ? `https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`
+                    : null
+                }
+                alt={listing.title}
+                isSold={listing.status === "sold"}
+                imageSx={{ objectFit: "contain" }}
+                placeholderSx={{
+                  height: 200,
+                  backgroundColor: "grey.200",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                topLeftAdornment={
+                  normalizedListing.competitionMeetupAvailable ? (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: hasCompetitionMatch
+                          ? "success.main"
+                          : "rgba(255,255,255,0.92)",
+                        border: "1px solid",
+                        borderColor: hasCompetitionMatch
+                          ? "success.dark"
+                          : "divider",
+                        color: hasCompetitionMatch
+                          ? "common.white"
+                          : "text.secondary",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        zIndex: 1,
+                      }}
+                      aria-label={
+                        hasCompetitionMatch
+                          ? "Available at a competition you are attending"
+                          : "Available at competition"
+                      }
+                      title={
+                        hasCompetitionMatch
+                          ? "Available at a competition you are attending"
+                          : "Available at competition"
+                      }
+                    >
+                      C
+                    </Box>
+                  ) : null
+                }
+              />
 
               <CardContent
                 sx={{
@@ -441,6 +441,7 @@ function Browse() {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
+                    color: listing.status === "sold" ? "text.primary" : "inherit",
                   }}
                 >
                   {listing.title}

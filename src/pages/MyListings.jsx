@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardMedia,
   Chip,
   Divider,
   Dialog,
@@ -38,6 +37,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  ListingCardMediaFrame,
+} from "../components/ListingStatusDecorators";
 import { deleteMultipleImages } from "../utils/s3";
 import {
   getNormalizedFulfillmentFields,
@@ -206,30 +208,27 @@ function MyListings() {
     const archivedDate = formatDate(listing.archivedAt || listing.updatedAt);
 
     return (
-      <Card key={listing.id} sx={{ display: "flex", flexDirection: "column" }}>
-        {listing.photos?.[0] ? (
-          <CardMedia
-            component="img"
-            height="200"
-            image={`https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`}
-            alt={listing.title}
-            sx={{ objectFit: "contain", backgroundColor: "grey.50" }}
-          />
-        ) : (
-          <Box
-            sx={{
-              height: 200,
-              backgroundColor: "grey.100",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              No Image
-            </Typography>
-          </Box>
-        )}
+      <Card key={listing.id} sx={{ display: "flex", flexDirection: "column", position: "relative" }}>
+        <ListingCardMediaFrame
+          imageUrl={
+            listing.photos?.[0]
+              ? `https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`
+              : null
+          }
+          alt={listing.title}
+          isSold={listing.status === "sold"}
+          imageSx={{
+            objectFit: "contain",
+            backgroundColor: "grey.50",
+          }}
+          placeholderSx={{
+            height: 200,
+            backgroundColor: "grey.100",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        />
 
         <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, flexGrow: 1 }}>
           <Box>
