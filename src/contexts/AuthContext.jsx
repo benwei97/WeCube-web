@@ -5,7 +5,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
 
 const AuthContext = createContext();
@@ -65,7 +65,14 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    let unsubscribeUserDoc = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (user) {
         try {
           const userDocRef = doc(db, "users", user.uid);
@@ -76,6 +83,21 @@ export function AuthProvider({ children }) {
               uid: user.uid,
               ...userDocSnap.data(),
             });
+
+            unsubscribeUserDoc = onSnapshot(
+              userDocRef,
+              (snapshot) => {
+                if (snapshot.exists()) {
+                  setCurrentUser({
+                    uid: user.uid,
+                    ...snapshot.data(),
+                  });
+                }
+              },
+              (error) => {
+                console.error("Error subscribing to user document:", error);
+              }
+            );
           } else {
             console.warn("User document not found in Firestore");
             setCurrentUser(user);
@@ -90,7 +112,12 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+      }
+      unsubscribe();
+    };
   }, []);
 
   const value = {

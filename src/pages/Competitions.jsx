@@ -12,20 +12,28 @@ import {
   Skeleton,
   Alert,
   Stack,
+  IconButton,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
 
 function Competitions() {
+  const { currentUser } = useAuth();
   const [competitions, setCompetitions] = useState([]);
   const [selectedCompetition, setSelectedCompetition] = useState(null);
+  const [myCompetitionInput, setMyCompetitionInput] = useState("");
   const [cubes, setCubes] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(true);
   const [loadingCubes, setLoadingCubes] = useState(false);
+  const [savingCompetition, setSavingCompetition] = useState(false);
   const [error, setError] = useState(null);
+
+  const myCompetitions = currentUser?.attendingCompetitions || [];
 
   // Load competitions on mount
   useEffect(() => {
@@ -107,6 +115,55 @@ function Competitions() {
     }).format(price);
   };
 
+  const persistMyCompetitions = async (nextCompetitions) => {
+    if (!currentUser?.uid) {
+      alert("Sign in to save competitions you are attending.");
+      return;
+    }
+
+    setSavingCompetition(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        attendingCompetitions: nextCompetitions,
+      });
+    } catch (saveError) {
+      console.error("Error saving attending competitions:", saveError);
+      alert("Failed to save your competitions.");
+    } finally {
+      setSavingCompetition(false);
+    }
+  };
+
+  const handleAddMyCompetition = async (_, competition) => {
+    if (!competition) return;
+
+    const alreadyAdded = myCompetitions.some((item) => item.id === competition.id);
+    if (alreadyAdded) {
+      setMyCompetitionInput("");
+      return;
+    }
+
+    const nextCompetitions = [
+      ...myCompetitions,
+      {
+        id: competition.id,
+        name: competition.name,
+        displayName: competition.displayName || competition.name,
+        city: competition.city,
+        country: competition.country,
+        dateRange: competition.dateRange,
+      },
+    ];
+
+    await persistMyCompetitions(nextCompetitions);
+    setMyCompetitionInput("");
+  };
+
+  const handleRemoveMyCompetition = async (competitionId) => {
+    const nextCompetitions = myCompetitions.filter((competition) => competition.id !== competitionId);
+    await persistMyCompetitions(nextCompetitions);
+  };
+
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
@@ -121,6 +178,74 @@ function Competitions() {
           {error}
         </Alert>
       )}
+
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          My Competitions
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Mark the competitions you are attending to highlight matching listings across the marketplace.
+        </Typography>
+
+        {!currentUser ? (
+          <Alert severity="info">Sign in to save competitions you are attending.</Alert>
+        ) : (
+          <Stack spacing={2}>
+            <Autocomplete
+              options={competitions}
+              getOptionLabel={(option) => option.displayName}
+              value={null}
+              inputValue={myCompetitionInput}
+              onChange={handleAddMyCompetition}
+              onInputChange={(_, value) => {
+                setMyCompetitionInput(value);
+                handleCompetitionSearch(null, value);
+              }}
+              loading={loadingCompetitions || savingCompetition}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Add a competition you are attending"
+                  placeholder="Search competitions..."
+                  variant="outlined"
+                  fullWidth
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body1">{option.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {option.city}, {option.country} • {option.dateRange}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            />
+
+            {myCompetitions.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No saved competitions yet.
+              </Typography>
+            ) : (
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {myCompetitions.map((competition) => (
+                  <Chip
+                    key={competition.id}
+                    label={competition.displayName || competition.name}
+                    onDelete={
+                      savingCompetition
+                        ? undefined
+                        : () => handleRemoveMyCompetition(competition.id)
+                    }
+                    deleteIcon={<Close />}
+                  />
+                ))}
+              </Stack>
+            )}
+          </Stack>
+        )}
+      </Card>
 
       {/* Competition Selection */}
       <Card sx={{ mb: 4, p: 3 }}>

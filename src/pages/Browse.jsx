@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   CardMedia,
-  Chip,
   TextField,
   FormControl,
   InputLabel,
@@ -52,6 +51,9 @@ function Browse() {
   const [maxPrice, setMaxPrice] = useState(1000);
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
+  const attendingCompetitionIds = new Set(
+    (currentUser?.attendingCompetitions || []).map((competition) => competition.id)
+  );
 
   useEffect(() => {
     const listingsQuery = query(
@@ -343,6 +345,9 @@ function Browse() {
                 ...getNormalizedFulfillmentFields(listing),
               };
               const shippingPrice = getShippingPriceFromListing(normalizedListing);
+              const hasCompetitionMatch = normalizedListing.meetupCompetitionTags?.some(
+                (competition) => attendingCompetitionIds.has(competition.id)
+              );
 
               return (
             <Card
@@ -360,6 +365,42 @@ function Browse() {
               }}
               onClick={() => handleListingClick(listing.id)}
             >
+              {normalizedListing.competitionMeetupAvailable && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 12,
+                    left: 12,
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: hasCompetitionMatch
+                      ? "success.main"
+                      : "rgba(255,255,255,0.92)",
+                    border: "1px solid",
+                    borderColor: hasCompetitionMatch ? "success.dark" : "divider",
+                    color: hasCompetitionMatch ? "common.white" : "text.secondary",
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    zIndex: 1,
+                  }}
+                  aria-label={
+                    hasCompetitionMatch
+                      ? "Available at a competition you are attending"
+                      : "Available at competition"
+                  }
+                  title={
+                    hasCompetitionMatch
+                      ? "Available at a competition you are attending"
+                      : "Available at competition"
+                  }
+                >
+                  C
+                </Box>
+              )}
               {listing.photos && listing.photos[0] ? (
                 <CardMedia
                   component="img"
@@ -430,31 +471,16 @@ function Browse() {
                         : "Shipping available"}
                   </Typography>
                 )}
-
-                <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                  <Chip
-                    label={listing.status === "sold" ? "Sold" : "Available"}
-                    size="small"
-                    color={listing.status === "sold" ? "default" : "success"}
-                  />
-                </Stack>
-
-                <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-                  {normalizedListing.shippingAvailable && (
-                    <Chip label="Shipping" size="small" variant="outlined" />
+                {normalizedListing.meetupLocationLabel &&
+                  normalizedListing.localMeetupAvailable && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: "auto" }}
+                    >
+                      {normalizedListing.meetupLocationLabel}
+                    </Typography>
                   )}
-                  {normalizedListing.localMeetupAvailable && (
-                    <Chip label="Local Meetup" size="small" variant="outlined" />
-                  )}
-                  {normalizedListing.competitionMeetupAvailable && (
-                    <Chip label="At Competition" size="small" variant="outlined" />
-                  )}
-                  {!normalizedListing.localMeetupAvailable &&
-                    !normalizedListing.competitionMeetupAvailable &&
-                    listing.deliveryOptions?.meetup && (
-                    <Chip label="Meetup" size="small" variant="outlined" />
-                  )}
-                </Stack>
               </CardContent>
             </Card>
               );
