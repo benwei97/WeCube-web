@@ -35,9 +35,11 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
+  CONDITION_OPTIONS,
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
   isSoldListingPubliclyVisible,
+  normalizeConditionValue,
 } from "../utils/listingUtils";
 
 function Browse() {
@@ -188,7 +190,7 @@ function Browse() {
     // Condition filter
     if (filters.condition) {
       filtered = filtered.filter(
-        (listing) => listing.condition === filters.condition
+        (listing) => normalizeConditionValue(listing.condition) === filters.condition
       );
     }
 
@@ -312,12 +314,11 @@ function Browse() {
                     }
                   >
                     <MenuItem value="">All</MenuItem>
-                    <MenuItem value="new">New</MenuItem>
-                    <MenuItem value="like-new">Like New</MenuItem>
-                    <MenuItem value="excellent">Excellent</MenuItem>
-                    <MenuItem value="good">Good</MenuItem>
-                    <MenuItem value="fair">Fair</MenuItem>
-                    <MenuItem value="used">Used</MenuItem>
+                    {CONDITION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
 

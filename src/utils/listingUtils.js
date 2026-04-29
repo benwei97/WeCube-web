@@ -18,12 +18,15 @@ export const PUZZLE_TYPE_OPTIONS = [
 export const CONDITION_OPTIONS = [
   { value: "new", label: "New" },
   { value: "like-new", label: "Like New" },
-  { value: "excellent", label: "Excellent" },
-  { value: "good", label: "Good" },
-  { value: "fair", label: "Fair" },
-  { value: "heavily-used", label: "Heavily Used" },
   { value: "used", label: "Used" },
 ];
+
+const LEGACY_CONDITION_MAP = {
+  excellent: "like-new",
+  good: "used",
+  fair: "used",
+  "heavily-used": "used",
+};
 
 export const SHIPPING_PROFILE_OPTIONS = [
   { value: "accessory_light", label: "Small accessory", price: 4.99 },
@@ -126,9 +129,18 @@ export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
 }
 
 export function getConditionLabel(conditionValue) {
+  const normalizedCondition = normalizeConditionValue(conditionValue);
   return (
-    CONDITION_OPTIONS.find((option) => option.value === conditionValue)?.label ||
-    conditionValue ||
+    CONDITION_OPTIONS.find((option) => option.value === normalizedCondition)?.label ||
+    normalizedCondition ||
     "N/A"
   );
+}
+
+export function normalizeConditionValue(conditionValue) {
+  if (!conditionValue) {
+    return "";
+  }
+
+  return LEGACY_CONDITION_MAP[conditionValue] || conditionValue;
 }

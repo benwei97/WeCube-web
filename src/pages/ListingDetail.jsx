@@ -59,6 +59,7 @@ import {
   getConditionLabel,
   getNormalizedFulfillmentFields,
   getShippingLabel,
+  normalizeConditionValue,
 } from "../utils/listingUtils";
 import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
 
@@ -150,7 +151,7 @@ function ListingDetail() {
             title: listingData.title,
             price: listingData.price.toString(),
             description: listingData.description || "",
-            condition: listingData.condition,
+            condition: normalizeConditionValue(listingData.condition),
             puzzleType: listingData.puzzleType || "",
             brand: listingData.brand || "",
             meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
