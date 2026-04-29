@@ -86,6 +86,7 @@ function ListingDetail() {
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showFullDescription, setShowFullDescription] = useState(false);
   const [editData, setEditData] = useState({
     title: "",
     price: "",
@@ -292,6 +293,7 @@ function ListingDetail() {
 
   useEffect(() => {
     setCurrentPhotoIndex(0);
+    setShowFullDescription(false);
   }, [listing?.id]);
 
   const checkExistingConversation = async () => {
@@ -720,6 +722,8 @@ function ListingDetail() {
 
   const photoCount = listing?.photos?.length || 0;
   const activePhoto = photoCount > 0 ? listing.photos[currentPhotoIndex] : null;
+  const descriptionText = listing?.description || "No description provided.";
+  const shouldCollapseDescription = descriptionText.length > 280;
 
   const handlePreviousPhoto = () => {
     if (photoCount <= 1) return;
@@ -1046,9 +1050,30 @@ function ListingDetail() {
             <Typography variant="h6" gutterBottom>
               Description
             </Typography>
-            <Typography variant="body1">
-              {listing.description || "No description provided."}
+            <Typography
+              variant="body1"
+              sx={
+                shouldCollapseDescription && !showFullDescription
+                  ? {
+                      display: "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: 4,
+                      overflow: "hidden",
+                    }
+                  : undefined
+              }
+            >
+              {descriptionText}
             </Typography>
+            {shouldCollapseDescription && (
+              <Button
+                variant="text"
+                sx={{ mt: 1, px: 0, alignSelf: "flex-start" }}
+                onClick={() => setShowFullDescription((prev) => !prev)}
+              >
+                {showFullDescription ? "Show less" : "See more"}
+              </Button>
+            )}
 
             <Divider sx={{ my: 2 }} />
 
