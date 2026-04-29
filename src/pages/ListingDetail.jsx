@@ -7,9 +7,8 @@ import {
   Avatar,
   Chip,
   Button,
+  IconButton,
   Paper,
-  ImageList,
-  ImageListItem,
   Stack,
   Divider,
   Dialog,
@@ -34,6 +33,8 @@ import {
   LocationOn,
   LocalShipping,
   Groups,
+  ArrowBackIosNew,
+  ArrowForwardIos,
   Close,
   Save,
   Star,
@@ -84,6 +85,7 @@ function ListingDetail() {
   const [competitions, setCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [editData, setEditData] = useState({
     title: "",
     price: "",
@@ -287,6 +289,10 @@ function ListingDetail() {
       clearTimeout(timeoutId);
     };
   }, [editData.meetupLocationLabel]);
+
+  useEffect(() => {
+    setCurrentPhotoIndex(0);
+  }, [listing?.id]);
 
   const checkExistingConversation = async () => {
     try {
@@ -712,6 +718,19 @@ function ListingDetail() {
     return dateObj.toLocaleDateString();
   };
 
+  const photoCount = listing?.photos?.length || 0;
+  const activePhoto = photoCount > 0 ? listing.photos[currentPhotoIndex] : null;
+
+  const handlePreviousPhoto = () => {
+    if (photoCount <= 1) return;
+    setCurrentPhotoIndex((prev) => (prev === 0 ? photoCount - 1 : prev - 1));
+  };
+
+  const handleNextPhoto = () => {
+    if (photoCount <= 1) return;
+    setCurrentPhotoIndex((prev) => (prev === photoCount - 1 ? 0 : prev + 1));
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -848,34 +867,118 @@ function ListingDetail() {
         )}
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} alignItems="flex-start">
         {/* Images Section */}
-        <Grid>
-          <Paper sx={{ p: 2 }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Paper sx={{ p: 2, position: { lg: "sticky" }, top: { lg: 24 } }}>
             <Typography variant="h6" gutterBottom>
               Photos
             </Typography>
-            {listing.photos && listing.photos.length > 0 ? (
-              <ImageList variant="masonry" cols={2} gap={8}>
-                {listing.photos.map((photo, index) => (
-                  <ImageListItem key={index}>
-                    <img
-                      src={`https://wecube.s3.us-east-1.amazonaws.com/${photo.s3Key}`}
-                      alt={`Listing photo ${index + 1}`}
-                      loading="lazy"
-                      style={{
-                        borderRadius: 8,
-                        width: "100%",
-                        height: "auto",
-                      }}
-                      onError={(e) => {
-                        console.error("Failed to load image:", photo.s3Key);
-                        e.target.style.display = "none";
-                      }}
-                    />
-                  </ImageListItem>
-                ))}
-              </ImageList>
+            {activePhoto ? (
+              <Stack spacing={2}>
+                <Box
+                  sx={{
+                    position: "relative",
+                    width: "100%",
+                    aspectRatio: "1 / 1",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    backgroundColor: "grey.100",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={`https://wecube.s3.us-east-1.amazonaws.com/${activePhoto.s3Key}`}
+                    alt={`Listing photo ${currentPhotoIndex + 1}`}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                    onError={(e) => {
+                      console.error("Failed to load image:", activePhoto.s3Key);
+                      e.target.style.display = "none";
+                    }}
+                  />
+
+                  {photoCount > 1 && (
+                    <>
+                      <IconButton
+                        onClick={handlePreviousPhoto}
+                        sx={{
+                          position: "absolute",
+                          left: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          backgroundColor: "rgba(255,255,255,0.92)",
+                          "&:hover": {
+                            backgroundColor: "rgba(255,255,255,1)",
+                          },
+                        }}
+                      >
+                        <ArrowBackIosNew fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        onClick={handleNextPhoto}
+                        sx={{
+                          position: "absolute",
+                          right: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          backgroundColor: "rgba(255,255,255,0.92)",
+                          "&:hover": {
+                            backgroundColor: "rgba(255,255,255,1)",
+                          },
+                        }}
+                      >
+                        <ArrowForwardIos fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
+                </Box>
+
+                {photoCount > 1 && (
+                  <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 0.5 }}>
+                    {listing.photos.map((photo, index) => (
+                      <Box
+                        key={photo.s3Key || index}
+                        onClick={() => setCurrentPhotoIndex(index)}
+                        sx={{
+                          width: 84,
+                          minWidth: 84,
+                          aspectRatio: "1 / 1",
+                          borderRadius: 1.5,
+                          overflow: "hidden",
+                          border: "2px solid",
+                          borderColor:
+                            index === currentPhotoIndex ? "primary.main" : "divider",
+                          cursor: "pointer",
+                          backgroundColor: "grey.100",
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={`https://wecube.s3.us-east-1.amazonaws.com/${photo.s3Key}`}
+                          alt={`Thumbnail ${index + 1}`}
+                          sx={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+
+                {photoCount > 1 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {currentPhotoIndex + 1} of {photoCount}
+                  </Typography>
+                )}
+              </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
                 No photos available
@@ -885,7 +988,7 @@ function ListingDetail() {
         </Grid>
 
         {/* Details Section */}
-        <Grid>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h4" gutterBottom fontWeight="bold">
               {listing.title}
