@@ -25,7 +25,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { ListingCardMediaFrame } from "../components/ListingStatusDecorators";
+import {
+  LISTING_CARD_CONTENT_SX,
+  LISTING_CARD_GRID_SX,
+  LISTING_CARD_SX,
+  LISTING_CARD_TEXT_STACK_SX,
+  LISTING_CARD_TITLE_SX,
+  ListingCardMediaFrame,
+} from "../components/ListingStatusDecorators";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
@@ -336,9 +343,9 @@ function Browse() {
       </Typography>
 
       {/* Listings Grid */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+      <Box sx={LISTING_CARD_GRID_SX}>
         {filteredListings.map((listing) => (
-          <Box key={listing.id} sx={{ width: "calc(25% - 18px)" }}>
+          <Box key={listing.id}>
             {(() => {
               const normalizedListing = {
                 ...listing,
@@ -352,12 +359,9 @@ function Browse() {
               return (
             <Card
               sx={{
+                ...LISTING_CARD_SX,
                 cursor: "pointer",
                 transition: "transform 0.2s, box-shadow 0.2s",
-                position: "relative",
-                width: "100%",
-                display: "flex",
-                flexDirection: "column",
                 "&:hover": {
                   transform: "translateY(-2px)",
                   boxShadow: 3,
@@ -373,9 +377,8 @@ function Browse() {
                 }
                 alt={listing.title}
                 isSold={listing.status === "sold"}
-                imageSx={{ objectFit: "contain" }}
+                imageSx={{ objectFit: "cover" }}
                 placeholderSx={{
-                  height: 200,
                   backgroundColor: "grey.200",
                   display: "flex",
                   alignItems: "center",
@@ -427,61 +430,63 @@ function Browse() {
 
               <CardContent
                 sx={{
-                  flexGrow: 1,
-                  display: "flex",
-                  flexDirection: "column",
+                  ...LISTING_CARD_CONTENT_SX,
                   px: 3,
                   pb: 3,
                 }}
               >
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    color: listing.status === "sold" ? "text.primary" : "inherit",
-                  }}
-                >
-                  {listing.title}
-                </Typography>
+                <Box sx={LISTING_CARD_TEXT_STACK_SX}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      ...LISTING_CARD_TITLE_SX,
+                      color: listing.status === "sold" ? "text.primary" : "inherit",
+                    }}
+                  >
+                    {listing.title}
+                  </Typography>
 
-                <Typography
-                  variant="h5"
-                  color="primary"
-                  fontWeight="bold"
-                  sx={{ mb: 0.25 }}
-                >
-                  {formatPrice(listing.price)}
-                </Typography>
-                {normalizedListing.shippingAvailable && (
+                  <Typography
+                    variant="h5"
+                    color="primary"
+                    fontWeight="bold"
+                    sx={{ mb: 0, lineHeight: 1.1 }}
+                  >
+                    {formatPrice(listing.price)}
+                  </Typography>
+                  {normalizedListing.shippingAvailable && (
                   <Typography
                     variant="body2"
                     sx={{
                       color: normalizedListing.shippingIncluded
                         ? "success.main"
                         : "text.secondary",
-                      mb: 1,
+                      fontWeight: 500,
+                      lineHeight: 1.12,
                     }}
                   >
-                    {normalizedListing.shippingIncluded
-                      ? "Free shipping"
-                      : shippingPrice > 0
-                        ? `+ ${formatPrice(shippingPrice)} shipping`
-                        : "Shipping available"}
-                  </Typography>
-                )}
-                {normalizedListing.meetupLocationLabel &&
-                  normalizedListing.localMeetupAvailable && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: "auto" }}
-                    >
-                      {normalizedListing.meetupLocationLabel}
+                      {normalizedListing.shippingIncluded
+                        ? "Free shipping"
+                        : shippingPrice > 0
+                          ? `+ ${formatPrice(shippingPrice)} shipping`
+                          : "Shipping available"}
                     </Typography>
                   )}
+                  {normalizedListing.meetupLocationLabel &&
+                    normalizedListing.localMeetupAvailable && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          mt: "auto",
+                          lineHeight: 1.18,
+                          opacity: 0.9,
+                        }}
+                      >
+                        {normalizedListing.meetupLocationLabel}
+                      </Typography>
+                    )}
+                </Box>
               </CardContent>
             </Card>
               );

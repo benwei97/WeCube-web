@@ -1,5 +1,47 @@
 import { Box, CardMedia, Typography } from "@mui/material";
 
+export const LISTING_CARD_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: {
+    xs: "1fr",
+    sm: "repeat(2, minmax(0, 1fr))",
+    md: "repeat(3, minmax(0, 1fr))",
+    lg: "repeat(4, minmax(0, 1fr))",
+  },
+  gap: 3,
+  alignItems: "stretch",
+};
+
+export const LISTING_CARD_SX = {
+  display: "flex",
+  flexDirection: "column",
+  position: "relative",
+  height: "100%",
+};
+
+export const LISTING_CARD_CONTENT_SX = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 1.5,
+  flexGrow: 1,
+};
+
+export const LISTING_CARD_TITLE_SX = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+  overflow: "hidden",
+  minHeight: "2.8rem",
+  lineHeight: 1.2,
+  mb: 0,
+};
+
+export const LISTING_CARD_TEXT_STACK_SX = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 0.55,
+};
+
 export function SoldRibbon() {
   return (
     <Box
@@ -47,7 +89,6 @@ export function ListingCardMediaFrame({
   alt,
   isSold = false,
   topLeftAdornment = null,
-  height = 200,
   imageSx = {},
   placeholderSx = {},
   placeholderLabel = "No Image",
@@ -64,13 +105,22 @@ export function ListingCardMediaFrame({
       {imageUrl ? (
         <CardMedia
           component="img"
-          height={height}
           image={imageUrl}
           alt={alt}
-          sx={resolvedImageSx}
+          sx={{
+            width: "100%",
+            aspectRatio: "1 / 1",
+            ...resolvedImageSx,
+          }}
         />
       ) : (
-        <Box sx={resolvedPlaceholderSx}>
+        <Box
+          sx={{
+            width: "100%",
+            aspectRatio: "1 / 1",
+            ...resolvedPlaceholderSx,
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
             {placeholderLabel}
           </Typography>

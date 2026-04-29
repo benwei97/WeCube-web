@@ -38,6 +38,11 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  LISTING_CARD_CONTENT_SX,
+  LISTING_CARD_GRID_SX,
+  LISTING_CARD_SX,
+  LISTING_CARD_TEXT_STACK_SX,
+  LISTING_CARD_TITLE_SX,
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import { deleteMultipleImages } from "../utils/s3";
@@ -208,7 +213,7 @@ function MyListings() {
     const archivedDate = formatDate(listing.archivedAt || listing.updatedAt);
 
     return (
-      <Card key={listing.id} sx={{ display: "flex", flexDirection: "column", position: "relative" }}>
+      <Card key={listing.id} sx={LISTING_CARD_SX}>
         <ListingCardMediaFrame
           imageUrl={
             listing.photos?.[0]
@@ -218,11 +223,10 @@ function MyListings() {
           alt={listing.title}
           isSold={listing.status === "sold"}
           imageSx={{
-            objectFit: "contain",
+            objectFit: "cover",
             backgroundColor: "grey.50",
           }}
           placeholderSx={{
-            height: 200,
             backgroundColor: "grey.100",
             display: "flex",
             alignItems: "center",
@@ -230,16 +234,20 @@ function MyListings() {
           }}
         />
 
-        <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, flexGrow: 1 }}>
-          <Box>
-            <Typography variant="h6" gutterBottom noWrap>
+        <CardContent sx={LISTING_CARD_CONTENT_SX}>
+          <Box sx={LISTING_CARD_TEXT_STACK_SX}>
+            <Typography variant="h6" sx={LISTING_CARD_TITLE_SX}>
               {listing.title}
             </Typography>
-            <Typography variant="h5" color="primary" fontWeight="bold">
+            <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.1 }}>
               {formatPrice(listing.price)}
             </Typography>
             {normalizedListing.shippingAvailable && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ lineHeight: 1.12, fontWeight: 500 }}
+              >
                 {normalizedListing.shippingIncluded
                   ? "Shipping included"
                   : shippingPrice > 0
@@ -393,13 +401,7 @@ function MyListings() {
               : "You do not have any active listings yet."}
         </Alert>
       ) : (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: 3,
-          }}
-        >
+        <Box sx={LISTING_CARD_GRID_SX}>
           {visibleListings.map(renderListingCard)}
         </Box>
       )}
