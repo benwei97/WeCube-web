@@ -3,6 +3,7 @@ import {
   Typography,
   Card,
   CardContent,
+  CircularProgress,
   TextField,
   FormControl,
   InputLabel,
@@ -133,10 +134,36 @@ function Browse() {
   const loadMoreListings = () => {
     if (!isSearching && hasMore && !loadingMore) {
       setLoadingMore(true);
-      setVisibleCount((prev) => prev + 4);
-      setLoadingMore(false);
+      window.setTimeout(() => {
+        setVisibleCount((prev) => prev + 8);
+        setLoadingMore(false);
+      }, 120);
     }
   };
+
+  useEffect(() => {
+    if (isSearching || !hasMore || loading) {
+      return undefined;
+    }
+
+    const handleScroll = () => {
+      if (loadingMore) {
+        return;
+      }
+
+      const scrollPosition = window.innerHeight + window.scrollY;
+      const pageBottom = document.documentElement.scrollHeight;
+
+      if (pageBottom - scrollPosition < 900) {
+        loadMoreListings();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, isSearching, loading, loadingMore]);
 
   const applyFilters = () => {
     // Use allListings for search/filter, listings for pagination
@@ -506,18 +533,35 @@ function Browse() {
         </Box>
       )}
 
-      {/* Load More Button - only show when not searching/filtering */}
-      {!isSearching && hasMore && filteredListings.length > 0 && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={loadMoreListings}
-            disabled={loadingMore}
-            sx={{ px: 4, py: 1 }}
-          >
-            {loadingMore ? "Loading..." : "Load More Cubes"}
-          </Button>
+      {!isSearching && filteredListings.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: 72,
+            mt: 3,
+          }}
+        >
+          {(loadingMore || hasMore) && (
+            <Stack
+              direction="row"
+              spacing={1.25}
+              alignItems="center"
+              sx={{ color: "text.secondary" }}
+            >
+              <CircularProgress size={18} thickness={5} />
+              <Typography
+                variant="body2"
+                sx={{
+                  opacity: loadingMore ? 1 : 0.72,
+                  transition: "opacity 0.2s ease",
+                }}
+              >
+                {loadingMore ? "Loading more cubes..." : "Scroll for more"}
+              </Typography>
+            </Stack>
+          )}
         </Box>
       )}
 
