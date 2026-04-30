@@ -214,7 +214,16 @@ function Header() {
                 px: 1,
               }}
             >
-              <PersonOutlineIcon />
+              {currentUser?.avatarUrl ? (
+                <Avatar
+                  src={currentUser.avatarUrl}
+                  sx={{ width: 28, height: 28 }}
+                >
+                  {currentUser?.firstName?.charAt(0)?.toUpperCase()}
+                </Avatar>
+              ) : (
+                <PersonOutlineIcon />
+              )}
               {currentUser && (
                 <Typography
                   variant="body2"
