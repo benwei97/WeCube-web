@@ -306,6 +306,17 @@ function Messages() {
     return `${senderName}: ${conversation.lastMessage}`;
   };
 
+  const getListingPhotoUrl = (listingId) => {
+    const listing = listingDetails[listingId];
+    const firstPhoto = listing?.photos?.[0];
+
+    if (!firstPhoto?.s3Key) {
+      return null;
+    }
+
+    return `https://wecube.s3.us-east-1.amazonaws.com/${firstPhoto.s3Key}`;
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -381,7 +392,11 @@ function Messages() {
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar>
+                    <Avatar
+                      src={getListingPhotoUrl(conversation.listingId) || undefined}
+                      variant="rounded"
+                      sx={{ width: 52, height: 52 }}
+                    >
                       <Person />
                     </Avatar>
                   </ListItemAvatar>
