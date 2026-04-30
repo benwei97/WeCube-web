@@ -62,6 +62,7 @@ import {
   normalizeConditionValue,
 } from "../utils/listingUtils";
 import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
+import { SoldRibbon } from "../components/ListingStatusDecorators";
 
 function ListingDetail() {
   const { id } = useParams();
@@ -891,6 +892,7 @@ function ListingDetail() {
                     backgroundColor: "grey.100",
                   }}
                 >
+                  {listing.status === "sold" && <SoldRibbon size="large" />}
                   <Box
                     component="img"
                     src={`https://wecube.s3.us-east-1.amazonaws.com/${activePhoto.s3Key}`}
@@ -1028,11 +1030,6 @@ function ListingDetail() {
                   Brand:
                 </Box>{" "}
                 {listing.brand}
-              </Typography>
-            )}
-            {listing.status === "sold" && (
-              <Typography variant="body2" color="text.secondary">
-                Sold
               </Typography>
             )}
             {listing.status === "archived" && (

@@ -42,19 +42,21 @@ export const LISTING_CARD_TEXT_STACK_SX = {
   gap: 0.55,
 };
 
-export function SoldRibbon() {
+export function SoldRibbon({ size = "default" }) {
+  const isLarge = size === "large";
+
   return (
     <Box
       sx={{
         position: "absolute",
-        top: 18,
-        right: -34,
-        width: 140,
-        py: 0.75,
+        top: isLarge ? 24 : 18,
+        right: isLarge ? -44 : -34,
+        width: isLarge ? 180 : 140,
+        py: isLarge ? 0.95 : 0.75,
         textAlign: "center",
         backgroundColor: "rgba(35, 35, 35, 0.92)",
         color: "common.white",
-        fontSize: "0.72rem",
+        fontSize: isLarge ? "0.82rem" : "0.72rem",
         fontWeight: 800,
         letterSpacing: "0.18em",
         textTransform: "uppercase",
