@@ -37,6 +37,7 @@ import {
 } from "../utils/listingUtils";
 
 function Sell() {
+  const COMPETITION_BATCH_SIZE = 50;
   const navigate = useNavigate();
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [listingData, setListingData] = useState({
@@ -62,8 +63,10 @@ function Sell() {
     useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [competitions, setCompetitions] = useState([]);
+  const [allCompetitions, setAllCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+  const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const { currentUser } = useAuth();
@@ -242,7 +245,8 @@ function Sell() {
       const upcomingCompetitions = await getUpcomingCompetitions(500); // Get more competitions
       console.log("Received competitions data:", upcomingCompetitions);
       console.log("Cache status after loading:", getCacheStatus());
-      setCompetitions(upcomingCompetitions);
+      setAllCompetitions(upcomingCompetitions);
+      setCompetitions(upcomingCompetitions.slice(0, COMPETITION_BATCH_SIZE));
       console.log(
         "Successfully loaded competitions:",
         upcomingCompetitions.length
@@ -258,14 +262,20 @@ function Sell() {
   };
 
   const handleCompetitionSearch = async (_, value) => {
-    console.log("Competition search triggered with value:", value);
+    const normalizedValue = typeof value === "string" ? value : "";
+    setCompetitionSearchInput(normalizedValue);
 
-    // Only search if user types something significant
-    if (typeof value === "string" && value.length > 2) {
+    if (normalizedValue.trim().length < 2) {
+      setCompetitions(allCompetitions.slice(0, COMPETITION_BATCH_SIZE));
+      return;
+    }
+
+    console.log("Competition search triggered with value:", normalizedValue);
+    if (normalizedValue.length > 2) {
       setLoadingCompetitions(true);
       try {
-        console.log("Searching for competitions with query:", value);
-        const searchResults = await searchCompetitions(value, 100);
+        console.log("Searching for competitions with query:", normalizedValue);
+        const searchResults = await searchCompetitions(normalizedValue, 100);
         console.log(
           "Search results:",
           searchResults.length,
@@ -279,7 +289,25 @@ function Sell() {
         setLoadingCompetitions(false);
       }
     }
-    // Don't reload competitions when search is cleared - let filterOptions handle it
+  };
+
+  const handleCompetitionListScroll = (event) => {
+    if (competitionSearchInput.trim().length >= 2) {
+      return;
+    }
+
+    const listboxNode = event.currentTarget;
+    const nearBottom =
+      listboxNode.scrollTop + listboxNode.clientHeight >=
+      listboxNode.scrollHeight - 24;
+
+    if (!nearBottom || competitions.length >= allCompetitions.length) {
+      return;
+    }
+
+    setCompetitions(
+      allCompetitions.slice(0, competitions.length + COMPETITION_BATCH_SIZE)
+    );
   };
 
   const isDeliveryValid =
@@ -945,12 +973,16 @@ function Sell() {
                     <Autocomplete
                       multiple
                       options={competitions}
+                      inputValue={competitionSearchInput}
                       getOptionLabel={(option) => option.displayName}
                       value={selectedCompetitions}
                       onChange={(_, newValue) => {
                         setSelectedCompetitions(newValue);
                       }}
                       onInputChange={handleCompetitionSearch}
+                      ListboxProps={{
+                        onScroll: handleCompetitionListScroll,
+                      }}
                       noOptionsText={
                         competitions.length === 0
                           ? "No competitions loaded. Try typing to search."
@@ -958,22 +990,6 @@ function Sell() {
                       }
                       loading={loadingCompetitions}
                       loadingText="Loading competitions..."
-                      filterOptions={(options, { inputValue }) => {
-                        // Show all options if no input, or filter by input
-                        if (!inputValue) return options;
-                        return options.filter(
-                          (option) =>
-                            option.name
-                              .toLowerCase()
-                              .includes(inputValue.toLowerCase()) ||
-                            option.city
-                              .toLowerCase()
-                              .includes(inputValue.toLowerCase()) ||
-                            option.country
-                              .toLowerCase()
-                              .includes(inputValue.toLowerCase())
-                        );
-                      }}
                       renderInput={(params) => (
                         <TextField
                           {...params}

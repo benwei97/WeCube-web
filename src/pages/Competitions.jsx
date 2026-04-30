@@ -2,9 +2,6 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
-  Grid,
-  CardMedia,
   Chip,
   Button,
   Autocomplete,
@@ -12,40 +9,45 @@ import {
   Skeleton,
   Alert,
   Stack,
-  IconButton,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
+import {
+  getUpcomingCompetitions,
+  searchCompetitions,
+  getCacheStatus,
+} from "../utils/wcaApi";
 
 function Competitions() {
+  const COMPETITION_BATCH_SIZE = 50;
   const { currentUser } = useAuth();
-  const [competitions, setCompetitions] = useState([]);
+  const navigate = useNavigate();
+  const [allCompetitions, setAllCompetitions] = useState([]);
+  const [competitionOptions, setCompetitionOptions] = useState([]);
+  const [myCompetitionOptions, setMyCompetitionOptions] = useState([]);
+  const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [selectedCompetition, setSelectedCompetition] = useState(null);
   const [myCompetitionInput, setMyCompetitionInput] = useState("");
-  const [cubes, setCubes] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(true);
-  const [loadingCubes, setLoadingCubes] = useState(false);
   const [savingCompetition, setSavingCompetition] = useState(false);
   const [error, setError] = useState(null);
 
   const myCompetitions = currentUser?.attendingCompetitions || [];
 
+  const resetCompetitionOptions = (competitionsList) => {
+    const nextOptions = competitionsList.slice(0, COMPETITION_BATCH_SIZE);
+    setCompetitionOptions(nextOptions);
+    setMyCompetitionOptions(nextOptions);
+  };
+
   // Load competitions on mount
   useEffect(() => {
     loadCompetitions();
   }, []);
-
-  // Load cubes when competition is selected
-  useEffect(() => {
-    if (selectedCompetition) {
-      loadCubesForCompetition(selectedCompetition.id);
-    }
-  }, [selectedCompetition]);
 
   const loadCompetitions = async () => {
     try {
@@ -53,7 +55,8 @@ function Competitions() {
       console.log('Cache status before loading:', getCacheStatus());
       const upcomingCompetitions = await getUpcomingCompetitions(500);
       console.log('Cache status after loading:', getCacheStatus());
-      setCompetitions(upcomingCompetitions);
+      setAllCompetitions(upcomingCompetitions);
+      resetCompetitionOptions(upcomingCompetitions);
     } catch (err) {
       console.error('Error loading competitions:', err);
       setError('Failed to load competitions. Please try again.');
@@ -62,57 +65,67 @@ function Competitions() {
     }
   };
 
-  const loadCubesForCompetition = async (competitionId) => {
+  const handleCompetitionSearch = async (value, target = "browse") => {
+    const normalizedValue = typeof value === "string" ? value : "";
+
+    if (target === "browse") {
+      setCompetitionSearchInput(normalizedValue);
+    } else {
+      setMyCompetitionInput(normalizedValue);
+    }
+
+    if (normalizedValue.trim().length < 2) {
+      const resetOptions = allCompetitions.slice(0, COMPETITION_BATCH_SIZE);
+      if (target === "browse") {
+        setCompetitionOptions(resetOptions);
+      } else {
+        setMyCompetitionOptions(resetOptions);
+      }
+      return;
+    }
+
     try {
-      setLoadingCubes(true);
-
-      // Query listings that have this competition in their competitions array
-      const listingsRef = collection(db, 'listings');
-      const q = query(
-        listingsRef,
-        where('status', '==', 'active'),
-        where('deliveryOptions.meetup', '==', true)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const allListings = [];
-
-      querySnapshot.forEach((doc) => {
-        const listing = { id: doc.id, ...doc.data() };
-        allListings.push(listing);
-      });
-
-      // Filter listings that have the selected competition
-      const cubesForCompetition = allListings.filter(listing =>
-        listing.competitions &&
-        listing.competitions.some(comp => comp.id === competitionId)
-      );
-
-      setCubes(cubesForCompetition);
-    } catch (err) {
-      console.error('Error loading cubes:', err);
-      setError('Failed to load cubes for this competition.');
-    } finally {
-      setLoadingCubes(false);
+      const searchResults = await searchCompetitions(normalizedValue, 100);
+      if (target === "browse") {
+        setCompetitionOptions(searchResults);
+      } else {
+        setMyCompetitionOptions(searchResults);
+      }
+    } catch (error) {
+      console.error('Error searching competitions:', error);
     }
   };
 
-  const handleCompetitionSearch = async (event, value) => {
-    if (typeof value === 'string' && value.length > 1) {
+  const handleCompetitionListScroll = (event, target = "browse") => {
+    const activeInput = target === "browse" ? competitionSearchInput : myCompetitionInput;
+    if (activeInput.trim().length >= 2) {
+      return;
+    }
+
+    const listboxNode = event.currentTarget;
+    const nearBottom =
+      listboxNode.scrollTop + listboxNode.clientHeight >=
+      listboxNode.scrollHeight - 24;
+
+    if (!nearBottom) {
+      return;
+    }
+
+    if (target === "browse") {
+      if (competitionOptions.length < allCompetitions.length) {
+        setCompetitionOptions(
+          allCompetitions.slice(0, competitionOptions.length + COMPETITION_BATCH_SIZE)
+        );
+      }
+    } else if (myCompetitionOptions.length < allCompetitions.length) {
       try {
-        const searchResults = await searchCompetitions(value, 20);
-        setCompetitions(searchResults);
+        setMyCompetitionOptions(
+          allCompetitions.slice(0, myCompetitionOptions.length + COMPETITION_BATCH_SIZE)
+        );
       } catch (error) {
-        console.error('Error searching competitions:', error);
+        console.error("Error extending competition list:", error);
       }
     }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
   };
 
   const persistMyCompetitions = async (nextCompetitions) => {
@@ -164,6 +177,16 @@ function Competitions() {
     await persistMyCompetitions(nextCompetitions);
   };
 
+  const handleViewCompetitionListings = () => {
+    if (!selectedCompetition?.id) {
+      return;
+    }
+
+    navigate(`/competitions/${selectedCompetition.id}/listings`, {
+      state: { competition: selectedCompetition },
+    });
+  };
+
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
@@ -181,10 +204,70 @@ function Competitions() {
 
       <Card sx={{ mb: 4, p: 3 }}>
         <Typography variant="h5" gutterBottom>
+          Select a Competition
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Choose a competition and open its listings page
+        </Typography>
+
+        {loadingCompetitions ? (
+          <Skeleton variant="rectangular" height={56} />
+        ) : (
+          <Stack spacing={2}>
+            <Autocomplete
+              options={competitionOptions}
+              getOptionLabel={(option) => option.displayName}
+              value={selectedCompetition}
+              inputValue={competitionSearchInput}
+              onChange={(_, newValue) => {
+                setSelectedCompetition(newValue);
+              }}
+              onInputChange={(_, value) => handleCompetitionSearch(value, "browse")}
+              ListboxProps={{
+                onScroll: (event) => handleCompetitionListScroll(event, "browse"),
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Search competitions"
+                  placeholder="Type to search competitions..."
+                  variant="outlined"
+                  fullWidth
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body1">
+                      {option.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {option.city}, {option.country} • {option.dateRange}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+              noOptionsText="No competitions found. Try a different search term."
+            />
+            <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
+              <Button
+                variant="contained"
+                onClick={handleViewCompetitionListings}
+                disabled={!selectedCompetition}
+              >
+                View Listings
+              </Button>
+            </Box>
+          </Stack>
+        )}
+      </Card>
+
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Typography variant="h6" gutterBottom>
           My Competitions
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Mark the competitions you are attending to highlight matching listings across the marketplace.
+          Save the competitions you are attending to highlight matching listings across the marketplace.
         </Typography>
 
         {!currentUser ? (
@@ -192,14 +275,16 @@ function Competitions() {
         ) : (
           <Stack spacing={2}>
             <Autocomplete
-              options={competitions}
+              options={myCompetitionOptions}
               getOptionLabel={(option) => option.displayName}
               value={null}
               inputValue={myCompetitionInput}
               onChange={handleAddMyCompetition}
               onInputChange={(_, value) => {
-                setMyCompetitionInput(value);
-                handleCompetitionSearch(null, value);
+                handleCompetitionSearch(value, "my");
+              }}
+              ListboxProps={{
+                onScroll: (event) => handleCompetitionListScroll(event, "my"),
               }}
               loading={loadingCompetitions || savingCompetition}
               renderInput={(params) => (
@@ -247,162 +332,6 @@ function Competitions() {
         )}
       </Card>
 
-      {/* Competition Selection */}
-      <Card sx={{ mb: 4, p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Select a Competition
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Choose a competition to see available cubes for meetup
-        </Typography>
-
-        {loadingCompetitions ? (
-          <Skeleton variant="rectangular" height={56} />
-        ) : (
-          <Autocomplete
-            options={competitions}
-            getOptionLabel={(option) => option.displayName}
-            value={selectedCompetition}
-            onChange={(_, newValue) => {
-              setSelectedCompetition(newValue);
-            }}
-            onInputChange={handleCompetitionSearch}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Search competitions"
-                placeholder="Type to search competitions..."
-                variant="outlined"
-                fullWidth
-              />
-            )}
-            renderOption={(props, option) => (
-              <Box component="li" {...props} key={option.id}>
-                <Box>
-                  <Typography variant="body1">
-                    {option.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {option.city}, {option.country} • {option.dateRange}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-            noOptionsText="No competitions found. Try a different search term."
-          />
-        )}
-      </Card>
-
-      {/* Selected Competition Info */}
-      {selectedCompetition && (
-        <Card sx={{ mb: 4, p: 3, bgcolor: 'primary.50' }}>
-          <Typography variant="h5" gutterBottom color="primary">
-            {selectedCompetition.name}
-          </Typography>
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-            <Chip label={`${selectedCompetition.city}, ${selectedCompetition.country}`} />
-            <Chip label={selectedCompetition.dateRange} />
-          </Stack>
-          {selectedCompetition.website && (
-            <Button
-              variant="outlined"
-              size="small"
-              href={selectedCompetition.website}
-              target="_blank"
-            >
-              Competition Website
-            </Button>
-          )}
-        </Card>
-      )}
-
-      {/* Cubes Grid */}
-      {selectedCompetition && (
-        <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h5">
-              Available Cubes ({cubes.length})
-            </Typography>
-          </Box>
-
-          {loadingCubes ? (
-            <Grid container spacing={3}>
-              {[...Array(8)].map((_, index) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-                  <Card>
-                    <Skeleton variant="rectangular" height={200} />
-                    <CardContent>
-                      <Skeleton variant="text" />
-                      <Skeleton variant="text" />
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : cubes.length === 0 ? (
-            <Card sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" gutterBottom>
-                No cubes available yet
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Be the first to list a cube for this competition!
-              </Typography>
-            </Card>
-          ) : (
-            <Grid container spacing={3}>
-              {cubes.map((cube) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={cube.id}>
-                  <Card
-                    component={Link}
-                    to={`/listing/${cube.id}`}
-                    sx={{
-                      textDecoration: 'none',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: 4,
-                      },
-                    }}
-                  >
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={
-                        cube.photos?.[0]
-                          ? `https://wecube.s3.us-east-1.amazonaws.com/${cube.photos[0].s3Key}`
-                          : "/placeholder-cube.jpg"
-                      }
-                      alt={cube.title}
-                      sx={{
-                        objectFit: "contain",
-                        bgcolor: "grey.100",
-                      }}
-                    />
-                    <CardContent>
-                      <Typography variant="h6" noWrap gutterBottom>
-                        {cube.title}
-                      </Typography>
-                      <Typography
-                        variant="h5"
-                        color="primary"
-                        fontWeight="bold"
-                        gutterBottom
-                      >
-                        {formatPrice(cube.price)}
-                      </Typography>
-                      {cube.competitions && cube.competitions.length > 1 && (
-                        <Typography variant="body2" color="text.secondary">
-                          Also at {cube.competitions.length - 1} other competition{cube.competitions.length > 2 ? 's' : ''}
-                        </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </>
-      )}
     </Box>
   );
 }

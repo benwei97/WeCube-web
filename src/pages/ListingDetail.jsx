@@ -65,6 +65,7 @@ import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
 import { SoldRibbon } from "../components/ListingStatusDecorators";
 
 function ListingDetail() {
+  const COMPETITION_BATCH_SIZE = 50;
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -86,8 +87,10 @@ function ListingDetail() {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitions, setCompetitions] = useState([]);
+  const [allCompetitions, setAllCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+  const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [editData, setEditData] = useState({
@@ -343,7 +346,8 @@ function ListingDetail() {
     setLoadingCompetitions(true);
     try {
       const upcomingCompetitions = await getUpcomingCompetitions(500);
-      setCompetitions(upcomingCompetitions);
+      setAllCompetitions(upcomingCompetitions);
+      setCompetitions(upcomingCompetitions.slice(0, COMPETITION_BATCH_SIZE));
     } catch (error) {
       console.error("Error loading competitions:", error);
       setCompetitions([]);
@@ -353,10 +357,18 @@ function ListingDetail() {
   };
 
   const handleCompetitionSearch = async (_, value) => {
-    if (typeof value === "string" && value.length > 2) {
+    const normalizedValue = typeof value === "string" ? value : "";
+    setCompetitionSearchInput(normalizedValue);
+
+    if (normalizedValue.trim().length < 2) {
+      setCompetitions(allCompetitions.slice(0, COMPETITION_BATCH_SIZE));
+      return;
+    }
+
+    if (normalizedValue.length > 2) {
       setLoadingCompetitions(true);
       try {
-        const searchResults = await searchCompetitions(value, 100);
+        const searchResults = await searchCompetitions(normalizedValue, 100);
         setCompetitions(searchResults);
       } catch (error) {
         console.error("Error searching competitions:", error);
@@ -364,6 +376,25 @@ function ListingDetail() {
         setLoadingCompetitions(false);
       }
     }
+  };
+
+  const handleCompetitionListScroll = (event) => {
+    if (competitionSearchInput.trim().length >= 2) {
+      return;
+    }
+
+    const listboxNode = event.currentTarget;
+    const nearBottom =
+      listboxNode.scrollTop + listboxNode.clientHeight >=
+      listboxNode.scrollHeight - 24;
+
+    if (!nearBottom || competitions.length >= allCompetitions.length) {
+      return;
+    }
+
+    setCompetitions(
+      allCompetitions.slice(0, competitions.length + COMPETITION_BATCH_SIZE)
+    );
   };
 
   const handlePriceChange = (event) => {
@@ -1519,6 +1550,7 @@ function ListingDetail() {
                   <Autocomplete
                     multiple
                     options={competitions}
+                    inputValue={competitionSearchInput}
                     getOptionLabel={(option) =>
                       option.displayName || option.name || ""
                     }
@@ -1527,6 +1559,9 @@ function ListingDetail() {
                       setSelectedCompetitions(newValue);
                     }}
                     onInputChange={handleCompetitionSearch}
+                    ListboxProps={{
+                      onScroll: handleCompetitionListScroll,
+                    }}
                     loading={loadingCompetitions}
                     renderInput={(params) => (
                       <TextField

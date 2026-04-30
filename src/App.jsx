@@ -8,6 +8,7 @@ import Header from "./components/Header";
 import Dashboard from "./pages/Dashboard";
 import Browse from "./pages/Browse";
 import Competitions from "./pages/Competitions";
+import CompetitionListings from "./pages/CompetitionListings";
 import Sell from "./pages/Sell";
 import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
@@ -35,6 +36,10 @@ function App() {
               <Route path="/" element={<Browse />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/competitions" element={<Competitions />} />
+              <Route
+                path="/competitions/:competitionId/listings"
+                element={<CompetitionListings />}
+              />
               <Route path="/sell" element={<Sell />} />
               <Route path="/listing/:id" element={<ListingDetail />} />
               <Route path="/seller/:userId" element={<SellerProfile />} />
