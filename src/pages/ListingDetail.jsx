@@ -40,7 +40,7 @@ import {
   Star,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -67,6 +67,7 @@ import { SoldRibbon } from "../components/ListingStatusDecorators";
 function ListingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -762,6 +763,7 @@ function ListingDetail() {
     listing.localMeetupAvailable || listing.competitionMeetupAvailable
   );
   const hasApprovedConversation = existingConversation?.status === "approved";
+  const cameFromPublish = Boolean(location.state?.fromPublish);
   const messageButtonText = hasMeetup
     ? hasApprovedConversation
       ? "Continue Meetup Chat"
@@ -792,8 +794,11 @@ function ListingDetail() {
           mb: 3,
         }}
       >
-        <Button onClick={() => navigate(-1)} variant="outlined">
-          ← Back
+        <Button
+          onClick={() => (cameFromPublish ? navigate("/") : navigate(-1))}
+          variant="outlined"
+        >
+          {cameFromPublish ? "← Home" : "← Back"}
         </Button>
         {isOwner ? (
           <Box sx={{ display: "flex", gap: 1 }}>

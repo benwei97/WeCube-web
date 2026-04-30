@@ -424,7 +424,9 @@ function Sell() {
       console.log("Listing saved successfully with ID:", docRef.id);
 
       handleClearListing();
-      navigate(`/listing/${docRef.id}`);
+      navigate(`/listing/${docRef.id}`, {
+        state: { fromPublish: true },
+      });
     } catch (error) {
       console.error("Error saving listing:", error);
 
