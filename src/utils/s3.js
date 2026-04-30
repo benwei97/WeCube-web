@@ -73,6 +73,47 @@ export async function uploadImageToS3(file, listingId) {
   }
 }
 
+export function getS3PublicUrl(s3Key) {
+  return `https://wecube.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${s3Key}`;
+}
+
+export async function uploadAvatarToS3(file, userId) {
+  const timestamp = Date.now();
+  const fileExtension = file.name.split('.').pop();
+  const fileName = `${timestamp}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+  const s3Key = `avatars/${userId}/${fileName}`;
+  const fileBuffer = await file.arrayBuffer();
+
+  const uploadParams = {
+    Bucket: import.meta.env.VITE_S3_BUCKET_NAME,
+    Key: s3Key,
+    Body: new Uint8Array(fileBuffer),
+    ContentType: file.type,
+    Metadata: {
+      'original-name': file.name,
+      'user-id': userId,
+    },
+  };
+
+  try {
+    const command = new PutObjectCommand(uploadParams);
+    await s3Client.send(command);
+    return {
+      s3Key,
+      url: getS3PublicUrl(s3Key),
+    };
+  } catch (error) {
+    console.error('Detailed S3 avatar upload error:', {
+      error,
+      errorMessage: error.message,
+      errorCode: error.Code,
+      errorName: error.name,
+      uploadParams,
+    });
+    throw new Error(`Failed to upload avatar: ${error.message}`);
+  }
+}
+
 /**
  * Upload multiple images to S3
  * @param {Array<File>} files - Array of files to upload

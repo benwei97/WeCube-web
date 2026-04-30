@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -8,23 +8,27 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import { Star } from "@mui/icons-material";
-import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { subscribeToReceivedReviews } from "../utils/reviews";
+import { deleteImageFromS3, uploadAvatarToS3 } from "../utils/s3";
 
 function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const avatarInputRef = useRef(null);
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [listings, setListings] = useState([]);
   const [purchaseCount, setPurchaseCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -123,6 +127,48 @@ function Dashboard() {
 
   const recentReviews = receivedReviews.slice(0, 3);
 
+  const handleAvatarButtonClick = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarSelected = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !currentUser?.uid) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose an image file.");
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const uploadedAvatar = await uploadAvatarToS3(file, currentUser.uid);
+
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        avatarUrl: uploadedAvatar.url,
+        avatarS3Key: uploadedAvatar.s3Key,
+      });
+
+      if (currentUser.avatarS3Key) {
+        try {
+          await deleteImageFromS3(currentUser.avatarS3Key);
+        } catch (cleanupError) {
+          console.error("Error deleting previous avatar:", cleanupError);
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert(error.message || "Failed to update avatar.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -150,9 +196,33 @@ function Dashboard() {
             spacing={2}
             alignItems={{ xs: "flex-start", sm: "center" }}
           >
-            <Avatar src={currentUser?.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
-              {userName.charAt(0).toUpperCase()}
-            </Avatar>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <Avatar src={currentUser?.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
+                {userName.charAt(0).toUpperCase()}
+              </Avatar>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleAvatarSelected}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleAvatarButtonClick}
+                disabled={avatarUploading}
+              >
+                {avatarUploading ? (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CircularProgress size={14} />
+                    <Box component="span">Uploading...</Box>
+                  </Stack>
+                ) : (
+                  "Add Avatar"
+                )}
+              </Button>
+            </Box>
             <Box>
               <Typography variant="h4" fontWeight="bold">
                 {userName}
