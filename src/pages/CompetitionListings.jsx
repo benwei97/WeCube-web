@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
@@ -31,11 +32,15 @@ function CompetitionListings() {
   const navigate = useNavigate();
   const location = useLocation();
   const { competitionId } = useParams();
+  const { currentUser } = useAuth();
   const [competition, setCompetition] = useState(location.state?.competition || null);
   const [cubes, setCubes] = useState([]);
   const [loadingCompetition, setLoadingCompetition] = useState(!location.state?.competition);
   const [loadingCubes, setLoadingCubes] = useState(true);
   const [error, setError] = useState(null);
+  const attendingCompetitionIds = new Set(
+    (currentUser?.attendingCompetitions || []).map((savedCompetition) => savedCompetition.id)
+  );
 
   useEffect(() => {
     if (competition) {
@@ -195,6 +200,9 @@ function CompetitionListings() {
               ...getNormalizedFulfillmentFields(cube),
             };
             const shippingPrice = getShippingPriceFromListing(normalizedListing);
+            const hasCompetitionMatch = normalizedListing.meetupCompetitionTags?.some(
+              (savedCompetition) => attendingCompetitionIds.has(savedCompetition.id)
+            );
 
             return (
               <Box key={cube.id}>
@@ -231,22 +239,36 @@ function CompetitionListings() {
                           position: "absolute",
                           top: 12,
                           left: 12,
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: "rgba(255,255,255,0.92)",
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                          backgroundColor: hasCompetitionMatch
+                            ? "success.main"
+                            : "rgba(255,255,255,0.92)",
                           border: "1px solid",
-                          borderColor: "divider",
-                          color: "text.secondary",
+                          borderColor: hasCompetitionMatch
+                            ? "success.dark"
+                            : "divider",
+                          color: hasCompetitionMatch
+                            ? "common.white"
+                            : "text.secondary",
                           fontWeight: 700,
                           fontSize: "0.9rem",
                           zIndex: 1,
                         }}
-                        aria-label="Available at competition"
-                        title="Available at competition"
+                        aria-label={
+                          hasCompetitionMatch
+                            ? "Available at a competition you are attending"
+                            : "Available at competition"
+                        }
+                        title={
+                          hasCompetitionMatch
+                            ? "Available at a competition you are attending"
+                            : "Available at competition"
+                        }
                       >
                         C
                       </Box>
