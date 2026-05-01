@@ -564,28 +564,46 @@ function Messages() {
             <>
               {/* Chat Header */}
               <Box
-                sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}
+                sx={{
+                  p: 2,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                }}
               >
-                <Typography variant="h6">
-                  {getConversationDisplayTitle(selectedConversation)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {selectedConversation.userRole === "seller"
-                    ? "Buyer inquiry"
-                    : "Your inquiry"}
-                  {selectedConversation.status !== "approved" && (
-                    <Chip
-                      label={`Status: ${selectedConversation.status}`}
-                      size="small"
-                      sx={{ ml: 1 }}
-                      color={
-                        selectedConversation.status === "pending"
-                          ? "warning"
-                          : "error"
-                      }
-                    />
-                  )}
-                </Typography>
+                <Avatar
+                  src={
+                    getListingPhotoUrl(selectedConversation.listingId) || undefined
+                  }
+                  variant="rounded"
+                  sx={{ width: 52, height: 52, flexShrink: 0 }}
+                >
+                  <Person />
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h6" noWrap>
+                    {getConversationDisplayTitle(selectedConversation)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedConversation.userRole === "seller"
+                      ? "Buyer inquiry"
+                      : "Your inquiry"}
+                    {selectedConversation.status !== "approved" && (
+                      <Chip
+                        label={`Status: ${selectedConversation.status}`}
+                        size="small"
+                        sx={{ ml: 1 }}
+                        color={
+                          selectedConversation.status === "pending"
+                            ? "warning"
+                            : "error"
+                        }
+                      />
+                    )}
+                  </Typography>
+                </Box>
               </Box>
 
               {/* Messages */}
