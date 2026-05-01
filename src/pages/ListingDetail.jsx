@@ -48,6 +48,7 @@ import {
   createConversationRequest,
   getExistingConversation,
   getListingBuyerOptions,
+  closeListingConversationsForSold,
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import PaymentModal from "../components/PaymentModal";
@@ -693,6 +694,8 @@ function ListingDetail() {
       setStatusActionLoading(true);
       const now = new Date();
       const selectedBuyer = buyerOptions.find((option) => option.buyerId === selectedBuyerId);
+      const sellerFirstName =
+        listing?.sellerName?.trim()?.split(/\s+/)?.[0] || "Seller";
       const updates = {
         status: "sold",
         soldAt: now,
@@ -709,6 +712,12 @@ function ListingDetail() {
       };
 
       await updateDoc(doc(db, "listings", id), updates);
+      await closeListingConversationsForSold(
+        id,
+        listing.userId,
+        sellerFirstName,
+        listing.title
+      );
       setListing((prev) => ({
         ...prev,
         ...updates,

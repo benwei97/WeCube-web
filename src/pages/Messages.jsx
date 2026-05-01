@@ -281,7 +281,10 @@ function Messages() {
   const formatLastMessagePreview = (conversation) => {
     if (!conversation.lastMessage) return "No messages yet";
 
-    if (conversation.lastMessage === "Conversation approved. You can now message freely!") {
+    if (
+      conversation.lastMessageType === "system" ||
+      conversation.lastMessage === "Conversation approved. You can now message freely!"
+    ) {
       return conversation.lastMessage;
     }
 
@@ -591,18 +594,27 @@ function Messages() {
                     {getConversationDisplayTitle(selectedConversation)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedConversation.userRole === "seller"
-                      ? "Buyer inquiry"
-                      : "Your inquiry"}
-                    {selectedConversation.status !== "approved" && (
+                    {selectedConversation.closedAt
+                      ? "Conversation closed"
+                      : selectedConversation.userRole === "seller"
+                        ? "Buyer inquiry"
+                        : "Your inquiry"}
+                    {(selectedConversation.closedAt ||
+                      selectedConversation.status !== "approved") && (
                       <Chip
-                        label={`Status: ${selectedConversation.status}`}
+                        label={
+                          selectedConversation.closedAt
+                            ? "Status: sold"
+                            : `Status: ${selectedConversation.status}`
+                        }
                         size="small"
                         sx={{ ml: 1 }}
                         color={
-                          selectedConversation.status === "pending"
-                            ? "warning"
-                            : "error"
+                          selectedConversation.closedAt
+                            ? "default"
+                            : selectedConversation.status === "pending"
+                              ? "warning"
+                              : "error"
                         }
                       />
                     )}
@@ -611,8 +623,12 @@ function Messages() {
               </Box>
 
               {/* Messages */}
-              <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
-                {selectedConversation.status !== "approved" && (
+                <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
+                {selectedConversation.closedAt ? (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    This conversation has ended because the listing was sold.
+                  </Alert>
+                ) : selectedConversation.status !== "approved" && (
                   <Alert severity="info" sx={{ mb: 2 }}>
                     {selectedConversation.status === "pending"
                       ? selectedConversation.userRole === "seller"
@@ -721,7 +737,8 @@ function Messages() {
               </Box>
 
               {/* Message Input */}
-              {selectedConversation.status === "approved" && (
+              {selectedConversation.status === "approved" &&
+                !selectedConversation.closedAt && (
                 <Box
                   sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
                 >

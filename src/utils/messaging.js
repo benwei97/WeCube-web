@@ -70,6 +70,7 @@ export async function createConversationRequest(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastMessage: initialMessage,
+      lastMessageType: "message",
       lastMessageAt: serverTimestamp(),
       lastMessageSenderId: buyerId,
       initialMessage,
@@ -237,6 +238,10 @@ export async function addMessage(
       throw new Error("Conversation must be approved before sending messages");
     }
 
+    if (type === "message" && conversation.closedAt) {
+      throw new Error("This conversation has ended because the listing was sold");
+    }
+
     // Add message
     await addDoc(collection(db, "messages"), {
       conversationId,
@@ -249,6 +254,7 @@ export async function addMessage(
     // Update conversation's last message info
     await updateDoc(conversationRef, {
       lastMessage: text,
+      lastMessageType: type,
       lastMessageAt: serverTimestamp(),
       lastMessageSenderId: senderId,
       updatedAt: serverTimestamp(),
@@ -257,6 +263,51 @@ export async function addMessage(
     console.log("Message added to conversation:", conversationId);
   } catch (error) {
     console.error("Error adding message:", error);
+    throw error;
+  }
+}
+
+export async function closeListingConversationsForSold(
+  listingId,
+  sellerId,
+  sellerFirstName,
+  listingTitle
+) {
+  try {
+    const soldMessage = `${sellerFirstName || "Seller"} sold ${listingTitle}`;
+    const conversationsQuery = query(
+      collection(db, "conversations"),
+      where("listingId", "==", listingId),
+      where("sellerId", "==", sellerId)
+    );
+
+    const snapshot = await getDocs(conversationsQuery);
+
+    for (const conversationDoc of snapshot.docs) {
+      const conversationRef = doc(db, "conversations", conversationDoc.id);
+      const conversation = conversationDoc.data();
+
+      if (conversation.closedAt || conversation.status === "rejected") {
+        continue;
+      }
+
+      if (conversation.status === "pending") {
+        await updateDoc(conversationRef, {
+          status: "approved",
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      await addMessage(conversationDoc.id, sellerId, soldMessage, "system");
+
+      await updateDoc(conversationRef, {
+        closedAt: serverTimestamp(),
+        closedReason: "listing_sold",
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("Error closing listing conversations after sale:", error);
     throw error;
   }
 }
