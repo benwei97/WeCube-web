@@ -306,6 +306,28 @@ function Messages() {
     return `${senderName}: ${conversation.lastMessage}`;
   };
 
+  const getUserDisplayName = (userId, fallbackLabel) => {
+    const user = userDetails[userId];
+
+    if (!user) {
+      return fallbackLabel;
+    }
+
+    return user.firstName || user.displayName || fallbackLabel;
+  };
+
+  const getConversationDisplayTitle = (conversation) => {
+    const listingTitle =
+      listingDetails[conversation.listingId]?.title || "Unknown Listing";
+
+    const counterpartName =
+      conversation.userRole === "seller"
+        ? getUserDisplayName(conversation.buyerId, "Buyer")
+        : getUserDisplayName(conversation.sellerId, "Seller");
+
+    return `${counterpartName} • ${listingTitle}`;
+  };
+
   const getListingPhotoUrl = (listingId) => {
     const listing = listingDetails[listingId];
     const firstPhoto = listing?.photos?.[0];
@@ -410,8 +432,7 @@ function Messages() {
                             : "medium"
                         }
                       >
-                        {listingDetails[conversation.listingId]?.title ||
-                          "Unknown Listing"}
+                        {getConversationDisplayTitle(conversation)}
                       </Typography>
                     }
                     secondary={
@@ -491,21 +512,14 @@ function Messages() {
                             }}
                           >
                             <Typography variant="h6" gutterBottom>
-                              {listingDetails[request.listingId]?.title ||
-                                "Loading listing..."}
+                              {getConversationDisplayTitle(request)}
                             </Typography>
                             <Typography
                               variant="caption"
                               color="text.secondary"
                               sx={{ mb: 2, display: "block" }}
                             >
-                              From:{" "}
-                              {userDetails[request.buyerId]?.firstName &&
-                              userDetails[request.buyerId]?.lastName
-                                ? `${userDetails[request.buyerId].firstName} ${
-                                    userDetails[request.buyerId].lastName
-                                  }`
-                                : "Loading user..."}{" "}
+                              From {getUserDisplayName(request.buyerId, "Buyer")}{" "}
                               • {formatTime(request.createdAt)}
                             </Typography>
                           </Box>
@@ -553,8 +567,7 @@ function Messages() {
                 sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}
               >
                 <Typography variant="h6">
-                  {listingDetails[selectedConversation.listingId]?.title ||
-                    "Unknown Listing"}
+                  {getConversationDisplayTitle(selectedConversation)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {selectedConversation.userRole === "seller"
