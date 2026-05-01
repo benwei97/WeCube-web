@@ -25,6 +25,8 @@ import {
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
+  isSoldListingPubliclyVisible,
+  sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import { getCompetitionById } from "../utils/wcaApi";
 
@@ -84,7 +86,6 @@ function CompetitionListings() {
         const listingsRef = collection(db, "listings");
         const listingsQuery = query(
           listingsRef,
-          where("status", "==", "active"),
           where("deliveryOptions.meetup", "==", true)
         );
 
@@ -96,12 +97,14 @@ function CompetitionListings() {
 
         const cubesForCompetition = allListings.filter(
           (listing) =>
+            listing.status !== "archived" &&
+            isSoldListingPubliclyVisible(listing) &&
             listing.competitions &&
             listing.competitions.some((comp) => comp.id === competitionId)
         );
 
         if (active) {
-          setCubes(cubesForCompetition);
+          setCubes(sortListingsByAvailabilityAndDate(cubesForCompetition));
         }
       } catch (cubeError) {
         console.error("Error loading cubes for competition:", cubeError);

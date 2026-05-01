@@ -37,6 +37,19 @@ export const SHIPPING_PROFILE_OPTIONS = [
 
 export const SOLD_VISIBILITY_WINDOW_DAYS = 7;
 
+export function getListingTimestampMs(timestampValue) {
+  if (!timestampValue) {
+    return 0;
+  }
+
+  if (typeof timestampValue?.toDate === "function") {
+    return timestampValue.toDate().getTime();
+  }
+
+  const date = new Date(timestampValue);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
 export function getShippingProfile(profileValue) {
   return (
     SHIPPING_PROFILE_OPTIONS.find((profile) => profile.value === profileValue) ||
@@ -126,6 +139,19 @@ export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
 
   const visibilityWindowMs = SOLD_VISIBILITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   return now.getTime() - soldDate.getTime() <= visibilityWindowMs;
+}
+
+export function sortListingsByAvailabilityAndDate(listings = []) {
+  return [...listings].sort((a, b) => {
+    const aSold = a.status === "sold";
+    const bSold = b.status === "sold";
+
+    if (aSold !== bSold) {
+      return aSold ? 1 : -1;
+    }
+
+    return getListingTimestampMs(b.createdAt) - getListingTimestampMs(a.createdAt);
+  });
 }
 
 export function getConditionLabel(conditionValue) {

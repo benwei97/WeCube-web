@@ -40,6 +40,7 @@ import {
   getShippingPriceFromListing,
   isSoldListingPubliclyVisible,
   normalizeConditionValue,
+  sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 
 function Browse() {
@@ -96,8 +97,9 @@ function Browse() {
   }, [listings, allListings, filters, currentUser, isSearching]);
 
   useEffect(() => {
-    setListings(allListings.slice(0, visibleCount));
-    setHasMore(allListings.length > visibleCount);
+    const sortedListings = sortListingsByAvailabilityAndDate(allListings);
+    setListings(sortedListings.slice(0, visibleCount));
+    setHasMore(sortedListings.length > visibleCount);
   }, [allListings, visibleCount]);
 
   useEffect(() => {
@@ -219,7 +221,7 @@ function Browse() {
       });
     }
 
-    setFilteredListings(filtered);
+    setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
   };
 
   const handleFilterChange = (filterType, value) => {
