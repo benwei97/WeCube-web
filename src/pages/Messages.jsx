@@ -281,6 +281,10 @@ function Messages() {
   const formatLastMessagePreview = (conversation) => {
     if (!conversation.lastMessage) return "No messages yet";
 
+    if (conversation.lastMessage === "Conversation approved. You can now message freely!") {
+      return conversation.lastMessage;
+    }
+
     // Determine who sent the last message
     const lastMessageSenderId = conversation.lastMessageSenderId;
 
@@ -618,52 +622,101 @@ function Messages() {
                   </Alert>
                 )}
 
-                {messages.map((message) => (
-                  <Box
-                    key={message.id}
-                    sx={{
-                      display: "flex",
-                      justifyContent:
-                        message.senderId === currentUser.uid
-                          ? "flex-end"
-                          : "flex-start",
-                      mb: 1,
-                    }}
-                  >
-                    <Paper
-                      sx={{
-                        p: 2,
-                        maxWidth: "70%",
-                        bgcolor:
-                          message.senderId === currentUser.uid
-                            ? "primary.main"
-                            : "grey.100",
-                        color:
-                          message.senderId === currentUser.uid
-                            ? "white"
-                            : "text.primary",
-                      }}
-                    >
-                      <Typography variant="body1">{message.text}</Typography>
-                      <Typography
-                        variant="caption"
+                {messages.map((message) => {
+                  if (message.type === "system") {
+                    return (
+                      <Box
+                        key={message.id}
                         sx={{
-                          color:
-                            message.senderId === currentUser.uid
-                              ? "rgba(255,255,255,0.7)"
-                              : "text.secondary",
                           display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                          mt: 0.5,
+                          justifyContent: "center",
+                          my: 1.5,
                         }}
                       >
-                        <AccessTime fontSize="inherit" />
-                        {formatTime(message.createdAt)}
-                      </Typography>
-                    </Paper>
-                  </Box>
-                ))}
+                        <Box
+                          sx={{
+                            px: 1.5,
+                            py: 0.75,
+                            borderRadius: 999,
+                            bgcolor: "grey.100",
+                            color: "text.secondary",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 0.75,
+                            maxWidth: "85%",
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{ fontWeight: 500, textAlign: "center" }}
+                          >
+                            {message.text}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.disabled",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <AccessTime fontSize="inherit" />
+                            {formatTime(message.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  }
+
+                  return (
+                    <Box
+                      key={message.id}
+                      sx={{
+                        display: "flex",
+                        justifyContent:
+                          message.senderId === currentUser.uid
+                            ? "flex-end"
+                            : "flex-start",
+                        mb: 1,
+                      }}
+                    >
+                      <Paper
+                        sx={{
+                          p: 2,
+                          maxWidth: "70%",
+                          bgcolor:
+                            message.senderId === currentUser.uid
+                              ? "primary.main"
+                              : "grey.100",
+                          color:
+                            message.senderId === currentUser.uid
+                              ? "white"
+                              : "text.primary",
+                        }}
+                      >
+                        <Typography variant="body1">{message.text}</Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color:
+                              message.senderId === currentUser.uid
+                                ? "rgba(255,255,255,0.7)"
+                                : "text.secondary",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            mt: 0.5,
+                          }}
+                        >
+                          <AccessTime fontSize="inherit" />
+                          {formatTime(message.createdAt)}
+                        </Typography>
+                      </Paper>
+                    </Box>
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </Box>
 
