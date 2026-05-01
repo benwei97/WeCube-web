@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
   Toolbar,
@@ -41,8 +41,22 @@ function Header() {
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const isMenuOpen = Boolean(anchorEl);
+  const activeConversationId = location.pathname.startsWith("/messages/")
+    ? location.pathname.split("/")[2] || null
+    : null;
+
+  const getVisibleUnreadCount = (conversations, userId) => {
+    const filteredConversations = activeConversationId
+      ? conversations.filter(
+          (conversation) => conversation.id !== activeConversationId
+        )
+      : conversations;
+
+    return countUnreadConversations(filteredConversations, userId);
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -52,7 +66,7 @@ function Header() {
         currentUser.uid,
         (conversations) => {
           setUnreadConversationCount(
-            countUnreadConversations(conversations, currentUser.uid)
+            getVisibleUnreadCount(conversations, currentUser.uid)
           );
         }
       );
@@ -82,7 +96,7 @@ function Header() {
       setPendingRequestCount(0);
       setPendingReviewCount(0);
     }
-  }, [currentUser]);
+  }, [currentUser, activeConversationId]);
 
   const loadMessageNotificationCount = async () => {
     try {
@@ -93,7 +107,7 @@ function Header() {
 
       setPendingRequestCount(pendingRequests.length);
       setUnreadConversationCount(
-        countUnreadConversations(conversations, currentUser.uid)
+        getVisibleUnreadCount(conversations, currentUser.uid)
       );
     } catch (error) {
       console.error("Error loading message notifications:", error);

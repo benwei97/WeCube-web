@@ -40,6 +40,7 @@ function Messages() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const currentUserId = currentUser?.uid || null;
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -54,7 +55,7 @@ function Messages() {
   const messagesUnsubscribeRef = useRef(null);
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUserId) {
       navigate("/");
       return;
     }
@@ -63,7 +64,7 @@ function Messages() {
     setLoading(true);
 
     const unsubscribeConversations = subscribeToUserConversations(
-      currentUser.uid,
+      currentUserId,
       (updatedConversations) => {
         setConversations(updatedConversations);
         loadListingDetails(updatedConversations);
@@ -73,7 +74,7 @@ function Messages() {
     );
 
     const unsubscribePending = subscribeToPendingRequests(
-      currentUser.uid,
+      currentUserId,
       (pending) => {
         setPendingRequests(pending);
         if (pending.length > 0) {
@@ -87,38 +88,23 @@ function Messages() {
       unsubscribeConversations();
       unsubscribePending();
     };
-  }, [currentUser, navigate]);
+  }, [currentUserId, navigate]);
 
   useEffect(() => {
+    if (!currentUserId) {
+      return undefined;
+    }
+
     if (conversationId) {
       const conversation = conversations.find((c) => c.id === conversationId);
       if (conversation) {
         setSelectedConversation(conversation);
         if (
           conversation.status === "approved" &&
-          isConversationUnread(conversation, currentUser.uid)
+          isConversationUnread(conversation, currentUserId)
         ) {
-          const readField =
-            conversation.buyerId === currentUser.uid
-              ? "buyerLastReadAt"
-              : "sellerLastReadAt";
-          const now = new Date();
-
-          setConversations((prev) =>
-            prev.map((item) =>
-              item.id === conversation.id
-                ? {
-                    ...item,
-                    [readField]: {
-                      toMillis: () => now.getTime(),
-                      toDate: () => now,
-                    },
-                  }
-                : item
-            )
-          );
-
-          markConversationAsRead(conversation.id, currentUser.uid).catch((error) =>
+          markConversationReadLocally(conversation);
+          markConversationAsRead(conversation.id, currentUserId).catch((error) =>
             console.error("Error marking conversation as read:", error)
           );
         }
@@ -138,7 +124,7 @@ function Messages() {
         messagesUnsubscribeRef.current = null;
       }
     };
-  }, [conversationId, conversations, currentUser]);
+  }, [conversationId, conversations, currentUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -148,9 +134,54 @@ function Messages() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const getReadFieldForConversation = (conversation) => {
+    if (!currentUserId) {
+      return null;
+    }
+
+    if (conversation.buyerId === currentUserId) {
+      return "buyerLastReadAt";
+    }
+
+    if (conversation.sellerId === currentUserId) {
+      return "sellerLastReadAt";
+    }
+
+    return null;
+  };
+
+  const markConversationReadLocally = (conversation) => {
+    const readField = getReadFieldForConversation(conversation);
+
+    if (!readField) {
+      return;
+    }
+
+    const now = new Date();
+
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === conversation.id
+          ? {
+              ...item,
+              [readField]: {
+                toMillis: () => now.getTime(),
+                toDate: () => now,
+              },
+            }
+          : item
+      )
+    );
+  };
+
   const loadConversations = async () => {
+    if (!currentUserId) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const userConversations = await getUserConversations(currentUser.uid);
+      const userConversations = await getUserConversations(currentUserId);
       setConversations(userConversations);
       await loadListingDetails(userConversations);
       await loadUserDetails(userConversations);
@@ -220,13 +251,13 @@ function Messages() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+    if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
 
     setSendingMessage(true);
     try {
       await addMessage(
         selectedConversation.id,
-        currentUser.uid,
+        currentUserId,
         newMessage.trim()
       );
       setNewMessage("");
@@ -239,11 +270,13 @@ function Messages() {
   };
 
   const handleApproveRequest = async (conversation) => {
+    if (!currentUserId) return;
+
     try {
       await updateConversationStatus(
         conversation.id,
         "approved",
-        currentUser.uid
+        currentUserId
       );
     } catch (error) {
       console.error("Error approving request:", error);
@@ -252,11 +285,13 @@ function Messages() {
   };
 
   const handleRejectRequest = async (conversation) => {
+    if (!currentUserId) return;
+
     try {
       await updateConversationStatus(
         conversation.id,
         "rejected",
-        currentUser.uid
+        currentUserId
       );
     } catch (error) {
       console.error("Error rejecting request:", error);
@@ -265,6 +300,17 @@ function Messages() {
   };
 
   const selectConversation = (conversation) => {
+    if (
+      currentUserId &&
+      conversation.status === "approved" &&
+      isConversationUnread(conversation, currentUserId)
+    ) {
+      markConversationReadLocally(conversation);
+      markConversationAsRead(conversation.id, currentUserId).catch((error) =>
+        console.error("Error marking conversation as read:", error)
+      );
+    }
+
     navigate(`/messages/${conversation.id}`);
   };
 
@@ -298,7 +344,7 @@ function Messages() {
 
     let senderName = "";
 
-    if (lastMessageSenderId === currentUser.uid) {
+    if (lastMessageSenderId === currentUserId) {
       senderName = "You";
     } else if (lastMessageSenderId === conversation.buyerId) {
       // This is the buyer
@@ -311,6 +357,14 @@ function Messages() {
     }
 
     return `${senderName}: ${conversation.lastMessage}`;
+  };
+
+  const isUnreadConversation = (conversation) => {
+    if (!currentUserId || conversation.id === selectedConversation?.id) {
+      return false;
+    }
+
+    return isConversationUnread(conversation, currentUserId);
   };
 
   const getUserDisplayName = (userId, fallbackLabel) => {
@@ -433,11 +487,7 @@ function Messages() {
                     primary={
                       <Typography
                         variant="body1"
-                        fontWeight={
-                          isConversationUnread(conversation, currentUser.uid)
-                            ? "bold"
-                            : "medium"
-                        }
+                        fontWeight={isUnreadConversation(conversation) ? "bold" : "medium"}
                       >
                         {getConversationDisplayTitle(conversation)}
                       </Typography>
@@ -447,11 +497,7 @@ function Messages() {
                         variant="body2"
                         color="text.secondary"
                         noWrap
-                        fontWeight={
-                          isConversationUnread(conversation, currentUser.uid)
-                            ? "medium"
-                            : "regular"
-                        }
+                        fontWeight={isUnreadConversation(conversation) ? "medium" : "regular"}
                       >
                         {formatLastMessagePreview(conversation)}
                       </Typography>
@@ -467,7 +513,7 @@ function Messages() {
                           gap: 1,
                         }}
                       >
-                        {isConversationUnread(conversation, currentUser.uid) && (
+                        {isUnreadConversation(conversation) && (
                           <Box
                             sx={{
                               width: 10,
@@ -692,7 +738,7 @@ function Messages() {
                       sx={{
                         display: "flex",
                         justifyContent:
-                          message.senderId === currentUser.uid
+                          message.senderId === currentUserId
                             ? "flex-end"
                             : "flex-start",
                         mb: 1,
@@ -703,11 +749,11 @@ function Messages() {
                           p: 2,
                           maxWidth: "70%",
                           bgcolor:
-                            message.senderId === currentUser.uid
+                            message.senderId === currentUserId
                               ? "primary.main"
                               : "grey.100",
                           color:
-                            message.senderId === currentUser.uid
+                            message.senderId === currentUserId
                               ? "white"
                               : "text.primary",
                         }}
@@ -717,7 +763,7 @@ function Messages() {
                           variant="caption"
                           sx={{
                             color:
-                              message.senderId === currentUser.uid
+                              message.senderId === currentUserId
                                 ? "rgba(255,255,255,0.7)"
                                 : "text.secondary",
                             display: "flex",
