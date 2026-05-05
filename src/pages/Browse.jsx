@@ -35,11 +35,10 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
-  CONDITION_OPTIONS,
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
   isSoldListingPubliclyVisible,
-  normalizeConditionValue,
+  PUZZLE_TYPE_OPTIONS,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 
@@ -55,7 +54,7 @@ function Browse() {
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
-    condition: "",
+    puzzleType: "",
     priceRange: [0, 1000],
     deliveryOption: "",
   });
@@ -127,7 +126,7 @@ function Browse() {
   useEffect(() => {
     const searching =
       filters.search ||
-      filters.condition ||
+      filters.puzzleType ||
       filters.priceRange[0] > 0 ||
       filters.priceRange[1] < maxPrice ||
       filters.deliveryOption;
@@ -189,10 +188,10 @@ function Browse() {
       );
     }
 
-    // Condition filter
-    if (filters.condition) {
+    // Puzzle type filter
+    if (filters.puzzleType) {
       filtered = filtered.filter(
-        (listing) => normalizeConditionValue(listing.condition) === filters.condition
+        (listing) => listing.puzzleType === filters.puzzleType
       );
     }
 
@@ -234,7 +233,7 @@ function Browse() {
   const clearFilters = () => {
     setFilters({
       search: "",
-      condition: "",
+      puzzleType: "",
       priceRange: [0, maxPrice],
       deliveryOption: "",
     });
@@ -306,19 +305,19 @@ function Browse() {
                   alignItems: "center",
                 }}
               >
-                <FormControl sx={{ minWidth: 120 }}>
-                  <InputLabel>Condition</InputLabel>
+                <FormControl sx={{ minWidth: 150 }}>
+                  <InputLabel>Puzzle Type</InputLabel>
                   <Select
-                    value={filters.condition}
-                    label="Condition"
+                    value={filters.puzzleType}
+                    label="Puzzle Type"
                     onChange={(e) =>
-                      handleFilterChange("condition", e.target.value)
+                      handleFilterChange("puzzleType", e.target.value)
                     }
                   >
                     <MenuItem value="">All</MenuItem>
-                    {CONDITION_OPTIONS.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
+                    {PUZZLE_TYPE_OPTIONS.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
                       </MenuItem>
                     ))}
                   </Select>
