@@ -306,10 +306,12 @@ function Browse() {
                 }}
               >
                 <FormControl sx={{ minWidth: 150 }}>
-                  <InputLabel>Puzzle Type</InputLabel>
+                  <InputLabel shrink>Puzzle Type</InputLabel>
                   <Select
                     value={filters.puzzleType}
                     label="Puzzle Type"
+                    displayEmpty
+                    renderValue={(selected) => selected || "All"}
                     onChange={(e) =>
                       handleFilterChange("puzzleType", e.target.value)
                     }
@@ -324,10 +326,20 @@ function Browse() {
                 </FormControl>
 
                 <FormControl sx={{ minWidth: 120 }}>
-                  <InputLabel>Delivery</InputLabel>
+                  <InputLabel shrink>Delivery</InputLabel>
                   <Select
                     value={filters.deliveryOption}
                     label="Delivery"
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if (selected === "shipping") {
+                        return "Shipping";
+                      }
+                      if (selected === "meetup") {
+                        return "Meetup";
+                      }
+                      return "All";
+                    }}
                     onChange={(e) =>
                       handleFilterChange("deliveryOption", e.target.value)
                     }
