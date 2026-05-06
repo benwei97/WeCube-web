@@ -298,7 +298,7 @@ function Sell() {
     }
   };
 
-  const handleCompetitionListScroll = (event) => {
+  const handleCompetitionListScroll = async (event) => {
     if (competitionSearchInput.trim().length >= 2) {
       return;
     }
@@ -308,13 +308,23 @@ function Sell() {
       listboxNode.scrollTop + listboxNode.clientHeight >=
       listboxNode.scrollHeight - 24;
 
-    if (!nearBottom || competitions.length >= allCompetitions.length) {
+    if (!nearBottom) {
       return;
     }
 
-    setCompetitions(
-      allCompetitions.slice(0, competitions.length + COMPETITION_BATCH_SIZE)
-    );
+    const nextCompetitionCount = competitions.length + COMPETITION_BATCH_SIZE;
+
+    try {
+      const nextCompetitions =
+        nextCompetitionCount <= allCompetitions.length
+          ? allCompetitions
+          : await getUpcomingCompetitions(nextCompetitionCount);
+
+      setAllCompetitions(nextCompetitions);
+      setCompetitions(nextCompetitions.slice(0, nextCompetitionCount));
+    } catch (error) {
+      console.error("Error extending competition list:", error);
+    }
   };
 
   const isDeliveryValid =

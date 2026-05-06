@@ -99,7 +99,7 @@ function Competitions() {
     }
   };
 
-  const handleCompetitionListScroll = (event, target = "browse") => {
+  const handleCompetitionListScroll = async (event, target = "browse") => {
     const activeInput = target === "browse" ? competitionSearchInput : myCompetitionInput;
     if (activeInput.trim().length >= 2) {
       return;
@@ -114,20 +114,27 @@ function Competitions() {
       return;
     }
 
-    if (target === "browse") {
-      if (competitionOptions.length < allCompetitions.length) {
-        setCompetitionOptions(
-          allCompetitions.slice(0, competitionOptions.length + COMPETITION_BATCH_SIZE)
-        );
+    const currentOptionCount =
+      target === "browse"
+        ? competitionOptions.length
+        : myCompetitionOptions.length;
+    const nextOptionCount = currentOptionCount + COMPETITION_BATCH_SIZE;
+
+    try {
+      const nextCompetitions =
+        nextOptionCount <= allCompetitions.length
+          ? allCompetitions
+          : await getUpcomingCompetitions(nextOptionCount);
+
+      setAllCompetitions(nextCompetitions);
+
+      if (target === "browse") {
+        setCompetitionOptions(nextCompetitions.slice(0, nextOptionCount));
+      } else {
+        setMyCompetitionOptions(nextCompetitions.slice(0, nextOptionCount));
       }
-    } else if (myCompetitionOptions.length < allCompetitions.length) {
-      try {
-        setMyCompetitionOptions(
-          allCompetitions.slice(0, myCompetitionOptions.length + COMPETITION_BATCH_SIZE)
-        );
-      } catch (error) {
-        console.error("Error extending competition list:", error);
-      }
+    } catch (error) {
+      console.error("Error extending competition list:", error);
     }
   };
 

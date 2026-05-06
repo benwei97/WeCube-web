@@ -15,7 +15,8 @@ let competitionCache = {
   isLoading: false,
   isLoadingMore: false,
   totalPages: null,
-  loadedPages: 0
+  loadedPages: 0,
+  hasLoadedAllPages: false
 };
 
 // Cache duration: 1 hour (3600000 ms)
@@ -65,6 +66,7 @@ function writeStoredCompetitionCache() {
         timestamp: competitionCache.timestamp,
         loadedPages: competitionCache.loadedPages,
         totalPages: competitionCache.totalPages,
+        hasLoadedAllPages: competitionCache.hasLoadedAllPages,
       })
     );
   } catch (error) {
@@ -114,9 +116,19 @@ function hydrateMemoryCacheFromStorage() {
     isLoadingMore: false,
     totalPages: storedCache.totalPages || null,
     loadedPages: storedCache.loadedPages || Math.ceil(storedCache.data.length / WCA_PAGE_SIZE),
+    hasLoadedAllPages: Boolean(storedCache.hasLoadedAllPages),
   };
 
   return true;
+}
+
+async function waitForCompetitionCacheLimit(limit) {
+  while (
+    competitionCache.isLoadingMore &&
+    (!competitionCache.data || competitionCache.data.length < limit)
+  ) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
 }
 
 /**
@@ -149,7 +161,8 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
         isLoading: false,
         isLoadingMore: false,
         totalPages: result.totalPages,
-        loadedPages: result.loadedPages
+        loadedPages: result.loadedPages,
+        hasLoadedAllPages: !result.hasMorePages,
       };
       writeStoredCompetitionCache();
 
@@ -183,7 +196,8 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
           isLoading: false,
           isLoadingMore: false,
           totalPages: result.totalPages,
-          loadedPages: result.loadedPages
+          loadedPages: result.loadedPages,
+          hasLoadedAllPages: !result.hasMorePages,
         };
         writeStoredCompetitionCache();
 
@@ -282,7 +296,12 @@ async function fetchInitialCompetitionPages(
 /**
  * Load more pages in the background
  */
-async function loadMorePagesInBackground(startDate, proxy = false, startPage = 5) {
+async function loadMorePagesInBackground(
+  startDate,
+  proxy = false,
+  startPage = 5,
+  targetLimit = null
+) {
   if (competitionCache.isLoadingMore) {
     return; // Already loading more
   }
@@ -293,7 +312,11 @@ async function loadMorePagesInBackground(startDate, proxy = false, startPage = 5
   let page = startPage;
   let hasMorePages = true;
 
-  while (hasMorePages && page <= 50) { // Safety limit
+  while (
+    hasMorePages &&
+    page <= 50 &&
+    (!targetLimit || !competitionCache.data || competitionCache.data.length < targetLimit)
+  ) { // Safety limit
     try {
       let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&page=${page}`;
       let response, data;
@@ -342,6 +365,7 @@ async function loadMorePagesInBackground(startDate, proxy = false, startPage = 5
         await new Promise(resolve => setTimeout(resolve, 500));
       } else {
         hasMorePages = false;
+        competitionCache.hasLoadedAllPages = true;
       }
     } catch (error) {
       console.error(`Error background loading page ${page}:`, error);
@@ -350,6 +374,10 @@ async function loadMorePagesInBackground(startDate, proxy = false, startPage = 5
   }
 
   competitionCache.isLoadingMore = false;
+  if (!hasMorePages || page > 50) {
+    competitionCache.hasLoadedAllPages = true;
+    writeStoredCompetitionCache();
+  }
   console.log(`Background loading complete. Total competitions: ${competitionCache.data.length}`);
 }
 
@@ -430,6 +458,22 @@ export async function getUpcomingCompetitions(limit = 50) {
   // Check if we have valid cached data
   if (isCacheValid() || hydrateMemoryCacheFromStorage()) {
     console.log('Using cached competition data');
+    if (
+      competitionCache.data.length < limit &&
+      !competitionCache.hasLoadedAllPages
+    ) {
+      if (competitionCache.isLoadingMore) {
+        await waitForCompetitionCacheLimit(limit);
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        await loadMorePagesInBackground(
+          today,
+          false,
+          competitionCache.loadedPages + 1,
+          limit
+        );
+      }
+    }
     return competitionCache.data.slice(0, limit);
   }
 
