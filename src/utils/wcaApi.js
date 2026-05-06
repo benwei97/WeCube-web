@@ -134,16 +134,11 @@ function isCacheValid() {
 async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD_LIMIT) {
   const today = new Date().toISOString().split('T')[0];
 
-  // Get competitions for the next 3 months
-  const threeMonthsFromNow = new Date();
-  threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-  const endDate = threeMonthsFromNow.toISOString().split('T')[0];
-
-  console.log(`Fetching initial competition data from WCA API (${today} to ${endDate})...`);
+  console.log(`Fetching initial competition data from WCA API (${today} onward)...`);
 
   // Try direct API first (will work in production)
   try {
-    const result = await fetchInitialCompetitionPages(today, endDate, false, null, initialLimit);
+    const result = await fetchInitialCompetitionPages(today, false, null, initialLimit);
     if (result.competitions.length > 0) {
       const formattedCompetitions = formatOfficialCompetitions(result.competitions);
 
@@ -162,7 +157,7 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
 
       // Start loading more pages in background if there are more
       if (result.hasMorePages) {
-        loadMorePagesInBackground(today, endDate, false, result.loadedPages + 1);
+        loadMorePagesInBackground(today, false, result.loadedPages + 1);
       }
 
       return formattedCompetitions;
@@ -175,7 +170,7 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
   for (const proxy of CORS_PROXIES) {
     try {
       console.log(`Trying CORS proxy: ${proxy}`);
-      const result = await fetchInitialCompetitionPages(today, endDate, proxy, null, initialLimit);
+      const result = await fetchInitialCompetitionPages(today, proxy, null, initialLimit);
 
       if (result.competitions.length > 0) {
         console.log('Successfully fetched from CORS proxy');
@@ -196,7 +191,7 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
 
         // Start loading more pages in background if there are more
         if (result.hasMorePages) {
-          loadMorePagesInBackground(today, endDate, proxy, result.loadedPages + 1);
+          loadMorePagesInBackground(today, proxy, result.loadedPages + 1);
         }
 
         return formattedCompetitions;
@@ -215,7 +210,6 @@ async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD
  */
 async function fetchInitialCompetitionPages(
   startDate,
-  endDate,
   proxy = false,
   searchQuery = null,
   initialLimit = DEFAULT_COMPETITION_LOAD_LIMIT
@@ -226,7 +220,7 @@ async function fetchInitialCompetitionPages(
 
   while (page <= maxInitialPages) {
     try {
-      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&end=${endDate}&page=${page}`;
+      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&page=${page}`;
 
       // Add search query if provided
       if (searchQuery) {
@@ -288,7 +282,7 @@ async function fetchInitialCompetitionPages(
 /**
  * Load more pages in the background
  */
-async function loadMorePagesInBackground(startDate, endDate, proxy = false, startPage = 5) {
+async function loadMorePagesInBackground(startDate, proxy = false, startPage = 5) {
   if (competitionCache.isLoadingMore) {
     return; // Already loading more
   }
@@ -301,7 +295,7 @@ async function loadMorePagesInBackground(startDate, endDate, proxy = false, star
 
   while (hasMorePages && page <= 50) { // Safety limit
     try {
-      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&end=${endDate}&page=${page}`;
+      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&page=${page}`;
       let response, data;
 
       if (proxy) {
@@ -362,14 +356,14 @@ async function loadMorePagesInBackground(startDate, endDate, proxy = false, star
 /**
  * Fetch all competition pages with pagination (for search)
  */
-async function fetchAllCompetitionPages(startDate, endDate, proxy = false, searchQuery = null) {
+async function fetchAllCompetitionPages(startDate, proxy = false, searchQuery = null) {
   let allCompetitions = [];
   let page = 1;
   let hasMorePages = true;
 
   while (hasMorePages) {
     try {
-      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&end=${endDate}&page=${page}`;
+      let baseUrl = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&page=${page}`;
 
       // Add search query if provided
       if (searchQuery) {
@@ -521,16 +515,11 @@ export async function searchCompetitions(query, limit = 20) {
   if (searchTerm.length >= 3) {
     const today = new Date().toISOString().split('T')[0];
 
-    // Search for the next 3 months
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-    const endDate = threeMonthsFromNow.toISOString().split('T')[0];
-
-    console.log(`Searching competitions with term: "${searchTerm}" for period ${today} to ${endDate}`);
+    console.log(`Searching competitions with term: "${searchTerm}" from ${today} onward`);
 
     // Try direct API first
     try {
-      const searchResults = await fetchAllCompetitionPages(today, endDate, false, searchTerm);
+      const searchResults = await fetchAllCompetitionPages(today, false, searchTerm);
       if (searchResults.length > 0) {
         const formattedResults = formatOfficialCompetitions(searchResults);
         mergeCompetitionsIntoCache(formattedResults);
@@ -543,7 +532,7 @@ export async function searchCompetitions(query, limit = 20) {
     // Try CORS proxies for search
     for (const proxy of CORS_PROXIES) {
       try {
-        const searchResults = await fetchAllCompetitionPages(today, endDate, proxy, searchTerm);
+        const searchResults = await fetchAllCompetitionPages(today, proxy, searchTerm);
         if (searchResults.length > 0) {
           const formattedResults = formatOfficialCompetitions(searchResults);
           mergeCompetitionsIntoCache(formattedResults);
