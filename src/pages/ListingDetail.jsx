@@ -62,7 +62,11 @@ import {
   getShippingLabel,
   normalizeConditionValue,
 } from "../utils/listingUtils";
-import { getUpcomingCompetitions, searchCompetitions } from "../utils/wcaApi";
+import {
+  DEFAULT_COMPETITION_LOAD_LIMIT,
+  getUpcomingCompetitions,
+  searchCompetitions,
+} from "../utils/wcaApi";
 import { SoldRibbon } from "../components/ListingStatusDecorators";
 
 function ListingDetail() {
@@ -346,7 +350,9 @@ function ListingDetail() {
   const loadCompetitions = async () => {
     setLoadingCompetitions(true);
     try {
-      const upcomingCompetitions = await getUpcomingCompetitions(500);
+      const upcomingCompetitions = await getUpcomingCompetitions(
+        DEFAULT_COMPETITION_LOAD_LIMIT
+      );
       setAllCompetitions(upcomingCompetitions);
       setCompetitions(upcomingCompetitions.slice(0, COMPETITION_BATCH_SIZE));
     } catch (error) {

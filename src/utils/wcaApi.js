@@ -1,4 +1,7 @@
 const WCA_API_BASE = 'https://www.worldcubeassociation.org/api/v0';
+const COMPETITIONS_CACHE_STORAGE_KEY = 'wecube_competitions_cache_v1';
+const WCA_PAGE_SIZE = 25;
+export const DEFAULT_COMPETITION_LOAD_LIMIT = 50;
 const CORS_PROXIES = [
   'https://api.allorigins.win/get?url=',
   'https://corsproxy.io/?',
@@ -18,6 +21,104 @@ let competitionCache = {
 // Cache duration: 1 hour (3600000 ms)
 const CACHE_DURATION = 60 * 60 * 1000;
 
+function canUseLocalStorage() {
+  try {
+    return typeof window !== 'undefined' && Boolean(window.localStorage);
+  } catch {
+    return false;
+  }
+}
+
+function readStoredCompetitionCache() {
+  if (!canUseLocalStorage()) {
+    return null;
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(COMPETITIONS_CACHE_STORAGE_KEY);
+    if (!rawCache) {
+      return null;
+    }
+
+    const parsedCache = JSON.parse(rawCache);
+    if (!Array.isArray(parsedCache.data) || !parsedCache.timestamp) {
+      return null;
+    }
+
+    return parsedCache;
+  } catch (error) {
+    console.warn('Unable to read stored competition cache:', error);
+    return null;
+  }
+}
+
+function writeStoredCompetitionCache() {
+  if (!canUseLocalStorage() || !Array.isArray(competitionCache.data)) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      COMPETITIONS_CACHE_STORAGE_KEY,
+      JSON.stringify({
+        data: competitionCache.data,
+        timestamp: competitionCache.timestamp,
+        loadedPages: competitionCache.loadedPages,
+        totalPages: competitionCache.totalPages,
+      })
+    );
+  } catch (error) {
+    console.warn('Unable to write stored competition cache:', error);
+  }
+}
+
+function mergeCompetitionsIntoCache(competitions) {
+  if (!Array.isArray(competitions) || competitions.length === 0) {
+    return;
+  }
+
+  const existingCompetitions = Array.isArray(competitionCache.data)
+    ? competitionCache.data
+    : [];
+  const competitionsById = new Map(
+    existingCompetitions.map((competition) => [competition.id, competition])
+  );
+
+  competitions.forEach((competition) => {
+    competitionsById.set(competition.id, competition);
+  });
+
+  competitionCache = {
+    ...competitionCache,
+    data: [...competitionsById.values()].sort(
+      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+    ),
+    timestamp: competitionCache.timestamp || Date.now(),
+  };
+  writeStoredCompetitionCache();
+}
+
+function hydrateMemoryCacheFromStorage() {
+  const storedCache = readStoredCompetitionCache();
+  if (
+    !storedCache ||
+    Date.now() - storedCache.timestamp >= CACHE_DURATION
+  ) {
+    return false;
+  }
+
+  competitionCache = {
+    data: storedCache.data,
+    timestamp: storedCache.timestamp,
+    isLoading: false,
+    isLoadingMore: false,
+    totalPages: storedCache.totalPages || null,
+    loadedPages: storedCache.loadedPages || Math.ceil(storedCache.data.length / WCA_PAGE_SIZE),
+  };
+
+  return true;
+}
+
 /**
  * Check if cached data is still valid
  */
@@ -30,7 +131,7 @@ function isCacheValid() {
 /**
  * Fetch competitions from API and cache the result
  */
-async function fetchAndCacheCompetitions() {
+async function fetchAndCacheCompetitions(initialLimit = DEFAULT_COMPETITION_LOAD_LIMIT) {
   const today = new Date().toISOString().split('T')[0];
 
   // Get competitions for the next 3 months
@@ -42,7 +143,7 @@ async function fetchAndCacheCompetitions() {
 
   // Try direct API first (will work in production)
   try {
-    const result = await fetchInitialCompetitionPages(today, endDate, false);
+    const result = await fetchInitialCompetitionPages(today, endDate, false, null, initialLimit);
     if (result.competitions.length > 0) {
       const formattedCompetitions = formatOfficialCompetitions(result.competitions);
 
@@ -55,6 +156,7 @@ async function fetchAndCacheCompetitions() {
         totalPages: result.totalPages,
         loadedPages: result.loadedPages
       };
+      writeStoredCompetitionCache();
 
       console.log(`Cached initial ${formattedCompetitions.length} competitions from ${result.loadedPages} pages`);
 
@@ -73,7 +175,7 @@ async function fetchAndCacheCompetitions() {
   for (const proxy of CORS_PROXIES) {
     try {
       console.log(`Trying CORS proxy: ${proxy}`);
-      const result = await fetchInitialCompetitionPages(today, endDate, proxy);
+      const result = await fetchInitialCompetitionPages(today, endDate, proxy, null, initialLimit);
 
       if (result.competitions.length > 0) {
         console.log('Successfully fetched from CORS proxy');
@@ -88,6 +190,7 @@ async function fetchAndCacheCompetitions() {
           totalPages: result.totalPages,
           loadedPages: result.loadedPages
         };
+        writeStoredCompetitionCache();
 
         console.log(`Cached initial ${formattedCompetitions.length} competitions from ${result.loadedPages} pages`);
 
@@ -108,12 +211,18 @@ async function fetchAndCacheCompetitions() {
 }
 
 /**
- * Fetch initial 4 pages of competitions for quick loading
+ * Fetch the minimum initial pages needed for quick loading
  */
-async function fetchInitialCompetitionPages(startDate, endDate, proxy = false, searchQuery = null) {
+async function fetchInitialCompetitionPages(
+  startDate,
+  endDate,
+  proxy = false,
+  searchQuery = null,
+  initialLimit = DEFAULT_COMPETITION_LOAD_LIMIT
+) {
   let allCompetitions = [];
   let page = 1;
-  const maxInitialPages = 4;
+  const maxInitialPages = Math.max(1, Math.ceil(initialLimit / WCA_PAGE_SIZE));
 
   while (page <= maxInitialPages) {
     try {
@@ -153,7 +262,7 @@ async function fetchInitialCompetitionPages(startDate, endDate, proxy = false, s
         allCompetitions = allCompetitions.concat(data);
 
         // If we got fewer than 25 competitions, we're done
-        if (data.length < 25) {
+        if (data.length < WCA_PAGE_SIZE) {
           break;
         }
         page++;
@@ -171,7 +280,7 @@ async function fetchInitialCompetitionPages(startDate, endDate, proxy = false, s
   return {
     competitions: allCompetitions,
     loadedPages: page - 1,
-    hasMorePages: page <= maxInitialPages && allCompetitions.length > 0 && allCompetitions.length % 25 === 0,
+    hasMorePages: allCompetitions.length > 0 && allCompetitions.length % WCA_PAGE_SIZE === 0,
     totalPages: null // We don't know total pages yet
   };
 }
@@ -224,11 +333,12 @@ async function loadMorePagesInBackground(startDate, endDate, proxy = false, star
         const newFormattedCompetitions = formatOfficialCompetitions(data);
         competitionCache.data = competitionCache.data.concat(newFormattedCompetitions);
         competitionCache.loadedPages = page;
+        writeStoredCompetitionCache();
 
         console.log(`Total cached competitions now: ${competitionCache.data.length}`);
 
         // If we got fewer than 25 competitions, we're done
-        if (data.length < 25) {
+        if (data.length < WCA_PAGE_SIZE) {
           hasMorePages = false;
         } else {
           page++;
@@ -295,7 +405,7 @@ async function fetchAllCompetitionPages(startDate, endDate, proxy = false, searc
         allCompetitions = allCompetitions.concat(data);
 
         // If we got fewer than 25 competitions (typical page size), we're done
-        if (data.length < 25) {
+        if (data.length < WCA_PAGE_SIZE) {
           hasMorePages = false;
         } else {
           page++;
@@ -324,7 +434,7 @@ async function fetchAllCompetitionPages(startDate, endDate, proxy = false, searc
  */
 export async function getUpcomingCompetitions(limit = 50) {
   // Check if we have valid cached data
-  if (isCacheValid()) {
+  if (isCacheValid() || hydrateMemoryCacheFromStorage()) {
     console.log('Using cached competition data');
     return competitionCache.data.slice(0, limit);
   }
@@ -345,7 +455,7 @@ export async function getUpcomingCompetitions(limit = 50) {
   competitionCache.isLoading = true;
 
   try {
-    const competitions = await fetchAndCacheCompetitions();
+    const competitions = await fetchAndCacheCompetitions(limit);
     return competitions.slice(0, limit);
   } catch (error) {
     competitionCache.isLoading = false;
@@ -422,7 +532,9 @@ export async function searchCompetitions(query, limit = 20) {
     try {
       const searchResults = await fetchAllCompetitionPages(today, endDate, false, searchTerm);
       if (searchResults.length > 0) {
-        return formatOfficialCompetitions(searchResults).slice(0, limit);
+        const formattedResults = formatOfficialCompetitions(searchResults);
+        mergeCompetitionsIntoCache(formattedResults);
+        return formattedResults.slice(0, limit);
       }
     } catch (error) {
       console.warn('Direct search API failed due to CORS:', error.message);
@@ -433,7 +545,9 @@ export async function searchCompetitions(query, limit = 20) {
       try {
         const searchResults = await fetchAllCompetitionPages(today, endDate, proxy, searchTerm);
         if (searchResults.length > 0) {
-          return formatOfficialCompetitions(searchResults).slice(0, limit);
+          const formattedResults = formatOfficialCompetitions(searchResults);
+          mergeCompetitionsIntoCache(formattedResults);
+          return formattedResults.slice(0, limit);
         }
       } catch (proxyError) {
         console.warn(`Search CORS proxy ${proxy} failed:`, proxyError.message);
@@ -466,7 +580,7 @@ export async function refreshCompetitionCache() {
   console.log('Manually refreshing competition cache...');
   competitionCache.isLoading = true;
   try {
-    const competitions = await fetchAndCacheCompetitions();
+    const competitions = await fetchAndCacheCompetitions(DEFAULT_COMPETITION_LOAD_LIMIT);
     return competitions;
   } catch (error) {
     competitionCache.isLoading = false;

@@ -28,7 +28,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { uploadMultipleImages } from "../utils/s3";
 import { getConnectAccountStatus } from "../utils/stripe";
 import SellerOnboarding from "../components/SellerOnboarding";
-import { getUpcomingCompetitions, searchCompetitions, getCacheStatus } from "../utils/wcaApi";
+import {
+  DEFAULT_COMPETITION_LOAD_LIMIT,
+  getUpcomingCompetitions,
+  searchCompetitions,
+  getCacheStatus,
+} from "../utils/wcaApi";
 import { fetchLocationSuggestions } from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
@@ -242,7 +247,9 @@ function Sell() {
     try {
       console.log("Starting to load competitions...");
       console.log("Cache status before loading:", getCacheStatus());
-      const upcomingCompetitions = await getUpcomingCompetitions(500); // Get more competitions
+      const upcomingCompetitions = await getUpcomingCompetitions(
+        DEFAULT_COMPETITION_LOAD_LIMIT
+      );
       console.log("Received competitions data:", upcomingCompetitions);
       console.log("Cache status after loading:", getCacheStatus());
       setAllCompetitions(upcomingCompetitions);

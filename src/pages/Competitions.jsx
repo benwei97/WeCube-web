@@ -17,6 +17,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  DEFAULT_COMPETITION_LOAD_LIMIT,
   getUpcomingCompetitions,
   searchCompetitions,
   getCacheStatus,
@@ -53,7 +54,9 @@ function Competitions() {
     try {
       setLoadingCompetitions(true);
       console.log('Cache status before loading:', getCacheStatus());
-      const upcomingCompetitions = await getUpcomingCompetitions(500);
+      const upcomingCompetitions = await getUpcomingCompetitions(
+        DEFAULT_COMPETITION_LOAD_LIMIT
+      );
       console.log('Cache status after loading:', getCacheStatus());
       setAllCompetitions(upcomingCompetitions);
       resetCompetitionOptions(upcomingCompetitions);
