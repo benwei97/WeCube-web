@@ -19,7 +19,23 @@ function formatLocationResult(result) {
   return parts.join(", ");
 }
 
-export async function fetchLocationSuggestions(query) {
+function mapLocationResult(result) {
+  return {
+    label: formatLocationResult(result),
+    city: result.name || "",
+    region: result.admin1 || "",
+    country: result.country || "",
+    countryCode: result.country_code || "",
+    latitude: result.latitude,
+    longitude: result.longitude,
+  };
+}
+
+export function getLocationOptionLabel(option) {
+  return typeof option === "string" ? option : option?.label || "";
+}
+
+export async function fetchLocationSuggestionOptions(query) {
   const trimmedQuery = query.trim();
   if (trimmedQuery.length < 2) {
     return [];
@@ -41,6 +57,14 @@ export async function fetchLocationSuggestions(query) {
 
   return results
     .filter((result) => CITY_FEATURE_CODES.has(result.feature_code))
-    .map((result) => formatLocationResult(result))
-    .filter((value, index, list) => list.indexOf(value) === index);
+    .map((result) => mapLocationResult(result))
+    .filter(
+      (value, index, list) =>
+        list.findIndex((item) => item.label === value.label) === index
+    );
+}
+
+export async function fetchLocationSuggestions(query) {
+  const options = await fetchLocationSuggestionOptions(query);
+  return options.map((option) => option.label);
 }

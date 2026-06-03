@@ -52,7 +52,10 @@ import {
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import PaymentModal from "../components/PaymentModal";
-import { fetchLocationSuggestions } from "../utils/locationSearch";
+import {
+  fetchLocationSuggestionOptions,
+  getLocationOptionLabel,
+} from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
@@ -106,6 +109,7 @@ function ListingDetail() {
     puzzleType: "",
     brand: "",
     meetupLocationLabel: "",
+    meetupLocation: null,
     shippingAvailable: false,
     shippingIncluded: false,
     shippingProfile: "",
@@ -165,6 +169,7 @@ function ListingDetail() {
             puzzleType: listingData.puzzleType || "",
             brand: listingData.brand || "",
             meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
+            meetupLocation: listingData.meetupLocation || null,
             shippingAvailable: fulfillmentFields.shippingAvailable,
             shippingIncluded: fulfillmentFields.shippingIncluded,
             shippingProfile: fulfillmentFields.shippingProfile || "",
@@ -280,7 +285,7 @@ function ListingDetail() {
 
     const timeoutId = setTimeout(async () => {
       try {
-        const suggestions = await fetchLocationSuggestions(query);
+        const suggestions = await fetchLocationSuggestionOptions(query);
         if (active) {
           setLocationOptions(suggestions);
         }
@@ -333,7 +338,7 @@ function ListingDetail() {
       ...prev,
       [field]: isChecked,
       ...(field === "localMeetupAvailable" && !isChecked
-        ? { meetupLocationLabel: "" }
+        ? { meetupLocationLabel: "", meetupLocation: null }
         : {}),
     }));
 
@@ -424,6 +429,29 @@ function ListingDetail() {
     }
   };
 
+  const resolveMeetupLocationForSave = async () => {
+    if (!editData.localMeetupAvailable) {
+      return null;
+    }
+
+    const label = editData.meetupLocationLabel.trim();
+    if (!label) {
+      return null;
+    }
+
+    if (editData.meetupLocation?.label === label) {
+      return editData.meetupLocation;
+    }
+
+    try {
+      const [suggestion] = await fetchLocationSuggestionOptions(label);
+      return suggestion || null;
+    } catch (error) {
+      console.error("Error resolving meetup location:", error);
+      return null;
+    }
+  };
+
   const handleSave = async () => {
     try {
       const isDeliveryValid =
@@ -457,6 +485,7 @@ function ListingDetail() {
       }
 
       const docRef = doc(db, "listings", id);
+      const resolvedMeetupLocation = await resolveMeetupLocationForSave();
       await updateDoc(docRef, {
         title: editData.title,
         price: parseFloat(editData.price),
@@ -466,6 +495,10 @@ function ListingDetail() {
         brand: editData.brand.trim(),
         location: editData.meetupLocationLabel.trim(),
         meetupLocationLabel: editData.meetupLocationLabel.trim(),
+        meetupLocation:
+          editData.localMeetupAvailable && resolvedMeetupLocation
+            ? resolvedMeetupLocation
+            : null,
         deliveryOptions: {
           shipping: editData.shippingAvailable,
           meetup:
@@ -483,6 +516,8 @@ function ListingDetail() {
           name: competition.name,
           city: competition.city,
           country: competition.country,
+          latitude: competition.latitude,
+          longitude: competition.longitude,
           startDate: competition.startDate,
           endDate: competition.endDate,
           displayName: competition.displayName || competition.name,
@@ -491,6 +526,10 @@ function ListingDetail() {
         meetupCompetitionTags: selectedCompetitions.map((competition) => ({
           id: competition.id,
           name: competition.name,
+          city: competition.city,
+          country: competition.country,
+          latitude: competition.latitude,
+          longitude: competition.longitude,
           displayName: competition.displayName || competition.name,
           dateRange: competition.dateRange,
         })),
@@ -507,6 +546,10 @@ function ListingDetail() {
         brand: editData.brand.trim(),
         location: editData.meetupLocationLabel.trim(),
         meetupLocationLabel: editData.meetupLocationLabel.trim(),
+        meetupLocation:
+          editData.localMeetupAvailable && resolvedMeetupLocation
+            ? resolvedMeetupLocation
+            : null,
         deliveryOptions: {
           shipping: editData.shippingAvailable,
           meetup:
@@ -523,6 +566,10 @@ function ListingDetail() {
         meetupCompetitionTags: selectedCompetitions.map((competition) => ({
           id: competition.id,
           name: competition.name,
+          city: competition.city,
+          country: competition.country,
+          latitude: competition.latitude,
+          longitude: competition.longitude,
           displayName: competition.displayName || competition.name,
           dateRange: competition.dateRange,
         })),
@@ -1521,10 +1568,14 @@ function ListingDetail() {
                       freeSolo
                       value={editData.meetupLocationLabel || null}
                       inputValue={editData.meetupLocationLabel}
+                      getOptionLabel={getLocationOptionLabel}
                       onChange={(_, newValue) => {
+                        const selectedLocation =
+                          typeof newValue === "string" ? null : newValue;
                         setEditData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: newValue || "",
+                          meetupLocationLabel: getLocationOptionLabel(newValue),
+                          meetupLocation: selectedLocation,
                         }));
                       }}
                       onInputChange={(_, newInputValue, reason) => {
@@ -1534,6 +1585,10 @@ function ListingDetail() {
                         setEditData((prev) => ({
                           ...prev,
                           meetupLocationLabel: newInputValue,
+                          meetupLocation:
+                            newInputValue === prev.meetupLocation?.label
+                              ? prev.meetupLocation
+                              : null,
                         }));
                       }}
                       loading={loadingLocations}

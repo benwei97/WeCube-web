@@ -34,7 +34,10 @@ import {
   searchCompetitions,
   getCacheStatus,
 } from "../utils/wcaApi";
-import { fetchLocationSuggestions } from "../utils/locationSearch";
+import {
+  fetchLocationSuggestionOptions,
+  getLocationOptionLabel,
+} from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
@@ -60,6 +63,7 @@ function Sell() {
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
     meetupLocationLabel: "",
+    meetupLocation: null,
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -96,7 +100,7 @@ function Sell() {
 
     const timeoutId = setTimeout(async () => {
       try {
-        const suggestions = await fetchLocationSuggestions(query);
+        const suggestions = await fetchLocationSuggestionOptions(query);
         if (active) {
           setLocationOptions(suggestions);
         }
@@ -237,6 +241,7 @@ function Sell() {
       setFulfillmentData((prev) => ({
         ...prev,
         meetupLocationLabel: "",
+        meetupLocation: null,
       }));
       setLocationOptions([]);
     }
@@ -359,6 +364,29 @@ function Sell() {
     }
   };
 
+  const resolveMeetupLocationForSave = async () => {
+    if (!fulfillmentData.localMeetupAvailable) {
+      return null;
+    }
+
+    const label = fulfillmentData.meetupLocationLabel.trim();
+    if (!label) {
+      return null;
+    }
+
+    if (fulfillmentData.meetupLocation?.label === label) {
+      return fulfillmentData.meetupLocation;
+    }
+
+    try {
+      const [suggestion] = await fetchLocationSuggestionOptions(label);
+      return suggestion || null;
+    } catch (error) {
+      console.error("Error resolving meetup location:", error);
+      return null;
+    }
+  };
+
   const handlePublishListing = async () => {
     setHasAttemptedSubmit(true);
 
@@ -413,6 +441,7 @@ function Sell() {
       // Get user's Stripe account ID for marketplace payments
       const userDoc = await getDoc(doc(db, "users", currentUser.uid));
       const userData = userDoc.data();
+      const resolvedMeetupLocation = await resolveMeetupLocationForSave();
 
       const listingToSave = {
         title: listingData.title,
@@ -423,6 +452,10 @@ function Sell() {
         brand: listingData.brand.trim(),
         location: fulfillmentData.meetupLocationLabel.trim(),
         meetupLocationLabel: fulfillmentData.meetupLocationLabel.trim(),
+        meetupLocation:
+          fulfillmentData.localMeetupAvailable && resolvedMeetupLocation
+            ? resolvedMeetupLocation
+            : null,
         photos: photosForStorage,
         deliveryOptions: {
           shipping: fulfillmentData.shippingAvailable,
@@ -444,6 +477,8 @@ function Sell() {
           name: comp.name,
           city: comp.city,
           country: comp.country,
+          latitude: comp.latitude,
+          longitude: comp.longitude,
           startDate: comp.startDate,
           endDate: comp.endDate,
           displayName: comp.displayName,
@@ -452,6 +487,10 @@ function Sell() {
         meetupCompetitionTags: selectedCompetitions.map((comp) => ({
           id: comp.id,
           name: comp.name,
+          city: comp.city,
+          country: comp.country,
+          latitude: comp.latitude,
+          longitude: comp.longitude,
           displayName: comp.displayName,
           dateRange: comp.dateRange,
         })),
@@ -506,6 +545,7 @@ function Sell() {
       localMeetupAvailable: false,
       competitionMeetupAvailable: false,
       meetupLocationLabel: "",
+      meetupLocation: null,
     });
     setSelectedCompetitions([]);
     setHasAttemptedSubmit(false); // Reset validation state when clearing form
@@ -918,10 +958,14 @@ function Sell() {
                       freeSolo
                       value={fulfillmentData.meetupLocationLabel || null}
                       inputValue={fulfillmentData.meetupLocationLabel}
+                      getOptionLabel={getLocationOptionLabel}
                       onChange={(_, newValue) => {
+                        const selectedLocation =
+                          typeof newValue === "string" ? null : newValue;
                         setFulfillmentData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: newValue || "",
+                          meetupLocationLabel: getLocationOptionLabel(newValue),
+                          meetupLocation: selectedLocation,
                         }));
                       }}
                       onInputChange={(_, newInputValue, reason) => {
@@ -931,6 +975,10 @@ function Sell() {
                         setFulfillmentData((prev) => ({
                           ...prev,
                           meetupLocationLabel: newInputValue,
+                          meetupLocation:
+                            newInputValue === prev.meetupLocation?.label
+                              ? prev.meetupLocation
+                              : null,
                         }));
                       }}
                       loading={loadingLocations}

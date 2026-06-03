@@ -5,17 +5,17 @@ import {
   CardContent,
   CircularProgress,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Slider,
   Paper,
   Button,
   Stack,
   Divider,
+  Autocomplete,
+  Popover,
+  Slider,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
-import { Search, FilterList } from "@mui/icons-material";
+import { Search, LocationOn } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -38,9 +38,65 @@ import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
   isSoldListingPubliclyVisible,
-  PUZZLE_TYPE_OPTIONS,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
+import {
+  fetchLocationSuggestionOptions,
+  getLocationOptionLabel,
+} from "../utils/locationSearch";
+
+const EARTH_RADIUS_MILES = 3958.8;
+const DEFAULT_LOCATION_RADIUS_MILES = 25;
+const LOCATION_RADIUS_MIN_MILES = 5;
+const LOCATION_RADIUS_MAX_MILES = 100;
+const DEFAULT_LOCATION_FILTER = {
+  meetupLocation: "",
+  meetupLocationOption: null,
+  meetupRadius: DEFAULT_LOCATION_RADIUS_MILES,
+  includeLocalMeetups: true,
+  includeCompetitionMeetups: true,
+  includeShippableListings: true,
+};
+
+function getMilesBetweenLocations(origin, destination) {
+  if (
+    typeof origin?.latitude !== "number" ||
+    typeof origin?.longitude !== "number" ||
+    typeof destination?.latitude !== "number" ||
+    typeof destination?.longitude !== "number"
+  ) {
+    return null;
+  }
+
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const originLat = toRadians(origin.latitude);
+  const destinationLat = toRadians(destination.latitude);
+  const latDelta = toRadians(destination.latitude - origin.latitude);
+  const lonDelta = toRadians(destination.longitude - origin.longitude);
+  const haversine =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.cos(originLat) *
+      Math.cos(destinationLat) *
+      Math.sin(lonDelta / 2) ** 2;
+
+  return (
+    EARTH_RADIUS_MILES *
+    2 *
+    Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
+}
+
+function getLocationButtonLabel(filters) {
+  if (!filters.meetupLocation.trim()) {
+    return "All locations";
+  }
+
+  return (
+    filters.meetupLocationOption?.city ||
+    filters.meetupLocation.split(",")[0].trim() ||
+    "Location"
+  );
+}
 
 function Browse() {
   const { currentUser } = useAuth();
@@ -54,16 +110,23 @@ function Browse() {
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
-    puzzleType: "",
-    priceRange: [0, 1000],
-    deliveryOption: "",
+    ...DEFAULT_LOCATION_FILTER,
   });
-  const [maxPrice, setMaxPrice] = useState(1000);
-  const [showFilters, setShowFilters] = useState(false);
+  const [locationDraft, setLocationDraft] = useState({
+    ...DEFAULT_LOCATION_FILTER,
+  });
+  const [locationAnchorEl, setLocationAnchorEl] = useState(null);
+  const [locationSearchOptions, setLocationSearchOptions] = useState([]);
+  const [loadingLocationOptions, setLoadingLocationOptions] = useState(false);
   const navigate = useNavigate();
   const attendingCompetitionIds = new Set(
     (currentUser?.attendingCompetitions || []).map((competition) => competition.id)
   );
+  const locationOptions =
+    locationDraft.meetupLocation.trim().length >= 2 ? locationSearchOptions : [];
+  const isLocationPopoverOpen = Boolean(locationAnchorEl);
+  const hasLocationFilter = Boolean(filters.meetupLocation.trim());
+  const locationButtonLabel = getLocationButtonLabel(filters);
 
   useEffect(() => {
     const listingsQuery = query(
@@ -92,6 +155,41 @@ function Browse() {
   }, []);
 
   useEffect(() => {
+    const query = locationDraft.meetupLocation.trim();
+    if (query.length < 2) {
+      setLocationSearchOptions([]);
+      setLoadingLocationOptions(false);
+      return undefined;
+    }
+
+    let active = true;
+    setLoadingLocationOptions(true);
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const suggestions = await fetchLocationSuggestionOptions(query);
+        if (active) {
+          setLocationSearchOptions(suggestions);
+        }
+      } catch (error) {
+        console.error("Error loading location filter suggestions:", error);
+        if (active) {
+          setLocationSearchOptions([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingLocationOptions(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [locationDraft.meetupLocation]);
+
+  useEffect(() => {
     applyFilters();
   }, [listings, allListings, filters, currentUser, isSearching]);
 
@@ -101,38 +199,14 @@ function Browse() {
     setHasMore(sortedListings.length > visibleCount);
   }, [allListings, visibleCount]);
 
-  useEffect(() => {
-    const prices = allListings
-      .map((listing) => listing.price)
-      .filter((price) => price && !isNaN(price));
-    const calculatedMaxPrice = prices.length > 0 ? Math.max(...prices) : 1000;
-    const roundedMaxPrice = Math.ceil(calculatedMaxPrice / 10) * 10;
-
-    setMaxPrice(roundedMaxPrice);
-    setFilters((prev) => {
-      const [minPrice, maxSelectedPrice] = prev.priceRange;
-
-      return {
-        ...prev,
-        priceRange: [
-          Math.min(minPrice, roundedMaxPrice),
-          Math.min(maxSelectedPrice, roundedMaxPrice) || roundedMaxPrice,
-        ],
-      };
-    });
-  }, [allListings]);
-
   // Check if user is actively searching/filtering
   useEffect(() => {
     const searching =
       filters.search ||
-      filters.puzzleType ||
-      filters.priceRange[0] > 0 ||
-      filters.priceRange[1] < maxPrice ||
-      filters.deliveryOption;
+      hasLocationFilter;
     setIsSearching(searching);
 
-  }, [filters, maxPrice]);
+  }, [filters, hasLocationFilter]);
 
   const loadMoreListings = () => {
     if (!isSearching && hasMore && !loadingMore) {
@@ -188,35 +262,95 @@ function Browse() {
       );
     }
 
-    // Puzzle type filter
-    if (filters.puzzleType) {
-      filtered = filtered.filter(
-        (listing) => listing.puzzleType === filters.puzzleType
-      );
-    }
+    if (filters.meetupLocation.trim()) {
+      const meetupLocationSearch = filters.meetupLocation.trim().toLowerCase();
+      const selectedLocation = filters.meetupLocationOption;
+      const selectedRadius = Number(filters.meetupRadius);
+      const canFilterByRadius =
+        Number.isFinite(selectedRadius) &&
+        selectedRadius > 0 &&
+        typeof selectedLocation?.latitude === "number" &&
+        typeof selectedLocation?.longitude === "number";
 
-    // Price range filter
-    filtered = filtered.filter((listing) => {
-      return (
-        listing.price >= filters.priceRange[0] &&
-        listing.price <= filters.priceRange[1]
-      );
-    });
-
-    // Delivery option filter
-    if (filters.deliveryOption) {
       filtered = filtered.filter((listing) => {
         const normalizedListing = getNormalizedFulfillmentFields(listing);
-        if (filters.deliveryOption === "shipping") {
-          return normalizedListing.shippingAvailable;
+        const competitionTags = [
+          ...(normalizedListing.meetupCompetitionTags || []),
+          ...(listing.competitions || []),
+        ];
+
+        if (filters.includeShippableListings && normalizedListing.shippingAvailable) {
+          return true;
         }
-        if (filters.deliveryOption === "meetup") {
-          return (
-            normalizedListing.localMeetupAvailable ||
-            normalizedListing.competitionMeetupAvailable
-          );
+
+        const searchableMeetupText = [
+          normalizedListing.meetupLocationLabel,
+          listing.meetupLocation?.city,
+          listing.meetupLocation?.region,
+          listing.meetupLocation?.country,
+          ...competitionTags.flatMap((competition) => [
+            competition.city,
+            competition.country,
+          ]),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        const exactMeetupTextMatch = [
+          normalizedListing.meetupLocationLabel,
+          listing.meetupLocation?.city,
+          listing.meetupLocation?.region,
+          listing.meetupLocation?.country,
+          ...competitionTags.flatMap((competition) => [
+            competition.city,
+            competition.country,
+          ]),
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase() === meetupLocationSearch);
+
+        if (canFilterByRadius) {
+          const localMeetupMatches =
+            filters.includeLocalMeetups &&
+            normalizedListing.localMeetupAvailable &&
+            getMilesBetweenLocations(selectedLocation, listing.meetupLocation) !==
+              null &&
+            getMilesBetweenLocations(selectedLocation, listing.meetupLocation) <=
+              selectedRadius;
+          const competitionMeetupMatches =
+            filters.includeCompetitionMeetups &&
+            normalizedListing.competitionMeetupAvailable &&
+            competitionTags
+              .map((location) =>
+                getMilesBetweenLocations(selectedLocation, location)
+              )
+              .filter((distance) => distance !== null)
+              .some((distance) => distance <= selectedRadius);
+          const legacyTextMatch =
+            exactMeetupTextMatch &&
+            ((filters.includeLocalMeetups &&
+              normalizedListing.localMeetupAvailable) ||
+              (filters.includeCompetitionMeetups &&
+                normalizedListing.competitionMeetupAvailable));
+
+          return localMeetupMatches || competitionMeetupMatches || legacyTextMatch;
         }
-        return true;
+
+        const localTextMatch =
+          filters.includeLocalMeetups &&
+          normalizedListing.localMeetupAvailable &&
+          searchableMeetupText.includes(meetupLocationSearch);
+        const competitionTextMatch =
+          filters.includeCompetitionMeetups &&
+          normalizedListing.competitionMeetupAvailable &&
+          competitionTags
+            .flatMap((competition) => [competition.city, competition.country])
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(meetupLocationSearch);
+
+        return localTextMatch || competitionTextMatch;
       });
     }
 
@@ -230,13 +364,51 @@ function Browse() {
     }));
   };
 
-  const clearFilters = () => {
-    setFilters({
-      search: "",
-      puzzleType: "",
-      priceRange: [0, maxPrice],
-      deliveryOption: "",
+  const clearLocationFilter = () => {
+    setFilters((prev) => ({
+      ...prev,
+      ...DEFAULT_LOCATION_FILTER,
+    }));
+    setLocationDraft({ ...DEFAULT_LOCATION_FILTER });
+  };
+
+  const handleOpenLocationFilter = (event) => {
+    setLocationDraft({
+      meetupLocation: filters.meetupLocation,
+      meetupLocationOption: filters.meetupLocationOption,
+      meetupRadius: filters.meetupRadius,
+      includeLocalMeetups: filters.includeLocalMeetups,
+      includeCompetitionMeetups: filters.includeCompetitionMeetups,
+      includeShippableListings: filters.includeShippableListings,
     });
+    setLocationAnchorEl(event.currentTarget);
+  };
+
+  const handleApplyLocationFilter = async () => {
+    let nextLocationDraft = locationDraft;
+    const locationLabel = locationDraft.meetupLocation.trim();
+
+    if (locationLabel && !locationDraft.meetupLocationOption) {
+      try {
+        const [suggestion] = await fetchLocationSuggestionOptions(locationLabel);
+        if (suggestion) {
+          nextLocationDraft = {
+            ...locationDraft,
+            meetupLocation: suggestion.label,
+            meetupLocationOption: suggestion,
+          };
+          setLocationDraft(nextLocationDraft);
+        }
+      } catch (error) {
+        console.error("Error resolving location filter:", error);
+      }
+    }
+
+    setFilters((prev) => ({
+      ...prev,
+      ...nextLocationDraft,
+    }));
+    setLocationAnchorEl(null);
   };
 
   const formatPrice = (price) => {
@@ -286,94 +458,180 @@ function Browse() {
               }}
             />
             <Button
-              variant="outlined"
-              startIcon={<FilterList />}
-              onClick={() => setShowFilters(!showFilters)}
+              variant={hasLocationFilter ? "contained" : "outlined"}
+              startIcon={<LocationOn />}
+              onClick={handleOpenLocationFilter}
+              sx={{ whiteSpace: "nowrap", maxWidth: { xs: 160, sm: 280 } }}
             >
-              Filters
+              <Box
+                component="span"
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {locationButtonLabel}
+              </Box>
             </Button>
           </Box>
 
-          {showFilters && (
-            <>
-              <Divider />
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                }}
-              >
-                <FormControl sx={{ minWidth: 150 }}>
-                  <InputLabel shrink>Puzzle Type</InputLabel>
-                  <Select
-                    value={filters.puzzleType}
-                    label="Puzzle Type"
-                    displayEmpty
-                    renderValue={(selected) => selected || "All"}
-                    onChange={(e) =>
-                      handleFilterChange("puzzleType", e.target.value)
-                    }
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {PUZZLE_TYPE_OPTIONS.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl sx={{ minWidth: 120 }}>
-                  <InputLabel shrink>Delivery</InputLabel>
-                  <Select
-                    value={filters.deliveryOption}
-                    label="Delivery"
-                    displayEmpty
-                    renderValue={(selected) => {
-                      if (selected === "shipping") {
-                        return "Shipping";
-                      }
-                      if (selected === "meetup") {
-                        return "Meetup";
-                      }
-                      return "All";
-                    }}
-                    onChange={(e) =>
-                      handleFilterChange("deliveryOption", e.target.value)
-                    }
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="shipping">Shipping</MenuItem>
-                    <MenuItem value="meetup">Meetup</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Box sx={{ minWidth: 200 }}>
-                  <Typography variant="body2" gutterBottom>
-                    Price Range: {formatPrice(filters.priceRange[0])} -{" "}
-                    {formatPrice(filters.priceRange[1])}
-                  </Typography>
-                  <Slider
-                    value={filters.priceRange}
-                    onChange={(_, value) =>
-                      handleFilterChange("priceRange", value)
-                    }
-                    valueLabelDisplay="auto"
-                    min={0}
-                    max={maxPrice}
-                    step={Math.max(1, Math.floor(maxPrice / 100))}
-                    valueLabelFormat={formatPrice}
-                  />
-                </Box>
-
-                <Button variant="text" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
+          <Popover
+            open={isLocationPopoverOpen}
+            anchorEl={locationAnchorEl}
+            onClose={() => setLocationAnchorEl(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            slotProps={{
+              paper: {
+                sx: {
+                  width: { xs: "calc(100vw - 32px)", sm: 380 },
+                  p: 2.5,
+                  mt: 1,
+                },
+              },
+            }}
+          >
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Location
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Find listings available near this location.
+                </Typography>
               </Box>
-            </>
-          )}
+
+              <Autocomplete
+                freeSolo
+                options={locationOptions}
+                getOptionLabel={getLocationOptionLabel}
+                inputValue={locationDraft.meetupLocation}
+                value={locationDraft.meetupLocationOption}
+                loading={loadingLocationOptions}
+                open={locationDraft.meetupLocation.trim().length >= 2}
+                filterOptions={(options) => options}
+                noOptionsText={
+                  locationDraft.meetupLocation.trim().length < 2
+                    ? "Start typing a location..."
+                    : "No matching locations found"
+                }
+                onChange={(_, value) => {
+                  const selectedLocation =
+                    typeof value === "string" ? null : value;
+                  setLocationDraft((prev) => ({
+                    ...prev,
+                    meetupLocation: getLocationOptionLabel(value),
+                    meetupLocationOption: selectedLocation,
+                  }));
+                }}
+                onInputChange={(_, value, reason) => {
+                  if (reason === "reset") {
+                    return;
+                  }
+                  setLocationDraft((prev) => ({
+                    ...prev,
+                    meetupLocation: value,
+                    meetupLocationOption:
+                      value === prev.meetupLocationOption?.label
+                        ? prev.meetupLocationOption
+                        : null,
+                  }));
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Search location"
+                    placeholder="City, region, or country"
+                  />
+                )}
+              />
+
+              <Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Radius: {locationDraft.meetupRadius} miles
+                </Typography>
+                <Slider
+                  value={locationDraft.meetupRadius}
+                  min={LOCATION_RADIUS_MIN_MILES}
+                  max={LOCATION_RADIUS_MAX_MILES}
+                  step={5}
+                  marks={[
+                    { value: LOCATION_RADIUS_MIN_MILES, label: "5" },
+                    { value: DEFAULT_LOCATION_RADIUS_MILES, label: "25" },
+                    { value: 50, label: "50" },
+                    { value: LOCATION_RADIUS_MAX_MILES, label: "100" },
+                  ]}
+                  valueLabelDisplay="auto"
+                  onChange={(_, value) =>
+                    setLocationDraft((prev) => ({
+                      ...prev,
+                      meetupRadius: value,
+                    }))
+                  }
+                />
+              </Box>
+
+              <Divider />
+
+              <Stack spacing={0.5}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={locationDraft.includeLocalMeetups}
+                      onChange={(event) =>
+                        setLocationDraft((prev) => ({
+                          ...prev,
+                          includeLocalMeetups: event.target.checked,
+                        }))
+                      }
+                    />
+                  }
+                  label="Local meetups"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={locationDraft.includeCompetitionMeetups}
+                      onChange={(event) =>
+                        setLocationDraft((prev) => ({
+                          ...prev,
+                          includeCompetitionMeetups: event.target.checked,
+                        }))
+                      }
+                    />
+                  }
+                  label="Competition meetups"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={locationDraft.includeShippableListings}
+                      onChange={(event) =>
+                        setLocationDraft((prev) => ({
+                          ...prev,
+                          includeShippableListings: event.target.checked,
+                        }))
+                      }
+                    />
+                  }
+                  label="Shippable listings"
+                />
+              </Stack>
+
+              <Stack direction="row" justifyContent="space-between" spacing={1}>
+                <Button variant="text" onClick={clearLocationFilter}>
+                  Clear location
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleApplyLocationFilter}
+                >
+                  Apply
+                </Button>
+              </Stack>
+            </Stack>
+          </Popover>
         </Stack>
       </Paper>
 
