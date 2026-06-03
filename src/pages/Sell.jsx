@@ -54,7 +54,6 @@ function Sell() {
     description: "",
     condition: "",
     puzzleType: "",
-    brand: "",
   });
   const [fulfillmentData, setFulfillmentData] = useState({
     shippingAvailable: true,
@@ -449,7 +448,6 @@ function Sell() {
         description: listingData.description,
         condition: listingData.condition,
         puzzleType: listingData.puzzleType,
-        brand: listingData.brand.trim(),
         location: fulfillmentData.meetupLocationLabel.trim(),
         meetupLocationLabel: fulfillmentData.meetupLocationLabel.trim(),
         meetupLocation:
@@ -536,7 +534,6 @@ function Sell() {
       description: "",
       condition: "",
       puzzleType: "",
-      brand: "",
     });
     setFulfillmentData({
       shippingAvailable: true,
@@ -814,15 +811,6 @@ function Sell() {
               </Grid>
 
               <TextField
-                label="Brand"
-                fullWidth
-                placeholder="e.g., GAN, MoYu, QiYi"
-                variant="outlined"
-                value={listingData.brand}
-                onChange={handleInputChange("brand")}
-              />
-
-              <TextField
                 label="Description"
                 fullWidth
                 multiline
@@ -831,6 +819,7 @@ function Sell() {
                 variant="outlined"
                 value={listingData.description}
                 onChange={handleInputChange("description")}
+                required
               />
 
             </Stack>
