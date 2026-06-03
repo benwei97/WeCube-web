@@ -57,6 +57,75 @@ const DEFAULT_LOCATION_FILTER = {
   includeCompetitionMeetups: true,
   includeShippableListings: true,
 };
+const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter";
+
+function getLocationFilterStorageKey(userId) {
+  return `${LOCATION_FILTER_STORAGE_PREFIX}_${userId || "guest"}`;
+}
+
+function sanitizeStoredLocationFilter(storedFilter) {
+  if (!storedFilter || typeof storedFilter !== "object") {
+    return { ...DEFAULT_LOCATION_FILTER };
+  }
+
+  const storedRadius = Number(storedFilter.meetupRadius);
+  const meetupRadius =
+    Number.isFinite(storedRadius) &&
+    storedRadius >= LOCATION_RADIUS_MIN_MILES &&
+    storedRadius <= LOCATION_RADIUS_MAX_MILES
+      ? storedRadius
+      : DEFAULT_LOCATION_RADIUS_MILES;
+
+  return {
+    meetupLocation:
+      typeof storedFilter.meetupLocation === "string"
+        ? storedFilter.meetupLocation
+        : "",
+    meetupLocationOption:
+      storedFilter.meetupLocationOption &&
+      typeof storedFilter.meetupLocationOption === "object"
+        ? storedFilter.meetupLocationOption
+        : null,
+    meetupRadius,
+    includeLocalMeetups:
+      typeof storedFilter.includeLocalMeetups === "boolean"
+        ? storedFilter.includeLocalMeetups
+        : DEFAULT_LOCATION_FILTER.includeLocalMeetups,
+    includeCompetitionMeetups:
+      typeof storedFilter.includeCompetitionMeetups === "boolean"
+        ? storedFilter.includeCompetitionMeetups
+        : DEFAULT_LOCATION_FILTER.includeCompetitionMeetups,
+    includeShippableListings:
+      typeof storedFilter.includeShippableListings === "boolean"
+        ? storedFilter.includeShippableListings
+        : DEFAULT_LOCATION_FILTER.includeShippableListings,
+  };
+}
+
+function readStoredLocationFilter(userId) {
+  try {
+    const rawFilter = window.localStorage.getItem(
+      getLocationFilterStorageKey(userId)
+    );
+    return rawFilter
+      ? sanitizeStoredLocationFilter(JSON.parse(rawFilter))
+      : { ...DEFAULT_LOCATION_FILTER };
+  } catch (error) {
+    console.warn("Unable to read saved location filter:", error);
+    return { ...DEFAULT_LOCATION_FILTER };
+  }
+}
+
+function writeStoredLocationFilter(userId, locationFilter) {
+  try {
+    window.localStorage.setItem(
+      getLocationFilterStorageKey(userId),
+      JSON.stringify(sanitizeStoredLocationFilter(locationFilter))
+    );
+  } catch (error) {
+    console.warn("Unable to save location filter:", error);
+  }
+}
 
 function getMilesBetweenLocations(origin, destination) {
   if (
@@ -118,6 +187,8 @@ function Browse() {
   const [locationAnchorEl, setLocationAnchorEl] = useState(null);
   const [locationSearchOptions, setLocationSearchOptions] = useState([]);
   const [loadingLocationOptions, setLoadingLocationOptions] = useState(false);
+  const [restoredLocationFilterKey, setRestoredLocationFilterKey] =
+    useState(null);
   const navigate = useNavigate();
   const attendingCompetitionIds = new Set(
     (currentUser?.attendingCompetitions || []).map((competition) => competition.id)
@@ -127,6 +198,7 @@ function Browse() {
   const isLocationPopoverOpen = Boolean(locationAnchorEl);
   const hasLocationFilter = Boolean(filters.meetupLocation.trim());
   const locationButtonLabel = getLocationButtonLabel(filters);
+  const locationFilterStorageKey = getLocationFilterStorageKey(currentUser?.uid);
 
   useEffect(() => {
     const listingsQuery = query(
@@ -153,6 +225,41 @@ function Browse() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const storedLocationFilter = readStoredLocationFilter(currentUser?.uid);
+    setFilters((prev) => ({
+      ...prev,
+      ...storedLocationFilter,
+    }));
+    setLocationDraft(storedLocationFilter);
+    setRestoredLocationFilterKey(locationFilterStorageKey);
+  }, [currentUser?.uid, locationFilterStorageKey]);
+
+  useEffect(() => {
+    if (restoredLocationFilterKey !== locationFilterStorageKey) {
+      return;
+    }
+
+    writeStoredLocationFilter(currentUser?.uid, {
+      meetupLocation: filters.meetupLocation,
+      meetupLocationOption: filters.meetupLocationOption,
+      meetupRadius: filters.meetupRadius,
+      includeLocalMeetups: filters.includeLocalMeetups,
+      includeCompetitionMeetups: filters.includeCompetitionMeetups,
+      includeShippableListings: filters.includeShippableListings,
+    });
+  }, [
+    currentUser?.uid,
+    filters.meetupLocation,
+    filters.meetupLocationOption,
+    filters.meetupRadius,
+    filters.includeLocalMeetups,
+    filters.includeCompetitionMeetups,
+    filters.includeShippableListings,
+    locationFilterStorageKey,
+    restoredLocationFilterKey,
+  ]);
 
   useEffect(() => {
     const query = locationDraft.meetupLocation.trim();
