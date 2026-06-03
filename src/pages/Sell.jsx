@@ -17,7 +17,6 @@ import {
   FormHelperText,
   Autocomplete,
   Chip,
-  Skeleton,
 } from "@mui/material";
 import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -282,23 +281,21 @@ function Sell() {
     }
 
     console.log("Competition search triggered with value:", normalizedValue);
-    if (normalizedValue.length > 2) {
-      setLoadingCompetitions(true);
-      try {
-        console.log("Searching for competitions with query:", normalizedValue);
-        const searchResults = await searchCompetitions(normalizedValue, 100);
-        console.log(
-          "Search results:",
-          searchResults.length,
-          "competitions found"
-        );
-        setCompetitions(searchResults);
-      } catch (error) {
-        console.error("Error searching competitions:", error);
-        // Keep existing competitions if search fails
-      } finally {
-        setLoadingCompetitions(false);
-      }
+    setLoadingCompetitions(true);
+    try {
+      console.log("Searching for competitions with query:", normalizedValue);
+      const searchResults = await searchCompetitions(normalizedValue, 100);
+      console.log(
+        "Search results:",
+        searchResults.length,
+        "competitions found"
+      );
+      setCompetitions(searchResults);
+    } catch (error) {
+      console.error("Error searching competitions:", error);
+      // Keep existing competitions if search fails
+    } finally {
+      setLoadingCompetitions(false);
     }
   };
 
@@ -1021,64 +1018,58 @@ function Sell() {
                     Select competitions where this cube will be available for
                     meetup: *
                   </Typography>
-                  {loadingCompetitions ? (
-                    <Skeleton variant="rectangular" width="100%" height={56} />
-                  ) : (
-                    <Autocomplete
-                      multiple
-                      options={competitions}
-                      inputValue={competitionSearchInput}
-                      getOptionLabel={(option) => option.displayName}
-                      value={selectedCompetitions}
-                      onChange={(_, newValue) => {
-                        setSelectedCompetitions(newValue);
-                      }}
-                      onInputChange={handleCompetitionSearch}
-                      ListboxProps={{
-                        onScroll: handleCompetitionListScroll,
-                      }}
-                      noOptionsText={
-                        competitions.length === 0
-                          ? "No competitions loaded. Try typing to search."
-                          : "No competitions match your search."
-                      }
-                      loading={loadingCompetitions}
-                      loadingText="Loading competitions..."
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Search competitions"
-                          placeholder="Type to search competitions..."
+                  <Autocomplete
+                    multiple
+                    options={competitions}
+                    inputValue={competitionSearchInput}
+                    getOptionLabel={(option) => option.displayName}
+                    value={selectedCompetitions}
+                    onChange={(_, newValue) => {
+                      setSelectedCompetitions(newValue);
+                    }}
+                    onInputChange={handleCompetitionSearch}
+                    ListboxProps={{
+                      onScroll: handleCompetitionListScroll,
+                    }}
+                    noOptionsText={
+                      competitions.length === 0
+                        ? "No competitions loaded. Try typing to search."
+                        : "No competitions match your search."
+                    }
+                    loading={loadingCompetitions}
+                    loadingText="Loading competitions..."
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search competitions"
+                        placeholder="Type to search competitions..."
+                        variant="outlined"
+                        error={hasAttemptedSubmit && !isCompetitionValid}
+                      />
+                    )}
+                    renderTags={(tagValue, getTagProps) =>
+                      tagValue.map((option, index) => (
+                        <Chip
+                          {...getTagProps({ index })}
+                          key={option.id}
+                          label={`${option.name} - ${option.dateRange}`}
+                          size="small"
                           variant="outlined"
-                          error={hasAttemptedSubmit && !isCompetitionValid}
                         />
-                      )}
-                      renderTags={(tagValue, getTagProps) =>
-                        tagValue.map((option, index) => (
-                          <Chip
-                            {...getTagProps({ index })}
-                            key={option.id}
-                            label={`${option.name} - ${option.dateRange}`}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))
-                      }
-                      renderOption={(props, option) => (
-                        <Box component="li" {...props} key={option.id}>
-                          <Box>
-                            <Typography variant="body1">
-                              {option.name}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {option.city}, {option.country} •{" "}
-                              {option.dateRange}
-                            </Typography>
-                          </Box>
+                      ))
+                    }
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} key={option.id}>
+                        <Box>
+                          <Typography variant="body1">{option.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {option.city}, {option.country} •{" "}
+                            {option.dateRange}
+                          </Typography>
                         </Box>
-                      )}
-                    />
-                  )}
+                      </Box>
+                    )}
+                  />
                 </Box>
               )}
 
