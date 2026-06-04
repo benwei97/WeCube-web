@@ -52,6 +52,7 @@ import {
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import PaymentModal from "../components/PaymentModal";
+import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import {
   fetchLocationSuggestionOptions,
   getLocationOptionLabel,
@@ -795,7 +796,7 @@ function ListingDetail() {
   };
 
   const getMessageButtonText = () => {
-    if (!existingConversation) return "Message Owner";
+    if (!existingConversation) return "Message";
 
     switch (existingConversation.status) {
       case "pending":
@@ -805,7 +806,7 @@ function ListingDetail() {
       case "rejected":
         return "Request Declined";
       default:
-        return "Message Owner";
+        return "Message";
     }
   };
 
@@ -862,16 +863,21 @@ function ListingDetail() {
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
   const hasShipping = Boolean(listing.shippingAvailable);
-  const hasMeetup = Boolean(
-    listing.localMeetupAvailable || listing.competitionMeetupAvailable
-  );
   const hasApprovedConversation = existingConversation?.status === "approved";
   const cameFromPublish = Boolean(location.state?.fromPublish);
-  const messageButtonText = hasMeetup
-    ? hasApprovedConversation
-      ? "Continue Meetup Chat"
-      : "Message for Meetup"
-    : getMessageButtonText();
+  const isListingUnavailable =
+    listing.status === "sold" || listing.status === "archived";
+  const primaryActionText = hasShipping
+    ? "Buy Now"
+    : hasApprovedConversation
+      ? "Continue Chat"
+      : "Send Message";
+  const primaryActionHelperText = hasShipping
+    ? "Checkout uses shipping. Prefer meetup? Message the seller to coordinate."
+    : "This listing is meetup-only. Message the seller to coordinate pickup.";
+  const handleMessageAction = hasApprovedConversation
+    ? () => navigate(`/messages/${existingConversation.id}`)
+    : openMessageDialog;
 
   if (listing.status === "archived" && !isOwner) {
     return (
@@ -931,52 +937,14 @@ function ListingDetail() {
           </Box>
         ) : (
           <Box sx={{ display: "flex", gap: 1 }}>
-            {hasShipping && (
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handlePurchaseClick}
-                disabled={listing.status === "sold" || listing.status === "archived"}
-              >
-                {listing.status === "sold" ? "Sold" : "Buy Shipped"}
-              </Button>
-            )}
-            {(hasMeetup || !hasShipping) && (
-              <Button
-                variant={hasShipping ? "outlined" : "contained"}
-                color={hasShipping ? "info" : "primary"}
-                onClick={
-                  hasApprovedConversation
-                    ? () => navigate(`/messages/${existingConversation.id}`)
-                    : openMessageDialog
-                }
-                disabled={
-                  isMessageButtonDisabled() ||
-                  listing.status === "sold" ||
-                  listing.status === "archived"
-                }
-              >
-                {messageButtonText}
-              </Button>
-            )}
-            {hasShipping && !hasMeetup && (
-              <Button
-                variant="outlined"
-                color="info"
-                onClick={
-                  hasApprovedConversation
-                    ? () => navigate(`/messages/${existingConversation.id}`)
-                    : openMessageDialog
-                }
-                disabled={
-                  isMessageButtonDisabled() ||
-                  listing.status === "sold" ||
-                  listing.status === "archived"
-                }
-              >
-                {getMessageButtonText()}
-              </Button>
-            )}
+            <Button
+              variant="outlined"
+              color="info"
+              onClick={handleMessageAction}
+              disabled={isMessageButtonDisabled() || isListingUnavailable}
+            >
+              {getMessageButtonText()}
+            </Button>
           </Box>
         )}
       </Box>
@@ -1118,6 +1086,37 @@ function ListingDetail() {
               {formatPrice(listing.price)}
             </Typography>
 
+            {!isOwner && (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  mb: 2.5,
+                  borderColor: "divider",
+                  bgcolor: "background.default",
+                }}
+              >
+                <Stack spacing={1.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    {primaryActionHelperText}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color={hasShipping ? "success" : "primary"}
+                    size="large"
+                    fullWidth
+                    onClick={hasShipping ? handlePurchaseClick : handleMessageAction}
+                    disabled={
+                      isListingUnavailable ||
+                      (!hasShipping && isMessageButtonDisabled())
+                    }
+                  >
+                    {listing.status === "sold" ? "Sold" : primaryActionText}
+                  </Button>
+                </Stack>
+              </Paper>
+            )}
+
             <Typography variant="body1" sx={{ mb: 0.5 }}>
               <Box component="span" sx={{ fontWeight: 600 }}>
                 Condition:
@@ -1215,6 +1214,10 @@ function ListingDetail() {
                       ? `Meet in ${listing.meetupLocationLabel} and coordinate details in chat.`
                       : "Coordinate a local exchange directly in chat."}
                   </Typography>
+                  <ApproximateMeetupMap
+                    location={listing.meetupLocation}
+                    label={listing.meetupLocationLabel}
+                  />
                 </Box>
               )}
               {listing.competitionMeetupAvailable && (
