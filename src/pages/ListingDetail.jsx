@@ -1182,37 +1182,22 @@ function ListingDetail() {
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="h6" gutterBottom>
-              Fulfillment
-            </Typography>
-            <Stack spacing={2}>
-              {listing.shippingAvailable && (
-                <Box>
-                  <Typography
-                    variant="body1"
-                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                  >
-                    <LocalShipping fontSize="small" />
-                    Shipping
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {getShippingLabel(listing, formatPrice)} with protected checkout through the app.
-                  </Typography>
-                </Box>
-              )}
+            <Stack spacing={2.5}>
               {listing.localMeetupAvailable && (
                 <Box>
+                  <Typography variant="h6" gutterBottom>
+                    Local Meetup
+                  </Typography>
                   <Typography
                     variant="body1"
                     sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
                   >
                     <LocationOn fontSize="small" />
-                    Local Meetup
+                    {listing.meetupLocationLabel || "Meetup area"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {listing.meetupLocationLabel
-                      ? `Meet in ${listing.meetupLocationLabel} and coordinate details in chat.`
-                      : "Coordinate a local exchange directly in chat."}
+                    Coordinate the exact meeting spot and time with the seller
+                    in chat.
                   </Typography>
                   <ApproximateMeetupMap
                     location={listing.meetupLocation}
@@ -1220,17 +1205,22 @@ function ListingDetail() {
                   />
                 </Box>
               )}
+
               {listing.competitionMeetupAvailable && (
                 <Box>
+                  <Typography variant="h6" gutterBottom>
+                    Competition Meetup
+                  </Typography>
                   <Typography
                     variant="body1"
                     sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
                   >
                     <Groups fontSize="small" />
-                    Competition Meetup
+                    Available at selected competitions
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Coordinate in chat and meet at one of these competitions.
+                    Message the seller to coordinate where and when to meet at
+                    the competition.
                   </Typography>
                   {listing.meetupCompetitionTags?.length > 0 && (
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -1244,6 +1234,27 @@ function ListingDetail() {
                       ))}
                     </Stack>
                   )}
+                </Box>
+              )}
+
+              {listing.shippingAvailable && (
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    Shipping & Returns
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                  >
+                    <LocalShipping fontSize="small" />
+                    {getShippingLabel(listing, formatPrice)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Ships with protected checkout through WeCube.
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No returns for this item.
+                  </Typography>
                 </Box>
               )}
             </Stack>
