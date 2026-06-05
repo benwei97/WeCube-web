@@ -1,9 +1,13 @@
 import { Box, Paper, Typography } from "@mui/material";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { useEffect, useRef, useState } from "react";
 
 const DEFAULT_APPROXIMATE_RADIUS_MILES = 3;
 const MILES_PER_LATITUDE_DEGREE = 69;
-const MAPBOX_STATIC_IMAGE_SIZE = "640x360";
-const MAPBOX_STYLE = "mapbox/light-v11";
+const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
+const APPROXIMATE_AREA_SOURCE_ID = "approximate-meetup-area";
+const APPROXIMATE_AREA_FILL_LAYER_ID = "approximate-meetup-area-fill";
+const APPROXIMATE_AREA_OUTLINE_LAYER_ID = "approximate-meetup-area-outline";
 
 function getMapboxZoom(radiusMiles) {
   if (radiusMiles <= 2) {
@@ -43,31 +47,34 @@ function hasCoordinates(location) {
   );
 }
 
-function getMapboxStaticImageUrl(location, radiusMiles) {
-  const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+function createApproximateCircleFeature(location, radiusMiles) {
+  const points = 96;
+  const coordinates = [];
+  const latitudeRadians = (location.latitude * Math.PI) / 180;
+  const latitudeDelta = radiusMiles / MILES_PER_LATITUDE_DEGREE;
+  const longitudeDelta =
+    radiusMiles /
+    (MILES_PER_LATITUDE_DEGREE * Math.max(Math.cos(latitudeRadians), 0.1));
 
-  if (!accessToken) {
-    return "";
+  for (let index = 0; index <= points; index += 1) {
+    const angle = (index / points) * Math.PI * 2;
+    coordinates.push([
+      location.longitude + longitudeDelta * Math.cos(angle),
+      location.latitude + latitudeDelta * Math.sin(angle),
+    ]);
   }
 
-  const longitude = Number(location.longitude).toFixed(5);
-  const latitude = Number(location.latitude).toFixed(5);
-  const zoom = getMapboxZoom(radiusMiles);
-
-  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${longitude},${latitude},${zoom},0/${MAPBOX_STATIC_IMAGE_SIZE}@2x?access_token=${encodeURIComponent(
-    accessToken
-  )}&attribution=true&logo=false`;
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: [coordinates],
+    },
+    properties: {},
+  };
 }
 
-export default function ApproximateMeetupMap({
-  location,
-  label,
-  radiusMiles = DEFAULT_APPROXIMATE_RADIUS_MILES,
-}) {
-  if (!hasCoordinates(location)) {
-    return null;
-  }
-
+function getOsmEmbedUrl(location, radiusMiles) {
   const bounds = getMapBounds(
     location.latitude,
     location.longitude,
@@ -79,10 +86,165 @@ export default function ApproximateMeetupMap({
     bounds.east,
     bounds.north,
   ].join(",");
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
     bbox
   )}&layer=mapnik`;
-  const mapboxImageUrl = getMapboxStaticImageUrl(location, radiusMiles);
+}
+
+function InteractiveMapboxArea({ location, radiusMiles }) {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const [mapError, setMapError] = useState(false);
+
+  useEffect(() => {
+    if (!mapContainerRef.current) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    async function initializeMap() {
+      try {
+        const mapboxModule = await import("mapbox-gl");
+
+        if (!isMounted || !mapContainerRef.current) {
+          return;
+        }
+
+        const mapboxgl = mapboxModule.default;
+        mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+
+        const map = new mapboxgl.Map({
+          container: mapContainerRef.current,
+          style: MAPBOX_STYLE,
+          center: [location.longitude, location.latitude],
+          zoom: getMapboxZoom(radiusMiles),
+          minZoom: 7,
+          maxZoom: 12,
+          attributionControl: true,
+          cooperativeGestures: true,
+        });
+
+        mapRef.current = map;
+        map.dragRotate.disable();
+        map.touchZoomRotate.disableRotation();
+
+        map.on("error", () => {
+          if (isMounted) {
+            setMapError(true);
+          }
+        });
+
+        map.on("load", () => {
+          if (!isMounted) {
+            return;
+          }
+
+          const circleFeature = createApproximateCircleFeature(
+            location,
+            radiusMiles
+          );
+
+          map.addSource(APPROXIMATE_AREA_SOURCE_ID, {
+            type: "geojson",
+            data: circleFeature,
+          });
+
+          map.addLayer({
+            id: APPROXIMATE_AREA_FILL_LAYER_ID,
+            type: "fill",
+            source: APPROXIMATE_AREA_SOURCE_ID,
+            paint: {
+              "fill-color": "#1976d2",
+              "fill-opacity": 0.18,
+            },
+          });
+
+          map.addLayer({
+            id: APPROXIMATE_AREA_OUTLINE_LAYER_ID,
+            type: "line",
+            source: APPROXIMATE_AREA_SOURCE_ID,
+            paint: {
+              "line-color": "#1976d2",
+              "line-width": 2,
+            },
+          });
+
+          const bounds = getMapBounds(
+            location.latitude,
+            location.longitude,
+            radiusMiles
+          );
+          map.fitBounds(
+            [
+              [bounds.west, bounds.south],
+              [bounds.east, bounds.north],
+            ],
+            { padding: 36, duration: 0, maxZoom: 12 }
+          );
+        });
+      } catch (error) {
+        console.error("Error loading interactive meetup map:", error);
+        if (isMounted) {
+          setMapError(true);
+        }
+      }
+    }
+
+    initializeMap();
+
+    return () => {
+      isMounted = false;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, [location, radiusMiles]);
+
+  if (mapError) {
+    return (
+      <Box
+        component="iframe"
+        title="Approximate meetup area fallback map"
+        src={getOsmEmbedUrl(location, radiusMiles)}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        sx={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          border: 0,
+          display: "block",
+        }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      ref={mapContainerRef}
+      sx={{
+        position: "absolute",
+        inset: 0,
+        "& .mapboxgl-control-container": {
+          fontSize: 10,
+        },
+      }}
+    />
+  );
+}
+
+export default function ApproximateMeetupMap({
+  location,
+  label,
+  radiusMiles = DEFAULT_APPROXIMATE_RADIUS_MILES,
+}) {
+  if (!hasCoordinates(location)) {
+    return null;
+  }
+
+  const hasMapboxToken = Boolean(import.meta.env.VITE_MAPBOX_ACCESS_TOKEN);
   const mapTitle = `Approximate meetup area${label ? ` near ${label}` : ""}`;
 
   return (
@@ -102,25 +264,16 @@ export default function ApproximateMeetupMap({
           bgcolor: "grey.100",
         }}
       >
-        {mapboxImageUrl ? (
-          <Box
-            component="img"
-            alt={mapTitle}
-            src={mapboxImageUrl}
-            loading="lazy"
-            sx={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-              filter: "saturate(0.82) contrast(0.96)",
-            }}
+        {hasMapboxToken ? (
+          <InteractiveMapboxArea
+            location={location}
+            radiusMiles={radiusMiles}
           />
         ) : (
           <Box
             component="iframe"
             title={mapTitle}
-            src={mapUrl}
+            src={getOsmEmbedUrl(location, radiusMiles)}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             sx={{
@@ -131,37 +284,14 @@ export default function ApproximateMeetupMap({
             }}
           />
         )}
-        <Box
-          sx={{
-            position: "absolute",
-            inset: "21% 29%",
-            borderRadius: "50%",
-            border: "2px solid",
-            borderColor: "primary.main",
-            bgcolor: "primary.main",
-            opacity: 0.2,
-            pointerEvents: "none",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            inset: "21% 29%",
-            borderRadius: "50%",
-            border: "2px solid",
-            borderColor: "primary.main",
-            boxShadow: "0 0 0 999px rgba(255, 255, 255, 0.08)",
-            pointerEvents: "none",
-          }}
-        />
       </Box>
       <Box sx={{ px: 1.5, py: 1.25 }}>
         <Typography variant="body2" fontWeight={600}>
           Approximate meetup area
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          The map shows a general area only. Confirm the exact meeting spot in
-          chat.
+          The map is interactive but intentionally approximate. Confirm the
+          exact meeting spot in chat.
         </Typography>
       </Box>
     </Paper>
