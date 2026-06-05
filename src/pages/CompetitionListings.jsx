@@ -40,6 +40,7 @@ function CompetitionListings() {
   const [loadingCompetition, setLoadingCompetition] = useState(!location.state?.competition);
   const [loadingCubes, setLoadingCubes] = useState(true);
   const [error, setError] = useState(null);
+  const returnTo = location.state?.returnTo;
   const attendingCompetitionIds = new Set(
     (currentUser?.attendingCompetitions || []).map((savedCompetition) => savedCompetition.id)
   );
@@ -133,8 +134,12 @@ function CompetitionListings() {
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-      <Button onClick={() => navigate("/competitions")} variant="outlined" sx={{ mb: 3 }}>
-        ← Back
+      <Button
+        onClick={() => navigate(returnTo || "/competitions")}
+        variant="outlined"
+        sx={{ mb: 3 }}
+      >
+        ← {returnTo ? "Back to Listing" : "Back"}
       </Button>
 
       {error && (

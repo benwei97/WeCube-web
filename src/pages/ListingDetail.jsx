@@ -852,6 +852,16 @@ function ListingDetail() {
     setCurrentPhotoIndex((prev) => (prev === photoCount - 1 ? 0 : prev + 1));
   };
 
+  const handleViewCompetitionListings = (competition) => {
+    navigate(`/competitions/${competition.id}/listings`, {
+      state: {
+        competition,
+        returnTo: `/listing/${id}`,
+        returnLabel: listing.title,
+      },
+    });
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -1240,19 +1250,11 @@ function ListingDetail() {
                           variant="outlined"
                           role="button"
                           tabIndex={0}
-                          onClick={() =>
-                            navigate(
-                              `/competitions/${competition.id}/listings`,
-                              { state: { competition } }
-                            )
-                          }
+                          onClick={() => handleViewCompetitionListings(competition)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              navigate(
-                                `/competitions/${competition.id}/listings`,
-                                { state: { competition } }
-                              );
+                              handleViewCompetitionListings(competition);
                             }
                           }}
                           sx={{
