@@ -102,6 +102,8 @@ function ListingDetail() {
   const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showAllCompetitionMeetups, setShowAllCompetitionMeetups] =
+    useState(false);
   const [editData, setEditData] = useState({
     title: "",
     price: "",
@@ -831,6 +833,14 @@ function ListingDetail() {
   const activePhoto = photoCount > 0 ? listing.photos[currentPhotoIndex] : null;
   const descriptionText = listing?.description || "No description provided.";
   const shouldCollapseDescription = descriptionText.length > 280;
+  const meetupCompetitionTags = listing?.meetupCompetitionTags || [];
+  const visibleCompetitionMeetups = showAllCompetitionMeetups
+    ? meetupCompetitionTags
+    : meetupCompetitionTags.slice(0, 3);
+  const hiddenCompetitionMeetupCount = Math.max(
+    meetupCompetitionTags.length - visibleCompetitionMeetups.length,
+    0
+  );
 
   const handlePreviousPhoto = () => {
     if (photoCount <= 1) return;
@@ -1222,16 +1232,131 @@ function ListingDetail() {
                     Message the seller to coordinate where and when to meet at
                     the competition.
                   </Typography>
-                  {listing.meetupCompetitionTags?.length > 0 && (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {listing.meetupCompetitionTags.map((competition) => (
-                        <Chip
+                  {meetupCompetitionTags.length > 0 && (
+                    <Stack spacing={1.25}>
+                      {visibleCompetitionMeetups.map((competition) => (
+                        <Paper
                           key={competition.id || competition.name}
-                          label={competition.displayName || competition.name}
-                          size="small"
                           variant="outlined"
-                        />
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            navigate(
+                              `/competitions/${competition.id}/listings`,
+                              { state: { competition } }
+                            )
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate(
+                                `/competitions/${competition.id}/listings`,
+                                { state: { competition } }
+                              );
+                            }
+                          }}
+                          sx={{
+                            p: 1.5,
+                            cursor: "pointer",
+                            borderRadius: 2,
+                            bgcolor: "background.default",
+                            transition:
+                              "background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s",
+                            "&:hover": {
+                              borderColor: "primary.main",
+                              bgcolor: "primary.50",
+                              boxShadow: 2,
+                              transform: "translateY(-1px)",
+                            },
+                            "&:focus-visible": {
+                              outline: "2px solid",
+                              outlineColor: "primary.main",
+                              outlineOffset: 2,
+                            },
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1.5}
+                            alignItems="center"
+                          >
+                            <Box
+                              sx={{
+                                width: 42,
+                                height: 42,
+                                borderRadius: "50%",
+                                bgcolor: "primary.50",
+                                color: "primary.main",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Groups fontSize="small" />
+                            </Box>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography
+                                variant="body1"
+                                fontWeight={700}
+                                sx={{
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {competition.name}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {[competition.city, competition.country]
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </Typography>
+                              {competition.dateRange && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: "block" }}
+                                >
+                                  {competition.dateRange}
+                                </Typography>
+                              )}
+                              <Typography
+                                variant="caption"
+                                color="primary"
+                                sx={{
+                                  display: "block",
+                                  fontWeight: 700,
+                                  mt: 0.25,
+                                }}
+                              >
+                                View competition listings
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Paper>
                       ))}
+                      {meetupCompetitionTags.length > 3 && (
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() =>
+                            setShowAllCompetitionMeetups((prev) => !prev)
+                          }
+                          sx={{ alignSelf: "flex-start", px: 0 }}
+                        >
+                          {showAllCompetitionMeetups
+                            ? "Show fewer competitions"
+                            : `Show ${hiddenCompetitionMeetupCount} more ${
+                                hiddenCompetitionMeetupCount === 1
+                                  ? "competition"
+                                  : "competitions"
+                              }`}
+                        </Button>
+                      )}
                     </Stack>
                   )}
                 </Box>
