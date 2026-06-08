@@ -19,7 +19,7 @@ import {
   Tabs,
   Tab,
 } from "@mui/material";
-import { Send, Check, Close, Person, AccessTime } from "@mui/icons-material";
+import { Send, Check, Close, Person } from "@mui/icons-material";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -35,6 +35,24 @@ import {
 } from "../utils/messaging";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+
+const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
+
+function getTimestampDate(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  return timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+}
+
+function isSameCalendarDay(firstDate, secondDate) {
+  return (
+    firstDate?.getFullYear() === secondDate?.getFullYear() &&
+    firstDate?.getMonth() === secondDate?.getMonth() &&
+    firstDate?.getDate() === secondDate?.getDate()
+  );
+}
 
 function Messages() {
   const { conversationId } = useParams();
@@ -320,8 +338,78 @@ function Messages() {
 
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = getTimestampDate(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatTranscriptTimeDivider = (timestamp) => {
+    const date = getTimestampDate(timestamp);
+
+    if (!date) {
+      return "";
+    }
+
+    const now = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+
+    const dayLabel = isSameCalendarDay(date, now)
+      ? "Today"
+      : isSameCalendarDay(date, yesterday)
+        ? "Yesterday"
+        : date.toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+            year:
+              date.getFullYear() === now.getFullYear()
+                ? undefined
+                : "numeric",
+          });
+
+    return `${dayLabel} ${date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  };
+
+  const getTranscriptItems = () => {
+    const transcriptItems = [];
+    let previousMessageDate = null;
+
+    messages.forEach((message) => {
+      const messageDate = getTimestampDate(message.createdAt);
+      const previousMessageTime = previousMessageDate?.getTime?.() || 0;
+      const messageTime = messageDate?.getTime?.() || 0;
+      const minutesSincePrevious =
+        previousMessageTime && messageTime
+          ? (messageTime - previousMessageTime) / 60000
+          : 0;
+      const shouldShowDivider =
+        messageDate &&
+        (!previousMessageDate ||
+          !isSameCalendarDay(messageDate, previousMessageDate) ||
+          minutesSincePrevious >= MESSAGE_TIME_DIVIDER_GAP_MINUTES);
+
+      if (shouldShowDivider) {
+        transcriptItems.push({
+          id: `time-${message.id}`,
+          type: "timeDivider",
+          label: formatTranscriptTimeDivider(message.createdAt),
+        });
+      }
+
+      transcriptItems.push({
+        id: message.id,
+        type: "message",
+        message,
+      });
+
+      if (messageDate) {
+        previousMessageDate = messageDate;
+      }
+    });
+
+    return transcriptItems;
   };
 
   const formatLastMessagePreview = (conversation) => {
@@ -684,7 +772,38 @@ function Messages() {
                   </Alert>
                 )}
 
-                {messages.map((message) => {
+                {getTranscriptItems().map((item) => {
+                  if (item.type === "timeDivider") {
+                    return (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          my: 2,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "text.secondary",
+                            bgcolor: "background.default",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            borderRadius: 999,
+                            px: 1.5,
+                            py: 0.5,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.label}
+                        </Typography>
+                      </Box>
+                    );
+                  }
+
+                  const { message } = item;
+
                   if (message.type === "system") {
                     return (
                       <Box
@@ -704,7 +823,6 @@ function Messages() {
                             color: "text.secondary",
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: 0.75,
                             maxWidth: "85%",
                           }}
                         >
@@ -713,19 +831,6 @@ function Messages() {
                             sx={{ fontWeight: 500, textAlign: "center" }}
                           >
                             {message.text}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: "text.disabled",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 0.5,
-                              flexShrink: 0,
-                            }}
-                          >
-                            <AccessTime fontSize="inherit" />
-                            {formatTime(message.createdAt)}
                           </Typography>
                         </Box>
                       </Box>
@@ -744,10 +849,15 @@ function Messages() {
                         mb: 1,
                       }}
                     >
-                      <Paper
+                      <Box
                         sx={{
-                          p: 2,
+                          px: 1.75,
+                          py: 1.1,
                           maxWidth: "70%",
+                          borderRadius:
+                            message.senderId === currentUserId
+                              ? "20px 20px 6px 20px"
+                              : "20px 20px 20px 6px",
                           bgcolor:
                             message.senderId === currentUserId
                               ? "primary.main"
@@ -756,26 +866,22 @@ function Messages() {
                             message.senderId === currentUserId
                               ? "white"
                               : "text.primary",
+                          boxShadow:
+                            message.senderId === currentUserId
+                              ? "0 4px 12px rgba(25, 118, 210, 0.18)"
+                              : "none",
                         }}
                       >
-                        <Typography variant="body1">{message.text}</Typography>
                         <Typography
-                          variant="caption"
+                          variant="body1"
                           sx={{
-                            color:
-                              message.senderId === currentUserId
-                                ? "rgba(255,255,255,0.7)"
-                                : "text.secondary",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                            mt: 0.5,
+                            whiteSpace: "pre-wrap",
+                            overflowWrap: "anywhere",
                           }}
                         >
-                          <AccessTime fontSize="inherit" />
-                          {formatTime(message.createdAt)}
+                          {message.text}
                         </Typography>
-                      </Paper>
+                      </Box>
                     </Box>
                   );
                 })}

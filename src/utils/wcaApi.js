@@ -100,6 +100,24 @@ function mergeCompetitionsIntoCache(competitions) {
   writeStoredCompetitionCache();
 }
 
+function dedupeCompetitionsById(competitions) {
+  if (!Array.isArray(competitions)) {
+    return [];
+  }
+
+  const competitionsById = new Map();
+
+  competitions.forEach((competition) => {
+    if (!competition?.id || competitionsById.has(competition.id)) {
+      return;
+    }
+
+    competitionsById.set(competition.id, competition);
+  });
+
+  return [...competitionsById.values()];
+}
+
 function hydrateMemoryCacheFromStorage() {
   const storedCache = readStoredCompetitionCache();
   if (
@@ -474,7 +492,7 @@ export async function getUpcomingCompetitions(limit = 50) {
         );
       }
     }
-    return competitionCache.data.slice(0, limit);
+    return dedupeCompetitionsById(competitionCache.data).slice(0, limit);
   }
 
   // If already loading, wait for the current request
@@ -485,7 +503,7 @@ export async function getUpcomingCompetitions(limit = 50) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (competitionCache.data) {
-      return competitionCache.data.slice(0, limit);
+      return dedupeCompetitionsById(competitionCache.data).slice(0, limit);
     }
   }
 
@@ -494,7 +512,7 @@ export async function getUpcomingCompetitions(limit = 50) {
 
   try {
     const competitions = await fetchAndCacheCompetitions(limit);
-    return competitions.slice(0, limit);
+    return dedupeCompetitionsById(competitions).slice(0, limit);
   } catch (error) {
     competitionCache.isLoading = false;
     throw error;
@@ -508,7 +526,7 @@ function formatOfficialCompetitions(competitions) {
   console.log('Formatting competitions, received:', competitions.length, 'competitions');
 
   // No filtering needed - API already returns only upcoming competitions based on start date parameter
-  const result = competitions
+  const result = dedupeCompetitionsById(competitions)
     .map(comp => ({
       id: comp.id,
       name: comp.name,
@@ -553,7 +571,7 @@ export async function searchCompetitions(query, limit = 20) {
 
     if (filtered.length > 0 || searchTerm.length < 3) {
       // Return cached results if found, or for short queries
-      return filtered.slice(0, limit);
+      return dedupeCompetitionsById(filtered).slice(0, limit);
     }
   }
 
@@ -569,7 +587,7 @@ export async function searchCompetitions(query, limit = 20) {
       if (searchResults.length > 0) {
         const formattedResults = formatOfficialCompetitions(searchResults);
         mergeCompetitionsIntoCache(formattedResults);
-        return formattedResults.slice(0, limit);
+        return dedupeCompetitionsById(formattedResults).slice(0, limit);
       }
     } catch (error) {
       console.warn('Direct search API failed due to CORS:', error.message);
@@ -582,7 +600,7 @@ export async function searchCompetitions(query, limit = 20) {
         if (searchResults.length > 0) {
           const formattedResults = formatOfficialCompetitions(searchResults);
           mergeCompetitionsIntoCache(formattedResults);
-          return formattedResults.slice(0, limit);
+          return dedupeCompetitionsById(formattedResults).slice(0, limit);
         }
       } catch (proxyError) {
         console.warn(`Search CORS proxy ${proxy} failed:`, proxyError.message);
@@ -595,13 +613,13 @@ export async function searchCompetitions(query, limit = 20) {
     console.log('Using client-side search fallback');
     const competitions = await getUpcomingCompetitions(500); // Get more for better search results
 
-    return competitions
-      .filter(comp =>
+    const filteredCompetitions = competitions.filter(comp =>
         comp.name.toLowerCase().includes(searchTerm) ||
         comp.city.toLowerCase().includes(searchTerm) ||
         comp.country.toLowerCase().includes(searchTerm)
-      )
-      .slice(0, limit);
+      );
+
+    return dedupeCompetitionsById(filteredCompetitions).slice(0, limit);
   } catch (error) {
     console.error('Error searching competitions:', error);
     throw error;

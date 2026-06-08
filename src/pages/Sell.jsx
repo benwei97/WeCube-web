@@ -1023,6 +1023,9 @@ function Sell() {
                     options={competitions}
                     inputValue={competitionSearchInput}
                     getOptionLabel={(option) => option.displayName}
+                    isOptionEqualToValue={(option, value) =>
+                      option.id === value.id
+                    }
                     value={selectedCompetitions}
                     onChange={(_, newValue) => {
                       setSelectedCompetitions(newValue);

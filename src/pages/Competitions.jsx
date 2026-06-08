@@ -227,6 +227,7 @@ function Competitions() {
             <Autocomplete
               options={competitionOptions}
               getOptionLabel={(option) => option.displayName}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
               value={selectedCompetition}
               inputValue={competitionSearchInput}
               onChange={(_, newValue) => {
@@ -287,6 +288,7 @@ function Competitions() {
             <Autocomplete
               options={myCompetitionOptions}
               getOptionLabel={(option) => option.displayName}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
               value={null}
               inputValue={myCompetitionInput}
               onChange={handleAddMyCompetition}
