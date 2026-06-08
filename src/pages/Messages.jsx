@@ -110,8 +110,11 @@ function Messages() {
   const [listingDetails, setListingDetails] = useState({});
   const [userDetails, setUserDetails] = useState({});
   const [activeTab, setActiveTab] = useState(0); // 0 = Messages, 1 = Pending Requests
+  const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messagesUnsubscribeRef = useRef(null);
+  const previousMessageCountRef = useRef(0);
+  const previousConversationIdRef = useRef(null);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -186,11 +189,35 @@ function Messages() {
   }, [conversationId, conversations, currentUserId]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const scrollElement = messagesScrollRef.current;
+    const currentConversationId = selectedConversation?.id || null;
+    const conversationChanged =
+      previousConversationIdRef.current !== currentConversationId;
+    const previousMessageCount = previousMessageCountRef.current;
+    const newestMessage = messages[messages.length - 1];
+    const newestMessageIsMine = newestMessage?.senderId === currentUserId;
+    const isNearBottom = scrollElement
+      ? scrollElement.scrollHeight -
+          scrollElement.scrollTop -
+          scrollElement.clientHeight <
+        120
+      : true;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (
+      conversationChanged ||
+      messages.length <= previousMessageCount ||
+      isNearBottom ||
+      newestMessageIsMine
+    ) {
+      scrollToBottom(conversationChanged ? "auto" : "smooth");
+    }
+
+    previousMessageCountRef.current = messages.length;
+    previousConversationIdRef.current = currentConversationId;
+  }, [messages, selectedConversation?.id, currentUserId]);
+
+  const scrollToBottom = (behavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   const getReadFieldForConversation = (conversation) => {
@@ -875,7 +902,7 @@ function Messages() {
               </Box>
 
               {/* Messages */}
-                <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
+                <Box ref={messagesScrollRef} sx={{ flex: 1, overflow: "auto", p: 2 }}>
                 {selectedConversation.closedAt ? (
                   <Alert severity="info" sx={{ mb: 2 }}>
                     This conversation has ended because the listing was sold.
