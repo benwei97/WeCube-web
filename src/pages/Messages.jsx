@@ -465,6 +465,12 @@ function Messages() {
     return user.firstName || user.displayName || fallbackLabel;
   };
 
+  const getUserAvatarUrl = (userId) => {
+    const user = userDetails[userId];
+
+    return user?.avatarUrl || user?.photoURL || null;
+  };
+
   const getConversationDisplayTitle = (conversation) => {
     const listingTitle =
       listingDetails[conversation.listingId]?.title || "Unknown Listing";
@@ -572,10 +578,12 @@ function Messages() {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
+                    sx={{ minWidth: 0 }}
                     primary={
                       <Typography
                         variant="body1"
                         fontWeight={isUnreadConversation(conversation) ? "bold" : "medium"}
+                        noWrap
                       >
                         {getConversationDisplayTitle(conversation)}
                       </Typography>
@@ -592,6 +600,11 @@ function Messages() {
                     }
                   />
                   <ListItemText
+                    sx={{
+                      flex: "0 0 72px",
+                      ml: 1,
+                      alignSelf: "flex-start",
+                    }}
                     primary={
                       <Box
                         sx={{
@@ -613,7 +626,11 @@ function Messages() {
                           />
                         )}
                         {conversation.lastMessageAt && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ whiteSpace: "nowrap" }}
+                          >
                             {formatTime(conversation.lastMessageAt)}
                           </Typography>
                         )}
@@ -640,55 +657,99 @@ function Messages() {
                   </Typography>
                 </Box>
               ) : (
-                <Stack spacing={2}>
+                <Stack spacing={1.25}>
                   {pendingRequests.map((request) => (
-                    <Card key={request.id} sx={{ bgcolor: "primary.50" }}>
-                      <CardContent>
-                        <Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                            }}
+                    <Card
+                      key={request.id}
+                      variant="outlined"
+                      sx={{
+                        bgcolor: "background.paper",
+                        borderColor: "primary.100",
+                      }}
+                    >
+                      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <Avatar
+                            src={getUserAvatarUrl(request.buyerId) || undefined}
+                            sx={{ width: 42, height: 42, flexShrink: 0 }}
                           >
-                            <Typography variant="h6" gutterBottom>
-                              {getConversationDisplayTitle(request)}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ mb: 2, display: "block" }}
+                            {getUserDisplayName(request.buyerId, "Buyer")
+                              .charAt(0)
+                              .toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                justifyContent: "space-between",
+                                gap: 1,
+                              }}
                             >
-                              From {getUserDisplayName(request.buyerId, "Buyer")}{" "}
-                              • {formatTime(request.createdAt)}
-                            </Typography>
-                          </Box>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography
+                                  variant="body2"
+                                  fontWeight={700}
+                                  noWrap
+                                >
+                                  {getUserDisplayName(request.buyerId, "Buyer")}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  noWrap
+                                  sx={{ display: "block" }}
+                                >
+                                  {listingDetails[request.listingId]?.title ||
+                                    "Unknown Listing"}
+                                </Typography>
+                              </Box>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  whiteSpace: "nowrap",
+                                  flex: "0 0 auto",
+                                  pt: 0.25,
+                                }}
+                              >
+                                {formatTime(request.createdAt)}
+                              </Typography>
+                            </Box>
                           <Typography
                             variant="body2"
                             color="text.secondary"
-                            sx={{ mb: 2 }}
+                              sx={{
+                                mt: 0.75,
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
                           >
                             {request.initialMessage}
                           </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                          <Button
-                            variant="contained"
-                            color="success"
-                            startIcon={<Check />}
-                            onClick={() => handleApproveRequest(request)}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<Close />}
-                            onClick={() => handleRejectRequest(request)}
-                          >
-                            Decline
-                          </Button>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                              <Button
+                                variant="contained"
+                                color="success"
+                                size="small"
+                                startIcon={<Check />}
+                                onClick={() => handleApproveRequest(request)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                startIcon={<Close />}
+                                onClick={() => handleRejectRequest(request)}
+                              >
+                                Decline
+                              </Button>
+                            </Stack>
+                          </Box>
                         </Stack>
                       </CardContent>
                     </Card>
