@@ -54,6 +54,47 @@ function isSameCalendarDay(firstDate, secondDate) {
   );
 }
 
+function ConversationIdentityThumb({
+  listingPhotoUrl,
+  userAvatarUrl,
+  userName,
+  size = 52,
+  avatarSize = 24,
+}) {
+  return (
+    <Box sx={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <Avatar
+        src={listingPhotoUrl || undefined}
+        variant="rounded"
+        sx={{
+          width: size,
+          height: size,
+          bgcolor: "grey.200",
+        }}
+      >
+        <Person />
+      </Avatar>
+      <Avatar
+        src={userAvatarUrl || undefined}
+        sx={{
+          position: "absolute",
+          right: -4,
+          bottom: -4,
+          width: avatarSize,
+          height: avatarSize,
+          border: "2px solid",
+          borderColor: "background.paper",
+          bgcolor: "primary.main",
+          fontSize: avatarSize <= 24 ? "0.72rem" : "0.85rem",
+          fontWeight: 700,
+        }}
+      >
+        {userName?.charAt(0)?.toUpperCase() || "U"}
+      </Avatar>
+    </Box>
+  );
+}
+
 function Messages() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
@@ -471,16 +512,21 @@ function Messages() {
     return user?.avatarUrl || user?.photoURL || null;
   };
 
-  const getConversationDisplayTitle = (conversation) => {
-    const listingTitle =
-      listingDetails[conversation.listingId]?.title || "Unknown Listing";
+  const getConversationCounterpartId = (conversation) => {
+    return conversation.userRole === "seller"
+      ? conversation.buyerId
+      : conversation.sellerId;
+  };
 
-    const counterpartName =
-      conversation.userRole === "seller"
-        ? getUserDisplayName(conversation.buyerId, "Buyer")
-        : getUserDisplayName(conversation.sellerId, "Seller");
+  const getListingTitle = (listingId) => {
+    return listingDetails[listingId]?.title || "Unknown Listing";
+  };
 
-    return `${counterpartName} • ${listingTitle}`;
+  const getConversationCounterpartName = (conversation) => {
+    const counterpartId = getConversationCounterpartId(conversation);
+    const fallbackLabel = conversation.userRole === "seller" ? "Buyer" : "Seller";
+
+    return getUserDisplayName(counterpartId, fallbackLabel);
   };
 
   const getListingPhotoUrl = (listingId) => {
@@ -569,13 +615,13 @@ function Messages() {
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar
-                      src={getListingPhotoUrl(conversation.listingId) || undefined}
-                      variant="rounded"
-                      sx={{ width: 52, height: 52 }}
-                    >
-                      <Person />
-                    </Avatar>
+                    <ConversationIdentityThumb
+                      listingPhotoUrl={getListingPhotoUrl(conversation.listingId)}
+                      userAvatarUrl={getUserAvatarUrl(
+                        getConversationCounterpartId(conversation)
+                      )}
+                      userName={getConversationCounterpartName(conversation)}
+                    />
                   </ListItemAvatar>
                   <ListItemText
                     sx={{ minWidth: 0 }}
@@ -585,18 +631,28 @@ function Messages() {
                         fontWeight={isUnreadConversation(conversation) ? "bold" : "medium"}
                         noWrap
                       >
-                        {getConversationDisplayTitle(conversation)}
+                        {getConversationCounterpartName(conversation)}
                       </Typography>
                     }
                     secondary={
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        noWrap
-                        fontWeight={isUnreadConversation(conversation) ? "medium" : "regular"}
-                      >
-                        {formatLastMessagePreview(conversation)}
-                      </Typography>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          noWrap
+                          sx={{ display: "block" }}
+                        >
+                          {getListingTitle(conversation.listingId)}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          noWrap
+                          fontWeight={isUnreadConversation(conversation) ? "medium" : "regular"}
+                        >
+                          {formatLastMessagePreview(conversation)}
+                        </Typography>
+                      </Box>
                     }
                   />
                   <ListItemText
@@ -669,14 +725,13 @@ function Messages() {
                     >
                       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
                         <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                          <Avatar
-                            src={getUserAvatarUrl(request.buyerId) || undefined}
-                            sx={{ width: 42, height: 42, flexShrink: 0 }}
-                          >
-                            {getUserDisplayName(request.buyerId, "Buyer")
-                              .charAt(0)
-                              .toUpperCase()}
-                          </Avatar>
+                          <ConversationIdentityThumb
+                            listingPhotoUrl={getListingPhotoUrl(request.listingId)}
+                            userAvatarUrl={getUserAvatarUrl(request.buyerId)}
+                            userName={getUserDisplayName(request.buyerId, "Buyer")}
+                            size={46}
+                            avatarSize={22}
+                          />
                           <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Box
                               sx={{
@@ -700,8 +755,7 @@ function Messages() {
                                   noWrap
                                   sx={{ display: "block" }}
                                 >
-                                  {listingDetails[request.listingId]?.title ||
-                                    "Unknown Listing"}
+                                  {getListingTitle(request.listingId)}
                                 </Typography>
                               </Box>
                               <Typography
@@ -775,20 +829,23 @@ function Messages() {
                   gap: 1.5,
                 }}
               >
-                <Avatar
-                  src={
-                    getListingPhotoUrl(selectedConversation.listingId) || undefined
-                  }
-                  variant="rounded"
-                  sx={{ width: 52, height: 52, flexShrink: 0 }}
-                >
-                  <Person />
-                </Avatar>
+                <ConversationIdentityThumb
+                  listingPhotoUrl={getListingPhotoUrl(
+                    selectedConversation.listingId
+                  )}
+                  userAvatarUrl={getUserAvatarUrl(
+                    getConversationCounterpartId(selectedConversation)
+                  )}
+                  userName={getConversationCounterpartName(
+                    selectedConversation
+                  )}
+                />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="h6" noWrap>
-                    {getConversationDisplayTitle(selectedConversation)}
+                    {getConversationCounterpartName(selectedConversation)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
+                    {getListingTitle(selectedConversation.listingId)} •{" "}
                     {selectedConversation.closedAt
                       ? "Conversation closed"
                       : selectedConversation.userRole === "seller"
@@ -833,7 +890,7 @@ function Messages() {
                   </Alert>
                 )}
 
-                {getTranscriptItems().map((item) => {
+                {getTranscriptItems().map((item, index, transcriptItems) => {
                   if (item.type === "timeDivider") {
                     return (
                       <Box
@@ -864,6 +921,14 @@ function Messages() {
                   }
 
                   const { message } = item;
+                  const isCurrentUserMessage = message.senderId === currentUserId;
+                  const nextMessageItem = transcriptItems
+                    .slice(index + 1)
+                    .find((nextItem) => nextItem.type === "message");
+                  const showIncomingAvatar =
+                    !isCurrentUserMessage &&
+                    message.type !== "system" &&
+                    nextMessageItem?.message?.senderId !== message.senderId;
 
                   if (message.type === "system") {
                     return (
@@ -904,31 +969,53 @@ function Messages() {
                       sx={{
                         display: "flex",
                         justifyContent:
-                          message.senderId === currentUserId
-                            ? "flex-end"
-                            : "flex-start",
-                        mb: 1,
+                          isCurrentUserMessage ? "flex-end" : "flex-start",
+                        alignItems: "flex-end",
+                        gap: 1,
+                        mb: 0.75,
+                        pl: isCurrentUserMessage ? 0 : 0.5,
                       }}
                     >
+                      {!isCurrentUserMessage && (
+                        showIncomingAvatar ? (
+                          <Avatar
+                            src={
+                              getUserAvatarUrl(message.senderId) || undefined
+                            }
+                            sx={{
+                              width: 28,
+                              height: 28,
+                              fontSize: "0.78rem",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getUserDisplayName(message.senderId, "User")
+                              .charAt(0)
+                              .toUpperCase()}
+                          </Avatar>
+                        ) : (
+                          <Box sx={{ width: 28, flexShrink: 0 }} />
+                        )
+                      )}
                       <Box
                         sx={{
                           px: 1.75,
                           py: 1.1,
                           maxWidth: "70%",
                           borderRadius:
-                            message.senderId === currentUserId
+                            isCurrentUserMessage
                               ? "20px 20px 6px 20px"
                               : "20px 20px 20px 6px",
                           bgcolor:
-                            message.senderId === currentUserId
+                            isCurrentUserMessage
                               ? "primary.main"
                               : "grey.100",
                           color:
-                            message.senderId === currentUserId
+                            isCurrentUserMessage
                               ? "white"
                               : "text.primary",
                           boxShadow:
-                            message.senderId === currentUserId
+                            isCurrentUserMessage
                               ? "0 4px 12px rgba(25, 118, 210, 0.18)"
                               : "none",
                         }}
