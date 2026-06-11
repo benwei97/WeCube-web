@@ -51,7 +51,6 @@ import {
   closeListingConversationsForSold,
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
-import PaymentModal from "../components/PaymentModal";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import {
   fetchLocationSuggestionOptions,
@@ -86,7 +85,6 @@ function ListingDetail() {
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
   const [saleAttributionMode, setSaleAttributionMode] = useState("attributed");
@@ -154,7 +152,6 @@ function ListingDetail() {
         setListing({
           ...listingData,
           ...fulfillmentFields,
-          stripeAccountId: sellerData?.stripeAccountId,
           sellerAvatarUrl: sellerData?.avatarUrl || "",
           sellerReviewCount: sellerData?.reviewCount || 0,
           sellerRating: sellerData?.averageRating || null,
@@ -222,7 +219,6 @@ function ListingDetail() {
 
           return {
             ...prev,
-            stripeAccountId: sellerData?.stripeAccountId,
             sellerAvatarUrl: sellerData?.avatarUrl || "",
             sellerReviewCount: sellerData?.reviewCount || 0,
             sellerRating: sellerData?.averageRating || null,
@@ -635,60 +631,6 @@ function ListingDetail() {
     setShowMessageDialog(true);
   };
 
-  const handlePurchaseClick = () => {
-    if (!currentUser) {
-      alert("Please sign in to make a purchase");
-      return;
-    }
-
-    if (currentUser.uid === listing.userId) {
-      alert("You cannot purchase your own listing");
-      return;
-    }
-
-    if (listing.status === "sold") {
-      alert("This item has already been sold");
-      return;
-    }
-
-    if (!listing.stripeAccountId) {
-      alert("This seller has not completed their payment setup. The item cannot be purchased at this time.");
-      return;
-    }
-
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSuccess = async (paymentResult, paymentIntent) => {
-    try {
-      // Update listing status to sold
-      const docRef = doc(db, "listings", id);
-      await updateDoc(docRef, {
-        status: "sold",
-        soldAt: new Date(),
-        buyerId: currentUser.uid,
-        paymentIntentId: paymentIntent.id,
-      });
-
-      // Update local state
-      setListing((prev) => ({
-        ...prev,
-        status: "sold",
-        soldAt: new Date(),
-        buyerId: currentUser.uid,
-      }));
-
-      setShowPaymentModal(false);
-
-      // Optional: Navigate to a success page or show success message
-      alert("Purchase completed successfully! You will receive confirmation details shortly.");
-
-    } catch (error) {
-      console.error("Error updating listing after payment:", error);
-      alert("Payment successful, but there was an issue updating the listing. Please contact support.");
-    }
-  };
-
   const openMarkSoldDialog = async () => {
     setShowMarkSoldDialog(true);
     setLoadingBuyerOptions(true);
@@ -882,19 +824,16 @@ function ListingDetail() {
   }
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
-  const hasShipping = Boolean(listing.shippingAvailable);
   const hasApprovedConversation = existingConversation?.status === "approved";
   const cameFromPublish = Boolean(location.state?.fromPublish);
   const isListingUnavailable =
     listing.status === "sold" || listing.status === "archived";
-  const primaryActionText = hasShipping
-    ? "Buy Now"
-    : hasApprovedConversation
-      ? "Continue Chat"
-      : "Send Message";
-  const primaryActionHelperText = hasShipping
-    ? "Checkout uses shipping. Prefer meetup? Message the seller to coordinate."
-    : "This listing is meetup-only. Message the seller to coordinate pickup.";
+  const primaryActionText = hasApprovedConversation
+    ? "Continue Chat"
+    : "Send Message";
+  const primaryActionHelperText = listing.shippingAvailable
+    ? "Shipping is arranged directly with the seller. Message them to confirm payment, shipping cost, and tracking."
+    : "Message the seller to coordinate pickup.";
   const handleMessageAction = hasApprovedConversation
     ? () => navigate(`/messages/${existingConversation.id}`)
     : openMessageDialog;
@@ -1122,14 +1061,11 @@ function ListingDetail() {
                   </Typography>
                   <Button
                     variant="contained"
-                    color={hasShipping ? "success" : "primary"}
+                    color="primary"
                     size="large"
                     fullWidth
-                    onClick={hasShipping ? handlePurchaseClick : handleMessageAction}
-                    disabled={
-                      isListingUnavailable ||
-                      (!hasShipping && isMessageButtonDisabled())
-                    }
+                    onClick={handleMessageAction}
+                    disabled={isListingUnavailable || isMessageButtonDisabled()}
                   >
                     {listing.status === "sold" ? "Sold" : primaryActionText}
                   </Button>
@@ -1377,7 +1313,8 @@ function ListingDetail() {
                     {getShippingLabel(listing, formatPrice)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Ships with protected checkout through WeCube.
+                    Shipping and payment are arranged directly with the seller.
+                    Use tracked shipping and buyer-protected payment methods.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     No returns for this item.
@@ -1877,16 +1814,6 @@ function ListingDetail() {
         </DialogActions>
       </Dialog>
 
-      {/* Payment Modal */}
-      {currentUser && listing && (
-        <PaymentModal
-          open={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          listing={listing}
-          buyerInfo={currentUser}
-          onPaymentSuccess={handlePaymentSuccess}
-        />
-      )}
     </Box>
   );
 }

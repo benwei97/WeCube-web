@@ -17,8 +17,6 @@
     "@mui/lab": "^7.0.1-beta.18",
     "@mui/material": "^7.3.4",
     "@mui/x-date-pickers": "^8.14.0",
-    "@stripe/react-stripe-js": "^5.2.0",
-    "@stripe/stripe-js": "^8.0.0",
     "firebase": "^12.4.0",
     "mapbox-gl": "^3.24.0",
     "react": "^19.1.1",

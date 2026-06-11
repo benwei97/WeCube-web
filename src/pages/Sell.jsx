@@ -21,12 +21,10 @@ import {
 import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { uploadMultipleImages } from "../utils/s3";
-import { getConnectAccountStatus } from "../utils/stripe";
-import SellerOnboarding from "../components/SellerOnboarding";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
   getUpcomingCompetitions,
@@ -65,10 +63,6 @@ function Sell() {
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [sellerOnboardingComplete, setSellerOnboardingComplete] =
-    useState(false);
-  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [competitions, setCompetitions] = useState([]);
   const [allCompetitions, setAllCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
@@ -77,13 +71,6 @@ function Sell() {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const { currentUser } = useAuth();
-
-  // Check seller onboarding status
-  useEffect(() => {
-    if (currentUser) {
-      checkSellerOnboarding();
-    }
-  }, [currentUser]);
 
   useEffect(() => {
     const query = fulfillmentData.meetupLocationLabel.trim();
@@ -119,79 +106,6 @@ function Sell() {
       clearTimeout(timeoutId);
     };
   }, [fulfillmentData.meetupLocationLabel]);
-
-  // Handle URL parameters for onboarding redirect
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (
-      urlParams.get("success") === "true" ||
-      urlParams.get("refresh") === "true"
-    ) {
-      // User returned from Stripe onboarding, recheck status
-      if (currentUser) {
-        setTimeout(() => checkSellerOnboarding(), 1000); // Small delay to allow Stripe to process
-      }
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // Debug helper - clear stripe data if ?clear=true
-    if (urlParams.get("clear") === "true" && currentUser) {
-      clearStripeData();
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [currentUser]);
-
-  const clearStripeData = async () => {
-    try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        stripeAccountId: null,
-        sellerOnboardingStarted: null,
-      });
-      setSellerOnboardingComplete(false);
-      console.log("Cleared Stripe data for fresh start");
-    } catch (error) {
-      console.error("Error clearing Stripe data:", error);
-    }
-  };
-
-  const checkSellerOnboarding = async () => {
-    try {
-      setCheckingOnboarding(true);
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      const userData = userDoc.data();
-
-      if (userData?.stripeAccountId) {
-        try {
-          const account = await getConnectAccountStatus(
-            userData.stripeAccountId
-          );
-          setSellerOnboardingComplete(account.isComplete);
-        } catch (accountError) {
-          // If account doesn't exist or access is revoked, clear it and start fresh
-          console.warn(
-            "Stripe account not accessible, clearing stored account ID:",
-            accountError
-          );
-
-          // Clear the invalid account ID from Firebase
-          await updateDoc(doc(db, "users", currentUser.uid), {
-            stripeAccountId: null,
-            sellerOnboardingStarted: null,
-          });
-
-          setSellerOnboardingComplete(false);
-        }
-      } else {
-        setSellerOnboardingComplete(false);
-      }
-    } catch (error) {
-      console.error("Error checking seller onboarding:", error);
-      setSellerOnboardingComplete(false);
-    } finally {
-      setCheckingOnboarding(false);
-    }
-  };
 
   const handlePhotoSelection = (e) => {
     const files = Array.from(e.target.files);
@@ -338,10 +252,6 @@ function Sell() {
   const isMeetupLocationValid =
     !fulfillmentData.localMeetupAvailable ||
     Boolean(fulfillmentData.meetupLocationLabel.trim());
-  const isShippingProfileValid =
-    !fulfillmentData.shippingAvailable ||
-    fulfillmentData.shippingIncluded ||
-    Boolean(fulfillmentData.shippingProfile);
 
   const handleInputChange = (field) => (event) => {
     setListingData((prev) => ({
@@ -398,8 +308,7 @@ function Sell() {
       !isPhotosValid ||
       !isBasicInfoValid ||
       !isDeliveryValid ||
-      !isMeetupLocationValid ||
-      !isShippingProfileValid
+      !isMeetupLocationValid
     ) {
       alert("Please fill in all required fields");
       return;
@@ -434,9 +343,6 @@ function Sell() {
         uploadedAt: new Date(),
       }));
 
-      // Get user's Stripe account ID for marketplace payments
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      const userData = userDoc.data();
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
 
       const listingToSave = {
@@ -494,7 +400,6 @@ function Sell() {
         soldAt: null,
         soldTo: null,
         userId: currentUser.uid,
-        stripeAccountId: userData?.stripeAccountId, // Store seller's Stripe account ID
         listingId, // Store our custom ID for reference
       };
 
@@ -554,59 +459,6 @@ function Sell() {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           Please sign in to create a listing
         </Typography>
-      </Box>
-    );
-  }
-
-  if (checkingOnboarding) {
-    return (
-      <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2, textAlign: "center" }}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-          List Your Cube
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Checking seller registration status...
-        </Typography>
-      </Box>
-    );
-  }
-
-  if (!sellerOnboardingComplete) {
-    return (
-      <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-          List Your Cube
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Before you can list items for sale, you need to register as a seller
-        </Typography>
-
-        <Card sx={{ p: 4, textAlign: "center" }}>
-          <Typography variant="h5" gutterBottom>
-            Become a Verified Seller
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            To sell on WeCube, you need to complete a quick registration
-            process. This helps us ensure secure payments and comply with
-            financial regulations.
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => setShowOnboarding(true)}
-          >
-            Start Seller Registration
-          </Button>
-        </Card>
-
-        <SellerOnboarding
-          open={showOnboarding}
-          onClose={() => setShowOnboarding(false)}
-          onComplete={() => {
-            setSellerOnboardingComplete(true);
-            setShowOnboarding(false);
-          }}
-        />
       </Box>
     );
   }
@@ -852,7 +704,7 @@ function Sell() {
                   <Box>
                     <Typography variant="body1">Shipping</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Protected checkout through the app
+                      Coordinate payment and delivery directly with the buyer
                     </Typography>
                   </Box>
                   <Switch
@@ -1113,8 +965,7 @@ function Sell() {
               isPublishing ||
               !isDeliveryValid ||
               !isCompetitionValid ||
-              !isMeetupLocationValid ||
-              !isShippingProfileValid
+              !isMeetupLocationValid
             }
             sx={{ px: 6, py: 2 }}
           >
