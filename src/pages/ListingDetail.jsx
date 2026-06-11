@@ -59,7 +59,6 @@ import {
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
-  SHIPPING_PROFILE_OPTIONS,
   getConditionLabel,
   getNormalizedFulfillmentFields,
   getShippingLabel,
@@ -113,7 +112,7 @@ function ListingDetail() {
     meetupLocation: null,
     shippingAvailable: false,
     shippingIncluded: false,
-    shippingProfile: "",
+    shippingCost: "",
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
   });
@@ -172,7 +171,10 @@ function ListingDetail() {
             meetupLocation: listingData.meetupLocation || null,
             shippingAvailable: fulfillmentFields.shippingAvailable,
             shippingIncluded: fulfillmentFields.shippingIncluded,
-            shippingProfile: fulfillmentFields.shippingProfile || "",
+            shippingCost:
+              fulfillmentFields.shippingCost > 0
+                ? fulfillmentFields.shippingCost.toString()
+                : "",
             localMeetupAvailable: fulfillmentFields.localMeetupAvailable,
             competitionMeetupAvailable:
               fulfillmentFields.competitionMeetupAvailable,
@@ -428,6 +430,16 @@ function ListingDetail() {
     }
   };
 
+  const handleShippingCostChange = (event) => {
+    const value = event.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setEditData((prev) => ({
+        ...prev,
+        shippingCost: value,
+      }));
+    }
+  };
+
   const resolveMeetupLocationForSave = async () => {
     if (!editData.localMeetupAvailable) {
       return null;
@@ -463,10 +475,10 @@ function ListingDetail() {
       const isCompetitionValid =
         !editData.competitionMeetupAvailable ||
         selectedCompetitions.length > 0;
-      const isShippingProfileValid =
+      const isShippingCostValid =
         !editData.shippingAvailable ||
         editData.shippingIncluded ||
-        Boolean(editData.shippingProfile);
+        editData.shippingCost !== "";
 
       if (
         !editData.title ||
@@ -477,7 +489,7 @@ function ListingDetail() {
         !isDeliveryValid ||
         !isMeetupLocationValid ||
         !isCompetitionValid ||
-        !isShippingProfileValid
+        !isShippingCostValid
       ) {
         alert("Please fill in all required fields");
         return;
@@ -506,8 +518,10 @@ function ListingDetail() {
         },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingProfile: editData.shippingIncluded ? "" : editData.shippingProfile,
-        shippingCost: 0,
+        shippingProfile: "",
+        shippingCost: editData.shippingIncluded
+          ? 0
+          : parseFloat(editData.shippingCost),
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions.map((competition) => ({
@@ -557,8 +571,10 @@ function ListingDetail() {
         },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingProfile: editData.shippingIncluded ? "" : editData.shippingProfile,
-        shippingCost: 0,
+        shippingProfile: "",
+        shippingCost: editData.shippingIncluded
+          ? 0
+          : parseFloat(editData.shippingCost),
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions,
@@ -1599,29 +1615,21 @@ function ListingDetail() {
                       />
                     </Box>
                     {!editData.shippingIncluded && (
-                      <FormControl fullWidth sx={{ mb: 2 }}>
-                        <InputLabel>Shipping Type</InputLabel>
-                        <Select
-                          value={editData.shippingProfile}
-                          label="Shipping Type"
-                          onChange={(event) => {
-                            setEditData((prev) => ({
-                              ...prev,
-                              shippingProfile: event.target.value,
-                            }));
-                          }}
-                        >
-                          {SHIPPING_PROFILE_OPTIONS.map((profile) => (
-                            <MenuItem key={profile.value} value={profile.value}>
-                              {profile.label} ({`$${profile.price.toFixed(2)}`})
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        <FormHelperText>
-                          Pick the closest package type to keep shipping pricing
-                          consistent.
-                        </FormHelperText>
-                      </FormControl>
+                      <TextField
+                        label="Shipping Price (USD)"
+                        fullWidth
+                        placeholder="e.g., 8.00"
+                        value={editData.shippingCost}
+                        onChange={handleShippingCostChange}
+                        helperText="Set the shipping price buyers should expect to pay you directly."
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                          },
+                        }}
+                        required
+                        sx={{ mb: 2 }}
+                      />
                     )}
                   </>
                 )}

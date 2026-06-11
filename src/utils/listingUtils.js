@@ -58,22 +58,21 @@ export function getShippingProfile(profileValue) {
 }
 
 export function getShippingPriceFromListing(listing = {}) {
+  if (typeof listing.shippingCost === "number") {
+    return listing.shippingCost;
+  }
+
   const profile = getShippingProfile(listing.shippingProfile);
   if (profile) {
     return profile.price;
   }
 
-  return typeof listing.shippingCost === "number" ? listing.shippingCost : 0;
+  return 0;
 }
 
 export function getShippingLabel(listing = {}, formatPrice) {
   if (listing.shippingIncluded) {
     return "Ships · Shipping Included";
-  }
-
-  const profile = getShippingProfile(listing.shippingProfile);
-  if (profile) {
-    return `Ships · ${profile.label} (${formatPrice(profile.price)})`;
   }
 
   const shippingPrice = getShippingPriceFromListing(listing);

@@ -38,7 +38,6 @@ import {
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
-  SHIPPING_PROFILE_OPTIONS,
 } from "../utils/listingUtils";
 
 function Sell() {
@@ -55,7 +54,7 @@ function Sell() {
   const [fulfillmentData, setFulfillmentData] = useState({
     shippingAvailable: true,
     shippingIncluded: false,
-    shippingProfile: "single_cube_standard",
+    shippingCost: "",
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
     meetupLocationLabel: "",
@@ -252,6 +251,10 @@ function Sell() {
   const isMeetupLocationValid =
     !fulfillmentData.localMeetupAvailable ||
     Boolean(fulfillmentData.meetupLocationLabel.trim());
+  const isShippingCostValid =
+    !fulfillmentData.shippingAvailable ||
+    fulfillmentData.shippingIncluded ||
+    fulfillmentData.shippingCost !== "";
 
   const handleInputChange = (field) => (event) => {
     setListingData((prev) => ({
@@ -266,6 +269,16 @@ function Sell() {
       setListingData((prev) => ({
         ...prev,
         price: value,
+      }));
+    }
+  };
+
+  const handleShippingCostChange = (event) => {
+    const value = event.target.value;
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setFulfillmentData((prev) => ({
+        ...prev,
+        shippingCost: value,
       }));
     }
   };
@@ -308,7 +321,8 @@ function Sell() {
       !isPhotosValid ||
       !isBasicInfoValid ||
       !isDeliveryValid ||
-      !isMeetupLocationValid
+      !isMeetupLocationValid ||
+      !isShippingCostValid
     ) {
       alert("Please fill in all required fields");
       return;
@@ -366,10 +380,10 @@ function Sell() {
         },
         shippingAvailable: fulfillmentData.shippingAvailable,
         shippingIncluded: fulfillmentData.shippingIncluded,
-        shippingProfile: fulfillmentData.shippingIncluded
-          ? ""
-          : fulfillmentData.shippingProfile,
-        shippingCost: 0,
+        shippingProfile: "",
+        shippingCost: fulfillmentData.shippingIncluded
+          ? 0
+          : parseFloat(fulfillmentData.shippingCost),
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
           fulfillmentData.competitionMeetupAvailable,
@@ -440,7 +454,7 @@ function Sell() {
     setFulfillmentData({
       shippingAvailable: true,
       shippingIncluded: false,
-      shippingProfile: "single_cube_standard",
+      shippingCost: "",
       localMeetupAvailable: false,
       competitionMeetupAvailable: false,
       meetupLocationLabel: "",
@@ -733,29 +747,21 @@ function Sell() {
                       />
                     </Box>
                     {!fulfillmentData.shippingIncluded && (
-                      <FormControl fullWidth>
-                        <InputLabel>Shipping Type</InputLabel>
-                        <Select
-                          value={fulfillmentData.shippingProfile}
-                          label="Shipping Type"
-                          onChange={(event) => {
-                            setFulfillmentData((prev) => ({
-                              ...prev,
-                              shippingProfile: event.target.value,
-                            }));
-                          }}
-                        >
-                          {SHIPPING_PROFILE_OPTIONS.map((profile) => (
-                            <MenuItem key={profile.value} value={profile.value}>
-                              {profile.label} ({`$${profile.price.toFixed(2)}`})
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        <FormHelperText>
-                          Pick the closest package type to keep shipping pricing
-                          consistent.
-                        </FormHelperText>
-                      </FormControl>
+                      <TextField
+                        label="Shipping Price (USD)"
+                        fullWidth
+                        placeholder="e.g., 8.00"
+                        value={fulfillmentData.shippingCost}
+                        onChange={handleShippingCostChange}
+                        error={hasAttemptedSubmit && !isShippingCostValid}
+                        helperText="Set the shipping price buyers should expect to pay you directly."
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                          },
+                        }}
+                        required
+                      />
                     )}
                   </Stack>
                 )}
@@ -965,7 +971,8 @@ function Sell() {
               isPublishing ||
               !isDeliveryValid ||
               !isCompetitionValid ||
-              !isMeetupLocationValid
+              !isMeetupLocationValid ||
+              !isShippingCostValid
             }
             sx={{ px: 6, py: 2 }}
           >

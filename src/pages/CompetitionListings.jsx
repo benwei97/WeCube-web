@@ -315,9 +315,9 @@ function CompetitionListings() {
                           }}
                         >
                           {normalizedListing.shippingIncluded
-                            ? "Free shipping"
+                            ? "Shipping included"
                             : shippingPrice > 0
-                              ? `+ ${formatPrice(shippingPrice)} shipping`
+                              ? `${formatPrice(shippingPrice)} shipping`
                               : "Shipping available"}
                         </Typography>
                       )}
