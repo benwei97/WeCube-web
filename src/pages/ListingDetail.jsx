@@ -27,6 +27,9 @@ import {
   Switch,
   FormGroup,
   FormHelperText,
+  Alert,
+  Collapse,
+  Snackbar,
 } from "@mui/material";
 import {
   Edit,
@@ -81,6 +84,8 @@ function ListingDetail() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [editNotice, setEditNotice] = useState(null);
+  const [editSnackbar, setEditSnackbar] = useState(null);
   const [existingConversation, setExistingConversation] = useState(null);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [messageText, setMessageText] = useState("");
@@ -324,10 +329,19 @@ function ListingDetail() {
   };
 
   const handleEditToggle = () => {
-    setEditMode(!editMode);
+    setEditMode((prev) => !prev);
+    setEditNotice(null);
+  };
+
+  const handleEditSnackbarClose = (_, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setEditSnackbar(null);
   };
 
   const handleInputChange = (field) => (event) => {
+    setEditNotice(null);
     setEditData((prev) => ({
       ...prev,
       [field]: event.target.value,
@@ -336,6 +350,7 @@ function ListingDetail() {
 
   const handleFulfillmentChange = (field) => (event) => {
     const isChecked = event.target.checked;
+    setEditNotice(null);
     setEditData((prev) => ({
       ...prev,
       [field]: isChecked,
@@ -424,6 +439,7 @@ function ListingDetail() {
   const handlePriceChange = (event) => {
     const value = event.target.value;
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setEditNotice(null);
       setEditData((prev) => ({
         ...prev,
         price: value,
@@ -434,6 +450,7 @@ function ListingDetail() {
   const handleShippingCostChange = (event) => {
     const value = event.target.value;
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setEditNotice(null);
       setEditData((prev) => ({
         ...prev,
         shippingCost: value,
@@ -492,7 +509,10 @@ function ListingDetail() {
         !isCompetitionValid ||
         !isShippingCostValid
       ) {
-        alert("Please fill in all required fields");
+        setEditNotice({
+          severity: "warning",
+          message: "Please fill in all required fields before saving.",
+        });
         return;
       }
 
@@ -594,10 +614,17 @@ function ListingDetail() {
       }));
 
       setEditMode(false);
-      alert("Listing updated successfully!");
+      setEditNotice(null);
+      setEditSnackbar({
+        severity: "success",
+        message: "Listing updated successfully.",
+      });
     } catch (error) {
       console.error("Error updating listing:", error);
-      alert("Failed to update listing");
+      setEditSnackbar({
+        severity: "error",
+        message: "Failed to update listing. Please try again.",
+      });
     }
   };
 
@@ -1508,6 +1535,18 @@ function ListingDetail() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
+            <Collapse in={Boolean(editNotice)}>
+              {editNotice && (
+                <Alert
+                  severity={editNotice.severity}
+                  variant="outlined"
+                  sx={{ alignItems: "center" }}
+                >
+                  {editNotice.message}
+                </Alert>
+              )}
+            </Collapse>
+
             <TextField
               label="Title"
               fullWidth
@@ -1660,6 +1699,7 @@ function ListingDetail() {
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
+                        setEditNotice(null);
                         setEditData((prev) => ({
                           ...prev,
                           meetupLocationLabel: getLocationOptionLabel(newValue),
@@ -1670,6 +1710,7 @@ function ListingDetail() {
                         if (reason === "reset") {
                           return;
                         }
+                        setEditNotice(null);
                         setEditData((prev) => ({
                           ...prev,
                           meetupLocationLabel: newInputValue,
@@ -1727,6 +1768,7 @@ function ListingDetail() {
                     }
                     value={selectedCompetitions}
                     onChange={(_, newValue) => {
+                      setEditNotice(null);
                       setSelectedCompetitions(newValue);
                     }}
                     onInputChange={handleCompetitionSearch}
@@ -1772,6 +1814,24 @@ function ListingDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={Boolean(editSnackbar)}
+        autoHideDuration={3200}
+        onClose={handleEditSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {editSnackbar && (
+          <Alert
+            onClose={handleEditSnackbarClose}
+            severity={editSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {editSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
 
       {/* Message Request Dialog */}
       <Dialog
