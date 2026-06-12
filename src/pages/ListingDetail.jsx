@@ -63,6 +63,7 @@ import {
   getNormalizedFulfillmentFields,
   getShippingLabel,
   normalizeConditionValue,
+  parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
@@ -478,7 +479,7 @@ function ListingDetail() {
       const isShippingCostValid =
         !editData.shippingAvailable ||
         editData.shippingIncluded ||
-        editData.shippingCost !== "";
+        parsePositiveCurrencyAmount(editData.shippingCost) !== null;
 
       if (
         !editData.title ||
@@ -497,6 +498,11 @@ function ListingDetail() {
 
       const docRef = doc(db, "listings", id);
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
+      const shippingCost =
+        !editData.shippingAvailable || editData.shippingIncluded
+          ? 0
+          : parsePositiveCurrencyAmount(editData.shippingCost);
+
       await updateDoc(docRef, {
         title: editData.title,
         price: parseFloat(editData.price),
@@ -519,9 +525,7 @@ function ListingDetail() {
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
         shippingProfile: "",
-        shippingCost: editData.shippingIncluded
-          ? 0
-          : parseFloat(editData.shippingCost),
+        shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions.map((competition) => ({
@@ -572,9 +576,7 @@ function ListingDetail() {
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
         shippingProfile: "",
-        shippingCost: editData.shippingIncluded
-          ? 0
-          : parseFloat(editData.shippingCost),
+        shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
         competitions: selectedCompetitions,
@@ -1621,7 +1623,7 @@ function ListingDetail() {
                         placeholder="e.g., 8.00"
                         value={editData.shippingCost}
                         onChange={handleShippingCostChange}
-                        helperText="Set the shipping price buyers should expect to pay you directly."
+                        helperText="Set a shipping price greater than $0 that buyers should expect to pay you directly."
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",

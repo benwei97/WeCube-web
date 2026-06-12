@@ -70,6 +70,11 @@ export function getShippingPriceFromListing(listing = {}) {
   return 0;
 }
 
+export function parsePositiveCurrencyAmount(value) {
+  const amount = Number.parseFloat(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
 export function getShippingLabel(listing = {}, formatPrice) {
   if (listing.shippingIncluded) {
     return "Ships · Shipping Included";

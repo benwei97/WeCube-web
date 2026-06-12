@@ -38,6 +38,7 @@ import {
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
+  parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
 
 function Sell() {
@@ -254,7 +255,7 @@ function Sell() {
   const isShippingCostValid =
     !fulfillmentData.shippingAvailable ||
     fulfillmentData.shippingIncluded ||
-    fulfillmentData.shippingCost !== "";
+    parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null;
 
   const handleInputChange = (field) => (event) => {
     setListingData((prev) => ({
@@ -359,6 +360,11 @@ function Sell() {
 
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
 
+      const shippingCost =
+        !fulfillmentData.shippingAvailable || fulfillmentData.shippingIncluded
+          ? 0
+          : parsePositiveCurrencyAmount(fulfillmentData.shippingCost);
+
       const listingToSave = {
         title: listingData.title,
         price: parseFloat(listingData.price),
@@ -381,9 +387,7 @@ function Sell() {
         shippingAvailable: fulfillmentData.shippingAvailable,
         shippingIncluded: fulfillmentData.shippingIncluded,
         shippingProfile: "",
-        shippingCost: fulfillmentData.shippingIncluded
-          ? 0
-          : parseFloat(fulfillmentData.shippingCost),
+        shippingCost,
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
           fulfillmentData.competitionMeetupAvailable,
@@ -754,7 +758,7 @@ function Sell() {
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
-                        helperText="Set the shipping price buyers should expect to pay you directly."
+                        helperText="Set a shipping price greater than $0 that buyers should expect to pay you directly."
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",
