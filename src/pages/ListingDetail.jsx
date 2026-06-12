@@ -89,6 +89,8 @@ function ListingDetail() {
   const [existingConversation, setExistingConversation] = useState(null);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [messageNotice, setMessageNotice] = useState(null);
+  const [messageSnackbar, setMessageSnackbar] = useState(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
@@ -338,6 +340,21 @@ function ListingDetail() {
       return;
     }
     setEditSnackbar(null);
+  };
+
+  const handleMessageDialogClose = () => {
+    if (sendingMessage) {
+      return;
+    }
+    setShowMessageDialog(false);
+    setMessageNotice(null);
+  };
+
+  const handleMessageSnackbarClose = (_, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setMessageSnackbar(null);
   };
 
   const handleInputChange = (field) => (event) => {
@@ -630,20 +647,30 @@ function ListingDetail() {
 
   const handleMessageRequest = async () => {
     if (!currentUser) {
-      alert("Please sign in to message the seller");
+      setMessageNotice({
+        severity: "info",
+        message: "Please sign in to message the seller.",
+      });
       return;
     }
 
     if (currentUser.uid === listing.userId) {
-      alert("You cannot message yourself");
+      setMessageNotice({
+        severity: "warning",
+        message: "You cannot message yourself.",
+      });
       return;
     }
 
     if (!messageText.trim()) {
-      alert("Please enter a message");
+      setMessageNotice({
+        severity: "warning",
+        message: "Please enter a message before sending.",
+      });
       return;
     }
 
+    setMessageNotice(null);
     setSendingMessage(true);
     try {
       await createConversationRequest(
@@ -655,14 +682,21 @@ function ListingDetail() {
 
       setShowMessageDialog(false);
       setMessageText("");
+      setMessageNotice(null);
 
       // Refresh conversation status
       await checkExistingConversation();
 
-      alert("Message request sent! The seller will need to approve before you can chat.");
+      setMessageSnackbar({
+        severity: "success",
+        message: "Message request sent. The seller will need to approve it before you can chat.",
+      });
     } catch (error) {
       console.error("Error sending message request:", error);
-      alert(error.message || "Failed to send message request");
+      setMessageSnackbar({
+        severity: "error",
+        message: error.message || "Failed to send message request.",
+      });
     } finally {
       setSendingMessage(false);
     }
@@ -670,9 +704,13 @@ function ListingDetail() {
 
   const openMessageDialog = () => {
     if (!currentUser) {
-      alert("Please sign in to message the seller");
+      setMessageSnackbar({
+        severity: "info",
+        message: "Please sign in to message the seller.",
+      });
       return;
     }
+    setMessageNotice(null);
     setShowMessageDialog(true);
   };
 
@@ -1833,10 +1871,28 @@ function ListingDetail() {
         )}
       </Snackbar>
 
+      <Snackbar
+        open={Boolean(messageSnackbar)}
+        autoHideDuration={3600}
+        onClose={handleMessageSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {messageSnackbar && (
+          <Alert
+            onClose={handleMessageSnackbarClose}
+            severity={messageSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {messageSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
+
       {/* Message Request Dialog */}
       <Dialog
         open={showMessageDialog}
-        onClose={() => setShowMessageDialog(false)}
+        onClose={handleMessageDialogClose}
         maxWidth="sm"
         fullWidth
       >
@@ -1849,7 +1905,7 @@ function ListingDetail() {
             }}
           >
             Send Message Request
-            <Button onClick={() => setShowMessageDialog(false)}>
+            <Button onClick={handleMessageDialogClose} disabled={sendingMessage}>
               <Close />
             </Button>
           </Box>
@@ -1858,6 +1914,17 @@ function ListingDetail() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Send a message to inquire about this listing. The seller will need to approve your request before you can chat.
           </Typography>
+          <Collapse in={Boolean(messageNotice)}>
+            {messageNotice && (
+              <Alert
+                severity={messageNotice.severity}
+                variant="outlined"
+                sx={{ alignItems: "center", mb: 2 }}
+              >
+                {messageNotice.message}
+              </Alert>
+            )}
+          </Collapse>
           <TextField
             autoFocus
             label="Your message"
@@ -1865,13 +1932,16 @@ function ListingDetail() {
             multiline
             rows={4}
             value={messageText}
-            onChange={(e) => setMessageText(e.target.value)}
+            onChange={(e) => {
+              setMessageNotice(null);
+              setMessageText(e.target.value);
+            }}
             placeholder="Hi, I'm interested in this cube. Is it still available?"
             sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowMessageDialog(false)} disabled={sendingMessage}>
+          <Button onClick={handleMessageDialogClose} disabled={sendingMessage}>
             Cancel
           </Button>
           <Button
