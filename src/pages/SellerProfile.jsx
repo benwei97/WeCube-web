@@ -19,6 +19,7 @@ import { db } from "../../firebase";
 import { getPrimaryFulfillmentOption } from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
+import { getS3PublicUrl } from "../utils/s3";
 
 function SellerProfile() {
   const { userId } = useParams();
@@ -27,6 +28,7 @@ function SellerProfile() {
   const [reviews, setReviews] = useState([]);
   const [sellerListings, setSellerListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAllActiveListings, setShowAllActiveListings] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +80,9 @@ function SellerProfile() {
       ),
     [sellerListings]
   );
+  const visibleActiveListings = showAllActiveListings
+    ? activeListings
+    : activeListings.slice(0, 6);
   const soldListings = useMemo(
     () => sellerListings.filter((listing) => listing.status === "sold"),
     [sellerListings]
@@ -179,42 +184,123 @@ function SellerProfile() {
           {activeListings.length === 0 ? (
             <Alert severity="info">This user does not have any active listings right now.</Alert>
           ) : (
-            <Stack spacing={2}>
-              {activeListings.slice(0, 6).map((listing) => {
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  lg: "repeat(3, minmax(0, 1fr))",
+                },
+                gap: 1.5,
+              }}
+            >
+              {visibleActiveListings.map((listing) => {
                 const fulfillmentOption = getPrimaryFulfillmentOption(listing);
+                const thumbnailUrl = listing.photos?.[0]?.s3Key
+                  ? getS3PublicUrl(listing.photos[0].s3Key)
+                  : null;
                 return (
                   <Card key={listing.id} variant="outlined">
-                    <CardContent>
+                    <CardContent
+                      sx={{
+                        p: 1.5,
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1.25,
+                      }}
+                    >
                       <Stack
-                        direction={{ xs: "column", md: "row" }}
-                        justifyContent="space-between"
-                        spacing={2}
-                        alignItems={{ xs: "flex-start", md: "center" }}
+                        direction="row"
+                        spacing={1.25}
+                        alignItems="center"
+                        sx={{ minWidth: 0 }}
                       >
-                        <Box>
-                          <Typography variant="h6">{listing.title}</Typography>
-                          <Typography variant="body1" color="primary" fontWeight="bold">
-                            {new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                            }).format(listing.price)}
+                        <Box
+                          sx={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: 1,
+                            overflow: "hidden",
+                            bgcolor: "grey.100",
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {thumbnailUrl ? (
+                            <Box
+                              component="img"
+                              src={thumbnailUrl}
+                              alt={listing.title}
+                              sx={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              No Image
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography
+                            variant="subtitle1"
+                            fontWeight={700}
+                            sx={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {listing.title}
                           </Typography>
-                          <Box sx={{ mt: 1 }}>
+                          <Typography variant="body2" color="primary" fontWeight="bold">
+                              {new Intl.NumberFormat("en-US", {
+                                style: "currency",
+                                currency: "USD",
+                              }).format(listing.price)}
+                          </Typography>
+                          <Box sx={{ mt: 0.5 }}>
                             <ListingFulfillmentLine option={fulfillmentOption} />
                           </Box>
                         </Box>
+                      </Stack>
+                      <Box>
                         <Button
                           variant="outlined"
+                          size="small"
                           onClick={() => navigate(`/listing/${listing.id}`)}
+                          sx={{ alignSelf: "flex-start" }}
                         >
                           View Listing
                         </Button>
-                      </Stack>
+                      </Box>
                     </CardContent>
                   </Card>
                 );
               })}
-            </Stack>
+              {activeListings.length > 6 && (
+                <Button
+                  variant="text"
+                  onClick={() =>
+                    setShowAllActiveListings((currentValue) => !currentValue)
+                  }
+                  sx={{ justifySelf: "flex-start" }}
+                >
+                  {showAllActiveListings
+                    ? "Show fewer listings"
+                    : `View ${activeListings.length - 6} more listing${
+                        activeListings.length - 6 === 1 ? "" : "s"
+                      }`}
+                </Button>
+              )}
+            </Box>
           )}
         </Paper>
 
