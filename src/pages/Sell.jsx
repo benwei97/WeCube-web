@@ -17,6 +17,8 @@ import {
   FormHelperText,
   Autocomplete,
   Chip,
+  Alert,
+  Collapse,
 } from "@mui/material";
 import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -63,6 +65,8 @@ function Sell() {
   });
   const [isPublishing, setIsPublishing] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState(null);
+  const [submitNoticePulse, setSubmitNoticePulse] = useState(0);
   const [competitions, setCompetitions] = useState([]);
   const [allCompetitions, setAllCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
@@ -118,6 +122,7 @@ function Sell() {
     }));
 
     setSelectedPhotos((prev) => [...prev, ...photoObjects]);
+    setSubmitNotice(null);
   };
 
   const removePhoto = (photoId) => {
@@ -133,6 +138,7 @@ function Sell() {
 
   const handleFulfillmentChange = (field) => (event) => {
     const isChecked = event.target.checked;
+    setSubmitNotice(null);
 
     setFulfillmentData((prev) => ({
       ...prev,
@@ -258,6 +264,7 @@ function Sell() {
     parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null;
 
   const handleInputChange = (field) => (event) => {
+    setSubmitNotice(null);
     setListingData((prev) => ({
       ...prev,
       [field]: event.target.value,
@@ -267,6 +274,7 @@ function Sell() {
   const handlePriceChange = (event) => {
     const value = event.target.value;
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setSubmitNotice(null);
       setListingData((prev) => ({
         ...prev,
         price: value,
@@ -277,6 +285,7 @@ function Sell() {
   const handleShippingCostChange = (event) => {
     const value = event.target.value;
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setSubmitNotice(null);
       setFulfillmentData((prev) => ({
         ...prev,
         shippingCost: value,
@@ -325,12 +334,20 @@ function Sell() {
       !isMeetupLocationValid ||
       !isShippingCostValid
     ) {
-      alert("Please fill in all required fields");
+      setSubmitNotice({
+        severity: "warning",
+        message: "Please fill in all required fields before publishing.",
+      });
+      setSubmitNoticePulse((prev) => prev + 1);
       return;
     }
 
     if (!isCompetitionValid) {
-      alert("Please select at least one competition for meetup delivery");
+      setSubmitNotice({
+        severity: "warning",
+        message: "Please select at least one competition for meetup delivery.",
+      });
+      setSubmitNoticePulse((prev) => prev + 1);
       return;
     }
 
@@ -466,6 +483,7 @@ function Sell() {
     });
     setSelectedCompetitions([]);
     setHasAttemptedSubmit(false); // Reset validation state when clearing form
+    setSubmitNotice(null);
   };
 
   if (!currentUser) {
@@ -810,6 +828,7 @@ function Sell() {
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
+                        setSubmitNotice(null);
                         setFulfillmentData((prev) => ({
                           ...prev,
                           meetupLocationLabel: getLocationOptionLabel(newValue),
@@ -820,6 +839,7 @@ function Sell() {
                         if (reason === "reset") {
                           return;
                         }
+                        setSubmitNotice(null);
                         setFulfillmentData((prev) => ({
                           ...prev,
                           meetupLocationLabel: newInputValue,
@@ -890,6 +910,7 @@ function Sell() {
                     }
                     value={selectedCompetitions}
                     onChange={(_, newValue) => {
+                      setSubmitNotice(null);
                       setSelectedCompetitions(newValue);
                     }}
                     onInputChange={handleCompetitionSearch}
@@ -958,7 +979,38 @@ function Sell() {
           </CardContent>
         </Card>
 
-        <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mt: 4 }}>
+        <Collapse in={Boolean(submitNotice)}>
+          {submitNotice && (
+            <Alert
+              key={submitNoticePulse}
+              severity={submitNotice.severity}
+              variant="outlined"
+              sx={{
+                alignItems: "center",
+                borderColor: "warning.main",
+                animation: "sellSubmitNoticePulse 420ms ease",
+                "@keyframes sellSubmitNoticePulse": {
+                  "0%": {
+                    transform: "translateY(0)",
+                    boxShadow: "0 0 0 rgba(237, 108, 2, 0)",
+                  },
+                  "35%": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 0 0 4px rgba(237, 108, 2, 0.12)",
+                  },
+                  "100%": {
+                    transform: "translateY(0)",
+                    boxShadow: "0 0 0 rgba(237, 108, 2, 0)",
+                  },
+                },
+              }}
+            >
+              {submitNotice.message}
+            </Alert>
+          )}
+        </Collapse>
+
+        <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mt: 1 }}>
           <Button
             variant="outlined"
             size="large"
@@ -971,13 +1023,7 @@ function Sell() {
             variant="contained"
             size="large"
             onClick={handlePublishListing}
-            disabled={
-              isPublishing ||
-              !isDeliveryValid ||
-              !isCompetitionValid ||
-              !isMeetupLocationValid ||
-              !isShippingCostValid
-            }
+            disabled={isPublishing}
             sx={{ px: 6, py: 2 }}
           >
             {isPublishing ? "Publishing..." : "Publish Listing"}
