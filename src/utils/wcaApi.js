@@ -1,7 +1,8 @@
 const WCA_API_BASE = 'https://www.worldcubeassociation.org/api/v0';
-const COMPETITIONS_CACHE_STORAGE_KEY = 'wecube_competitions_cache_v1';
+const COMPETITIONS_CACHE_STORAGE_KEY = 'wecube_competitions_cache_us_v1';
 const WCA_PAGE_SIZE = 25;
 export const DEFAULT_COMPETITION_LOAD_LIMIT = 50;
+const UNITED_STATES_COUNTRY_CODE = 'US';
 const CORS_PROXIES = [
   'https://api.allorigins.win/get?url=',
   'https://corsproxy.io/?',
@@ -92,9 +93,9 @@ function mergeCompetitionsIntoCache(competitions) {
 
   competitionCache = {
     ...competitionCache,
-    data: [...competitionsById.values()].sort(
-      (a, b) => new Date(a.startDate) - new Date(b.startDate)
-    ),
+    data: [...competitionsById.values()]
+      .filter(isUnitedStatesFormattedCompetition)
+      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate)),
     timestamp: competitionCache.timestamp || Date.now(),
   };
   writeStoredCompetitionCache();
@@ -116,6 +117,14 @@ function dedupeCompetitionsById(competitions) {
   });
 
   return [...competitionsById.values()];
+}
+
+function isUnitedStatesOfficialCompetition(competition) {
+  return competition?.country_iso2 === UNITED_STATES_COUNTRY_CODE;
+}
+
+function isUnitedStatesFormattedCompetition(competition) {
+  return competition?.country === UNITED_STATES_COUNTRY_CODE;
 }
 
 function hydrateMemoryCacheFromStorage() {
@@ -248,7 +257,7 @@ async function fetchInitialCompetitionPages(
 ) {
   let allCompetitions = [];
   let page = 1;
-  const maxInitialPages = Math.max(1, Math.ceil(initialLimit / WCA_PAGE_SIZE));
+  const maxInitialPages = 50;
 
   while (page <= maxInitialPages) {
     try {
@@ -286,9 +295,15 @@ async function fetchInitialCompetitionPages(
       if (data && Array.isArray(data)) {
         console.log(`Fetched initial page ${page}: ${data.length} competitions`);
         allCompetitions = allCompetitions.concat(data);
+        const unitedStatesCompetitionCount = allCompetitions.filter(
+          isUnitedStatesOfficialCompetition
+        ).length;
 
-        // If we got fewer than 25 competitions, we're done
-        if (data.length < WCA_PAGE_SIZE) {
+        // If we got fewer than 25 competitions, we're done.
+        if (
+          data.length < WCA_PAGE_SIZE ||
+          unitedStatesCompetitionCount >= initialLimit
+        ) {
           break;
         }
         page++;
@@ -366,7 +381,9 @@ async function loadMorePagesInBackground(
 
         // Add new competitions to cache
         const newFormattedCompetitions = formatOfficialCompetitions(data);
-        competitionCache.data = competitionCache.data.concat(newFormattedCompetitions);
+        competitionCache.data = dedupeCompetitionsById(
+          competitionCache.data.concat(newFormattedCompetitions)
+        );
         competitionCache.loadedPages = page;
         writeStoredCompetitionCache();
 
@@ -525,8 +542,8 @@ export async function getUpcomingCompetitions(limit = 50) {
 function formatOfficialCompetitions(competitions) {
   console.log('Formatting competitions, received:', competitions.length, 'competitions');
 
-  // No filtering needed - API already returns only upcoming competitions based on start date parameter
   const result = dedupeCompetitionsById(competitions)
+    .filter(isUnitedStatesOfficialCompetition)
     .map(comp => ({
       id: comp.id,
       name: comp.name,
@@ -669,6 +686,9 @@ export async function getCompetitionById(competitionId) {
     const response = await fetch(apiUrl);
     if (response.ok) {
       const competition = await response.json();
+      if (!isUnitedStatesOfficialCompetition(competition)) {
+        throw new Error('Only United States competitions are available.');
+      }
       return formatSingleOfficialCompetition(competition);
     }
   } catch (error) {
@@ -696,6 +716,9 @@ export async function getCompetitionById(competitionId) {
       }
 
       if (data) {
+        if (!isUnitedStatesOfficialCompetition(data)) {
+          throw new Error('Only United States competitions are available.');
+        }
         return formatSingleOfficialCompetition(data);
       }
     } catch (proxyError) {

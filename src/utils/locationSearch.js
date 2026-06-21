@@ -1,5 +1,6 @@
 const OPEN_METEO_GEOCODING_URL =
   "https://geocoding-api.open-meteo.com/v1/search";
+const UNITED_STATES_COUNTRY_CODE = "US";
 
 const CITY_FEATURE_CODES = new Set([
   "PPL",
@@ -46,6 +47,7 @@ export async function fetchLocationSuggestionOptions(query) {
   url.searchParams.set("count", "10");
   url.searchParams.set("language", "en");
   url.searchParams.set("format", "json");
+  url.searchParams.set("countryCode", UNITED_STATES_COUNTRY_CODE);
 
   const response = await fetch(url.toString());
   if (!response.ok) {
@@ -56,7 +58,11 @@ export async function fetchLocationSuggestionOptions(query) {
   const results = Array.isArray(data.results) ? data.results : [];
 
   return results
-    .filter((result) => CITY_FEATURE_CODES.has(result.feature_code))
+    .filter(
+      (result) =>
+        CITY_FEATURE_CODES.has(result.feature_code) &&
+        result.country_code === UNITED_STATES_COUNTRY_CODE
+    )
     .map((result) => mapLocationResult(result))
     .filter(
       (value, index, list) =>

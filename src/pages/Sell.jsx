@@ -832,8 +832,8 @@ function Sell() {
                       loading={loadingLocations}
                       noOptionsText={
                         fulfillmentData.meetupLocationLabel.trim().length < 2
-                          ? "Start typing a city..."
-                          : "No matching cities found"
+                          ? "Start typing a US city..."
+                          : "No matching US cities found"
                       }
                       renderInput={(params) => (
                         <TextField
@@ -899,7 +899,7 @@ function Sell() {
                     noOptionsText={
                       competitions.length === 0
                         ? "No competitions loaded. Try typing to search."
-                        : "No competitions match your search."
+                        : "No US competitions match your search."
                     }
                     loading={loadingCompetitions}
                     loadingText="Loading competitions..."
@@ -907,7 +907,7 @@ function Sell() {
                       <TextField
                         {...params}
                         label="Search competitions"
-                        placeholder="Type to search competitions..."
+                        placeholder="Search US competitions..."
                         variant="outlined"
                         error={hasAttemptedSubmit && !isCompetitionValid}
                       />

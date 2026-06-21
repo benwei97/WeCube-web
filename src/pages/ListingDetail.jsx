@@ -1762,8 +1762,8 @@ function ListingDetail() {
                       loading={loadingLocations}
                       noOptionsText={
                         editData.meetupLocationLabel.trim().length < 2
-                          ? "Start typing a city..."
-                          : "No matching cities found"
+                          ? "Start typing a US city..."
+                          : "No matching US cities found"
                       }
                       renderInput={(params) => (
                         <TextField
@@ -1819,7 +1819,7 @@ function ListingDetail() {
                       <TextField
                         {...params}
                         label="Search competitions"
-                        placeholder="Type to search competitions..."
+                        placeholder="Search US competitions..."
                       />
                     )}
                     renderTags={(tagValue, getTagProps) =>

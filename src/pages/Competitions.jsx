@@ -203,7 +203,7 @@ function Competitions() {
         Competitions
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Find cubes available at upcoming WCA competitions
+        Find cubes available at upcoming WCA competitions in the United States
       </Typography>
 
       {error && (
@@ -241,7 +241,7 @@ function Competitions() {
                 <TextField
                   {...params}
                   label="Search competitions"
-                  placeholder="Type to search competitions..."
+                  placeholder="Search US competitions..."
                   variant="outlined"
                   fullWidth
                 />
@@ -258,7 +258,7 @@ function Competitions() {
                   </Box>
                 </Box>
               )}
-              noOptionsText="No competitions found. Try a different search term."
+              noOptionsText="No US competitions found. Try a different search term."
             />
             <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
               <Button
@@ -303,7 +303,7 @@ function Competitions() {
                 <TextField
                   {...params}
                   label="Add a competition you are attending"
-                  placeholder="Search competitions..."
+                  placeholder="Search US competitions..."
                   variant="outlined"
                   fullWidth
                 />
