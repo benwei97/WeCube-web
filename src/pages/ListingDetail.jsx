@@ -1219,16 +1219,17 @@ function ListingDetail() {
             </Typography>
             <Typography
               variant="body1"
-              sx={
-                shouldCollapseDescription && !showFullDescription
+              sx={{
+                whiteSpace: "pre-wrap",
+                ...(shouldCollapseDescription && !showFullDescription
                   ? {
                       display: "-webkit-box",
                       WebkitBoxOrient: "vertical",
                       WebkitLineClamp: 4,
                       overflow: "hidden",
                     }
-                  : undefined
-              }
+                  : {}),
+              }}
             >
               {descriptionText}
             </Typography>
