@@ -16,8 +16,9 @@ import {
 import { ArrowBack, Star } from "@mui/icons-material";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
-import { getNormalizedFulfillmentFields } from "../utils/listingUtils";
+import { getPrimaryFulfillmentOption } from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
+import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 function SellerProfile() {
   const { userId } = useParams();
@@ -180,7 +181,7 @@ function SellerProfile() {
           ) : (
             <Stack spacing={2}>
               {activeListings.slice(0, 6).map((listing) => {
-                const fulfillment = getNormalizedFulfillmentFields(listing);
+                const fulfillmentOption = getPrimaryFulfillmentOption(listing);
                 return (
                   <Card key={listing.id} variant="outlined">
                     <CardContent>
@@ -198,17 +199,9 @@ function SellerProfile() {
                               currency: "USD",
                             }).format(listing.price)}
                           </Typography>
-                          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                            {fulfillment.shippingAvailable && (
-                              <Chip label="Ships" size="small" variant="outlined" />
-                            )}
-                            {fulfillment.localMeetupAvailable && (
-                              <Chip label="Local Meetup" size="small" variant="outlined" />
-                            )}
-                            {fulfillment.competitionMeetupAvailable && (
-                              <Chip label="At Competition" size="small" variant="outlined" />
-                            )}
-                          </Stack>
+                          <Box sx={{ mt: 1 }}>
+                            <ListingFulfillmentLine option={fulfillmentOption} />
+                          </Box>
                         </Box>
                         <Button
                           variant="outlined"

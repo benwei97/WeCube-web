@@ -22,6 +22,8 @@ import {
 } from "../components/ListingStatusDecorators";
 import { subscribeToUserReviews } from "../utils/reviews";
 import { getS3PublicUrl } from "../utils/s3";
+import { getPrimaryFulfillmentOption } from "../utils/listingUtils";
+import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 function MyPurchases() {
   const { currentUser } = useAuth();
@@ -121,6 +123,7 @@ function MyPurchases() {
         <Box sx={LISTING_CARD_GRID_SX}>
           {purchases.map((listing) => {
             const existingReview = reviewsByListingId[listing.id];
+            const fulfillmentOption = getPrimaryFulfillmentOption(listing);
             return (
               <Card key={listing.id} sx={LISTING_CARD_SX}>
                 <ListingCardMediaFrame
@@ -157,6 +160,7 @@ function MyPurchases() {
                     <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.12 }}>
                       Purchased on {formatDate(listing.soldAt)}
                     </Typography>
+                    <ListingFulfillmentLine option={fulfillmentOption} />
                   </Box>
 
                   {existingReview ? (

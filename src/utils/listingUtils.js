@@ -124,6 +124,76 @@ export function getNormalizedFulfillmentFields(listing = {}) {
   };
 }
 
+function getCompetitionLabel(competition = {}) {
+  return competition.displayName || competition.name || "Competition meetup";
+}
+
+function formatLocalMeetupLabel(label = "") {
+  return label.replace(/,\s*United States$/i, "").trim();
+}
+
+export function getPrimaryFulfillmentOption(listing = {}, options = {}) {
+  const fulfillment = getNormalizedFulfillmentFields(listing);
+  const competitionTags = fulfillment.meetupCompetitionTags || [];
+
+  if (options.preferShipping && fulfillment.shippingAvailable) {
+    return {
+      type: "shipping",
+      label: "Ships to you",
+    };
+  }
+
+  if (options.competitionId && fulfillment.competitionMeetupAvailable) {
+    const matchingCompetition = competitionTags.find(
+      (competition) => competition.id === options.competitionId
+    );
+
+    if (matchingCompetition) {
+      return {
+        type: "competition",
+        label: getCompetitionLabel(matchingCompetition),
+      };
+    }
+  }
+
+  if (fulfillment.localMeetupAvailable) {
+    return {
+      type: "local",
+      label: fulfillment.meetupLocationLabel
+        ? formatLocalMeetupLabel(fulfillment.meetupLocationLabel)
+        : "Local meetup",
+    };
+  }
+
+  if (fulfillment.competitionMeetupAvailable && competitionTags.length > 0) {
+    const firstCompetition = competitionTags[0];
+    const extraCompetitionCount = competitionTags.length - 1;
+    return {
+      type: "competition",
+      label:
+        extraCompetitionCount > 0
+          ? `${getCompetitionLabel(firstCompetition)} +${extraCompetitionCount} more`
+          : getCompetitionLabel(firstCompetition),
+    };
+  }
+
+  if (fulfillment.competitionMeetupAvailable) {
+    return {
+      type: "competition",
+      label: "Competition meetup",
+    };
+  }
+
+  if (fulfillment.shippingAvailable) {
+    return {
+      type: "shipping",
+      label: "Ships to you",
+    };
+  }
+
+  return null;
+}
+
 export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
   if (listing.status !== "sold") {
     return true;

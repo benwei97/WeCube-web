@@ -21,7 +21,6 @@ import {
 import {
   Archive,
   Delete,
-  LocalShipping,
   RestoreFromTrash,
   Visibility,
 } from "@mui/icons-material";
@@ -48,8 +47,9 @@ import {
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import {
   getNormalizedFulfillmentFields,
-  getShippingPriceFromListing,
+  getPrimaryFulfillmentOption,
 } from "../utils/listingUtils";
+import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 function MyListings() {
   const { currentUser } = useAuth();
@@ -208,7 +208,7 @@ function MyListings() {
       ...listing,
       ...getNormalizedFulfillmentFields(listing),
     };
-    const shippingPrice = getShippingPriceFromListing(normalizedListing);
+    const fulfillmentOption = getPrimaryFulfillmentOption(normalizedListing);
     const soldDate = formatDate(listing.soldAt);
     const archivedDate = formatDate(listing.archivedAt || listing.updatedAt);
 
@@ -242,19 +242,7 @@ function MyListings() {
             <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.1 }}>
               {formatPrice(listing.price)}
             </Typography>
-            {normalizedListing.shippingAvailable && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ lineHeight: 1.12, fontWeight: 500 }}
-              >
-                {normalizedListing.shippingIncluded
-                  ? "Shipping included"
-                  : shippingPrice > 0
-                    ? `${formatPrice(shippingPrice)} shipping`
-                    : "Shipping available"}
-              </Typography>
-            )}
+            <ListingFulfillmentLine option={fulfillmentOption} />
           </Box>
 
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -275,20 +263,6 @@ function MyListings() {
               }
               size="small"
             />
-            {normalizedListing.shippingAvailable && (
-              <Chip
-                icon={<LocalShipping />}
-                label="Ships"
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {normalizedListing.localMeetupAvailable && (
-              <Chip label="Local Meetup" size="small" variant="outlined" />
-            )}
-            {normalizedListing.competitionMeetupAvailable && (
-              <Chip label="At Competition" size="small" variant="outlined" />
-            )}
           </Stack>
 
           <Box sx={{ color: "text.secondary" }}>

@@ -36,7 +36,7 @@ import {
 } from "../components/ListingStatusDecorators";
 import {
   getNormalizedFulfillmentFields,
-  getShippingPriceFromListing,
+  getPrimaryFulfillmentOption,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -45,6 +45,7 @@ import {
   getLocationOptionLabel,
 } from "../utils/locationSearch";
 import { getS3PublicUrl } from "../utils/s3";
+import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 const EARTH_RADIUS_MILES = 3958.8;
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
@@ -58,7 +59,7 @@ const DEFAULT_LOCATION_FILTER = {
   includeCompetitionMeetups: true,
   includeShippableListings: true,
 };
-const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter";
+const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter_v3";
 
 function getLocationFilterStorageKey(userId) {
   return `${LOCATION_FILTER_STORAGE_PREFIX}_${userId || "guest"}`;
@@ -168,6 +169,127 @@ function getLocationButtonLabel(filters) {
   );
 }
 
+function getLocationMatchInfo(listing, filters) {
+  if (!filters.meetupLocation.trim()) {
+    return {
+      matchesLocation: false,
+      matchesLocalMeetup: false,
+      matchingCompetition: null,
+      matchesShipping: false,
+    };
+  }
+
+  const normalizedListing = getNormalizedFulfillmentFields(listing);
+  const competitionTags = [
+    ...(normalizedListing.meetupCompetitionTags || []),
+    ...(listing.competitions || []),
+  ];
+  const meetupLocationSearch = filters.meetupLocation.trim().toLowerCase();
+  const selectedLocation = filters.meetupLocationOption;
+  const selectedRadius = Number(filters.meetupRadius);
+  const canFilterByRadius =
+    Number.isFinite(selectedRadius) &&
+    selectedRadius > 0 &&
+    typeof selectedLocation?.latitude === "number" &&
+    typeof selectedLocation?.longitude === "number";
+
+  const exactMeetupTextMatch = [
+    normalizedListing.meetupLocationLabel,
+    listing.meetupLocation?.city,
+    listing.meetupLocation?.region,
+    listing.meetupLocation?.country,
+    ...competitionTags.flatMap((competition) => [
+      competition.city,
+      competition.country,
+    ]),
+  ]
+    .filter(Boolean)
+    .some((value) => value.toLowerCase() === meetupLocationSearch);
+
+  let matchesLocalMeetup = false;
+  let matchingCompetition = null;
+
+  if (canFilterByRadius) {
+    const localMeetupDistance = getMilesBetweenLocations(
+      selectedLocation,
+      listing.meetupLocation
+    );
+    matchesLocalMeetup =
+      filters.includeLocalMeetups &&
+      normalizedListing.localMeetupAvailable &&
+      localMeetupDistance !== null &&
+      localMeetupDistance <= selectedRadius;
+    matchingCompetition =
+      filters.includeCompetitionMeetups && normalizedListing.competitionMeetupAvailable
+        ? competitionTags.find((location) => {
+            const distance = getMilesBetweenLocations(selectedLocation, location);
+            return distance !== null && distance <= selectedRadius;
+          }) || null
+        : null;
+    const legacyTextMatch =
+      exactMeetupTextMatch &&
+      ((filters.includeLocalMeetups && normalizedListing.localMeetupAvailable) ||
+        (filters.includeCompetitionMeetups &&
+          normalizedListing.competitionMeetupAvailable));
+
+    if (legacyTextMatch && !matchesLocalMeetup && !matchingCompetition) {
+      if (filters.includeLocalMeetups && normalizedListing.localMeetupAvailable) {
+        matchesLocalMeetup = true;
+      } else if (
+        filters.includeCompetitionMeetups &&
+        normalizedListing.competitionMeetupAvailable
+      ) {
+        matchingCompetition = competitionTags[0] || {
+          name: "Competition meetup",
+        };
+      }
+    }
+  } else {
+    const searchableMeetupText = [
+      normalizedListing.meetupLocationLabel,
+      listing.meetupLocation?.city,
+      listing.meetupLocation?.region,
+      listing.meetupLocation?.country,
+      ...competitionTags.flatMap((competition) => [
+        competition.city,
+        competition.country,
+      ]),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    matchesLocalMeetup =
+      filters.includeLocalMeetups &&
+      normalizedListing.localMeetupAvailable &&
+      searchableMeetupText.includes(meetupLocationSearch);
+    matchingCompetition =
+      filters.includeCompetitionMeetups && normalizedListing.competitionMeetupAvailable
+        ? competitionTags.find((competition) =>
+            [competition.city, competition.country]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+              .includes(meetupLocationSearch)
+          ) || null
+        : null;
+  }
+
+  return {
+    matchesLocation: matchesLocalMeetup || Boolean(matchingCompetition),
+    matchesLocalMeetup,
+    matchingCompetition,
+    matchesShipping:
+      filters.includeShippableListings && normalizedListing.shippingAvailable,
+  };
+}
+
+function getCompetitionFulfillmentOption(competition = {}) {
+  return {
+    type: "competition",
+    label: competition.displayName || competition.name || "Competition meetup",
+  };
+}
+
 function Browse() {
   const { currentUser } = useAuth();
   const [listings, setListings] = useState([]);
@@ -191,9 +313,6 @@ function Browse() {
   const [restoredLocationFilterKey, setRestoredLocationFilterKey] =
     useState(null);
   const navigate = useNavigate();
-  const attendingCompetitionIds = new Set(
-    (currentUser?.attendingCompetitions || []).map((competition) => competition.id)
-  );
   const locationOptions =
     locationDraft.meetupLocation.trim().length >= 2 ? locationSearchOptions : [];
   const isLocationPopoverOpen = Boolean(locationAnchorEl);
@@ -352,7 +471,8 @@ function Browse() {
 
   const applyFilters = () => {
     // Use allListings for search/filter, listings for pagination
-    const sourceListings = isSearching ? allListings : listings;
+    const hasActiveFilter = Boolean(filters.search || filters.meetupLocation.trim());
+    const sourceListings = hasActiveFilter ? allListings : listings;
     let filtered = sourceListings.filter(
       (listing) =>
         listing.userId === currentUser?.uid ||
@@ -371,94 +491,9 @@ function Browse() {
     }
 
     if (filters.meetupLocation.trim()) {
-      const meetupLocationSearch = filters.meetupLocation.trim().toLowerCase();
-      const selectedLocation = filters.meetupLocationOption;
-      const selectedRadius = Number(filters.meetupRadius);
-      const canFilterByRadius =
-        Number.isFinite(selectedRadius) &&
-        selectedRadius > 0 &&
-        typeof selectedLocation?.latitude === "number" &&
-        typeof selectedLocation?.longitude === "number";
-
       filtered = filtered.filter((listing) => {
-        const normalizedListing = getNormalizedFulfillmentFields(listing);
-        const competitionTags = [
-          ...(normalizedListing.meetupCompetitionTags || []),
-          ...(listing.competitions || []),
-        ];
-
-        if (filters.includeShippableListings && normalizedListing.shippingAvailable) {
-          return true;
-        }
-
-        const searchableMeetupText = [
-          normalizedListing.meetupLocationLabel,
-          listing.meetupLocation?.city,
-          listing.meetupLocation?.region,
-          listing.meetupLocation?.country,
-          ...competitionTags.flatMap((competition) => [
-            competition.city,
-            competition.country,
-          ]),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        const exactMeetupTextMatch = [
-          normalizedListing.meetupLocationLabel,
-          listing.meetupLocation?.city,
-          listing.meetupLocation?.region,
-          listing.meetupLocation?.country,
-          ...competitionTags.flatMap((competition) => [
-            competition.city,
-            competition.country,
-          ]),
-        ]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase() === meetupLocationSearch);
-
-        if (canFilterByRadius) {
-          const localMeetupMatches =
-            filters.includeLocalMeetups &&
-            normalizedListing.localMeetupAvailable &&
-            getMilesBetweenLocations(selectedLocation, listing.meetupLocation) !==
-              null &&
-            getMilesBetweenLocations(selectedLocation, listing.meetupLocation) <=
-              selectedRadius;
-          const competitionMeetupMatches =
-            filters.includeCompetitionMeetups &&
-            normalizedListing.competitionMeetupAvailable &&
-            competitionTags
-              .map((location) =>
-                getMilesBetweenLocations(selectedLocation, location)
-              )
-              .filter((distance) => distance !== null)
-              .some((distance) => distance <= selectedRadius);
-          const legacyTextMatch =
-            exactMeetupTextMatch &&
-            ((filters.includeLocalMeetups &&
-              normalizedListing.localMeetupAvailable) ||
-              (filters.includeCompetitionMeetups &&
-                normalizedListing.competitionMeetupAvailable));
-
-          return localMeetupMatches || competitionMeetupMatches || legacyTextMatch;
-        }
-
-        const localTextMatch =
-          filters.includeLocalMeetups &&
-          normalizedListing.localMeetupAvailable &&
-          searchableMeetupText.includes(meetupLocationSearch);
-        const competitionTextMatch =
-          filters.includeCompetitionMeetups &&
-          normalizedListing.competitionMeetupAvailable &&
-          competitionTags
-            .flatMap((competition) => [competition.city, competition.country])
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(meetupLocationSearch);
-
-        return localTextMatch || competitionTextMatch;
+        const locationMatch = getLocationMatchInfo(listing, filters);
+        return locationMatch.matchesLocation || locationMatch.matchesShipping;
       });
     }
 
@@ -755,13 +790,23 @@ function Browse() {
           <Box key={listing.id}>
             {(() => {
               const normalizedListing = {
-                ...listing,
-                ...getNormalizedFulfillmentFields(listing),
-              };
-              const shippingPrice = getShippingPriceFromListing(normalizedListing);
-              const hasCompetitionMatch = normalizedListing.meetupCompetitionTags?.some(
-                (competition) => attendingCompetitionIds.has(competition.id)
-              );
+                  ...listing,
+                  ...getNormalizedFulfillmentFields(listing),
+                };
+              const locationMatch = getLocationMatchInfo(listing, filters);
+              const fulfillmentOption =
+                hasLocationFilter &&
+                locationMatch.matchingCompetition &&
+                !locationMatch.matchesLocalMeetup
+                  ? getCompetitionFulfillmentOption(
+                      locationMatch.matchingCompetition
+                    )
+                  : getPrimaryFulfillmentOption(normalizedListing, {
+                      preferShipping:
+                        hasLocationFilter &&
+                        locationMatch.matchesShipping &&
+                        !locationMatch.matchesLocation,
+                    });
 
               return (
             <Card
@@ -791,48 +836,6 @@ function Browse() {
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                topLeftAdornment={
-                  normalizedListing.competitionMeetupAvailable ? (
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 12,
-                        left: 12,
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: hasCompetitionMatch
-                          ? "success.main"
-                          : "rgba(255,255,255,0.92)",
-                        border: "1px solid",
-                        borderColor: hasCompetitionMatch
-                          ? "success.dark"
-                          : "divider",
-                        color: hasCompetitionMatch
-                          ? "common.white"
-                          : "text.secondary",
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        zIndex: 1,
-                      }}
-                      aria-label={
-                        hasCompetitionMatch
-                          ? "Available at a competition you are attending"
-                          : "Available at competition"
-                      }
-                      title={
-                        hasCompetitionMatch
-                          ? "Available at a competition you are attending"
-                          : "Available at competition"
-                      }
-                    >
-                      C
-                    </Box>
-                  ) : null
-                }
               />
 
               <CardContent
@@ -861,38 +864,7 @@ function Browse() {
                   >
                     {formatPrice(listing.price)}
                   </Typography>
-                  {normalizedListing.shippingAvailable && (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: normalizedListing.shippingIncluded
-                        ? "success.main"
-                        : "text.secondary",
-                      fontWeight: 500,
-                      lineHeight: 1.12,
-                    }}
-                  >
-                      {normalizedListing.shippingIncluded
-                        ? "Shipping included"
-                        : shippingPrice > 0
-                          ? `${formatPrice(shippingPrice)} shipping`
-                          : "Shipping available"}
-                    </Typography>
-                  )}
-                  {normalizedListing.meetupLocationLabel &&
-                    normalizedListing.localMeetupAvailable && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mt: "auto",
-                          lineHeight: 1.18,
-                          opacity: 0.9,
-                        }}
-                      >
-                        {normalizedListing.meetupLocationLabel}
-                      </Typography>
-                    )}
+                  <ListingFulfillmentLine option={fulfillmentOption} />
                 </Box>
               </CardContent>
             </Card>

@@ -13,7 +13,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useAuth } from "../contexts/AuthContext";
 import {
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
@@ -24,28 +23,24 @@ import {
 } from "../components/ListingStatusDecorators";
 import {
   getNormalizedFulfillmentFields,
-  getShippingPriceFromListing,
+  getPrimaryFulfillmentOption,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import { getCompetitionById } from "../utils/wcaApi";
 import { getS3PublicUrl } from "../utils/s3";
+import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 function CompetitionListings() {
   const navigate = useNavigate();
   const location = useLocation();
   const { competitionId } = useParams();
-  const { currentUser } = useAuth();
   const [competition, setCompetition] = useState(location.state?.competition || null);
   const [cubes, setCubes] = useState([]);
   const [loadingCompetition, setLoadingCompetition] = useState(!location.state?.competition);
   const [loadingCubes, setLoadingCubes] = useState(true);
   const [error, setError] = useState(null);
   const returnTo = location.state?.returnTo;
-  const attendingCompetitionIds = new Set(
-    (currentUser?.attendingCompetitions || []).map((savedCompetition) => savedCompetition.id)
-  );
-
   useEffect(() => {
     if (competition) {
       return undefined;
@@ -208,9 +203,9 @@ function CompetitionListings() {
               ...cube,
               ...getNormalizedFulfillmentFields(cube),
             };
-            const shippingPrice = getShippingPriceFromListing(normalizedListing);
-            const hasCompetitionMatch = normalizedListing.meetupCompetitionTags?.some(
-              (savedCompetition) => attendingCompetitionIds.has(savedCompetition.id)
+            const fulfillmentOption = getPrimaryFulfillmentOption(
+              normalizedListing,
+              { competitionId }
             );
 
             return (
@@ -242,46 +237,6 @@ function CompetitionListings() {
                       alignItems: "center",
                       justifyContent: "center",
                     }}
-                    topLeftAdornment={
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 12,
-                          left: 12,
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                          backgroundColor: hasCompetitionMatch
-                            ? "success.main"
-                            : "rgba(255,255,255,0.92)",
-                          border: "1px solid",
-                          borderColor: hasCompetitionMatch
-                            ? "success.dark"
-                            : "divider",
-                          color: hasCompetitionMatch
-                            ? "common.white"
-                            : "text.secondary",
-                          fontWeight: 700,
-                          fontSize: "0.9rem",
-                          zIndex: 1,
-                        }}
-                        aria-label={
-                          hasCompetitionMatch
-                            ? "Available at a competition you are attending"
-                            : "Available at competition"
-                        }
-                        title={
-                          hasCompetitionMatch
-                            ? "Available at a competition you are attending"
-                            : "Available at competition"
-                        }
-                      >
-                        C
-                      </Box>
-                    }
                   />
 
                   <CardContent
@@ -304,24 +259,7 @@ function CompetitionListings() {
                       >
                         {formatPrice(cube.price)}
                       </Typography>
-                      {normalizedListing.shippingAvailable && (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: normalizedListing.shippingIncluded
-                              ? "success.main"
-                              : "text.secondary",
-                            fontWeight: 500,
-                            lineHeight: 1.12,
-                          }}
-                        >
-                          {normalizedListing.shippingIncluded
-                            ? "Shipping included"
-                            : shippingPrice > 0
-                              ? `${formatPrice(shippingPrice)} shipping`
-                              : "Shipping available"}
-                        </Typography>
-                      )}
+                      <ListingFulfillmentLine option={fulfillmentOption} />
                     </Box>
                   </CardContent>
                 </Card>
