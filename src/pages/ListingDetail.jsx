@@ -14,6 +14,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   Autocomplete,
@@ -31,8 +32,12 @@ import {
   Collapse,
   Snackbar,
   Tooltip,
+  Menu,
 } from "@mui/material";
 import {
+  Archive,
+  CheckCircle,
+  Delete,
   Edit,
   LocationOn,
   LocalShipping,
@@ -40,13 +45,15 @@ import {
   ArrowBackIosNew,
   ArrowForwardIos,
   Close,
+  MoreVert,
+  Restore,
   Save,
   Star,
   InfoOutlined,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -75,7 +82,7 @@ import {
   getUpcomingCompetitions,
   searchCompetitions,
 } from "../utils/wcaApi";
-import { getS3PublicUrl } from "../utils/s3";
+import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { SoldRibbon } from "../components/ListingStatusDecorators";
 
 function FulfillmentInfoTitle({ children, info }) {
@@ -116,6 +123,9 @@ function ListingDetail() {
   const [messageSnackbar, setMessageSnackbar] = useState(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
+  const [ownerMenuAnchorEl, setOwnerMenuAnchorEl] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
   const [saleAttributionMode, setSaleAttributionMode] = useState("attributed");
   const [buyerOptions, setBuyerOptions] = useState([]);
@@ -738,6 +748,7 @@ function ListingDetail() {
   };
 
   const openMarkSoldDialog = async () => {
+    closeOwnerMenu();
     setShowMarkSoldDialog(true);
     setLoadingBuyerOptions(true);
 
@@ -772,17 +783,36 @@ function ListingDetail() {
     setSelectedBuyerId("");
   };
 
+  const closeOwnerMenu = () => {
+    setOwnerMenuAnchorEl(null);
+  };
+
   const handleListingStatusUpdate = async (status) => {
     try {
+      closeOwnerMenu();
       setStatusActionLoading(true);
+      const now = new Date();
       const docRef = doc(db, "listings", id);
       const updates = {
         status,
-        updatedAt: new Date(),
+        updatedAt: now,
       };
 
       if (status === "sold") {
-        updates.soldAt = new Date();
+        updates.soldAt = now;
+        updates.archivedAt = null;
+      }
+
+      if (status === "archived") {
+        updates.archivedAt = now;
+      }
+
+      if (status === "active") {
+        updates.archivedAt = null;
+        updates.soldAt = null;
+        updates.soldMethod = null;
+        updates.buyerId = null;
+        updates.soldConversationId = null;
       }
 
       await updateDoc(docRef, updates);
@@ -790,9 +820,21 @@ function ListingDetail() {
         ...prev,
         ...updates,
       }));
+      setMessageSnackbar({
+        severity: "success",
+        message:
+          status === "active"
+            ? "Listing is available again."
+            : status === "archived"
+              ? "Listing archived."
+              : "Listing marked as sold.",
+      });
     } catch (error) {
       console.error(`Error updating listing status to ${status}:`, error);
-      alert("Failed to update listing status");
+      setMessageSnackbar({
+        severity: "error",
+        message: "Failed to update listing status.",
+      });
     } finally {
       setStatusActionLoading(false);
     }
@@ -800,7 +842,10 @@ function ListingDetail() {
 
   const handleConfirmMarkSold = async () => {
     if (saleAttributionMode === "attributed" && !selectedBuyerId) {
-      alert("Select the buyer who completed the sale, or choose sold off app.");
+      setMessageSnackbar({
+        severity: "warning",
+        message: "Select the buyer who completed the sale, or choose sold off app.",
+      });
       return;
     }
 
@@ -813,6 +858,7 @@ function ListingDetail() {
       const updates = {
         status: "sold",
         soldAt: now,
+        archivedAt: null,
         updatedAt: now,
         soldMethod:
           saleAttributionMode === "attributed"
@@ -837,11 +883,55 @@ function ListingDetail() {
         ...updates,
       }));
       closeMarkSoldDialog();
+      setMessageSnackbar({
+        severity: "success",
+        message: "Listing marked as sold.",
+      });
     } catch (error) {
       console.error("Error marking listing as sold:", error);
-      alert("Failed to update listing status");
+      setMessageSnackbar({
+        severity: "error",
+        message: "Failed to update listing status.",
+      });
     } finally {
       setStatusActionLoading(false);
+    }
+  };
+
+  const openDeleteDialog = () => {
+    closeOwnerMenu();
+    setShowDeleteDialog(true);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteLoading) return;
+    setShowDeleteDialog(false);
+  };
+
+  const handleDeleteListing = async () => {
+    if (!listing) return;
+
+    setDeleteLoading(true);
+    try {
+      const s3Keys = (listing.photos || [])
+        .map((photo) => photo.s3Key)
+        .filter(Boolean);
+
+      if (s3Keys.length > 0) {
+        await deleteMultipleImages(s3Keys);
+      }
+
+      await deleteDoc(doc(db, "listings", id));
+      setShowDeleteDialog(false);
+      navigate("/");
+    } catch (error) {
+      console.error("Error deleting listing:", error);
+      setMessageSnackbar({
+        severity: "error",
+        message: `Failed to delete listing: ${error.message}`,
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -930,6 +1020,7 @@ function ListingDetail() {
   }
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
+  const isOwnerMenuOpen = Boolean(ownerMenuAnchorEl);
   const hasApprovedConversation = existingConversation?.status === "approved";
   const cameFromPublish = Boolean(location.state?.fromPublish);
   const isListingUnavailable =
@@ -983,22 +1074,56 @@ function ListingDetail() {
             >
               Edit Listing
             </Button>
-            <Button
-              variant="outlined"
-              color="warning"
-              onClick={openMarkSoldDialog}
-              disabled={statusActionLoading || listing.status === "sold"}
+            <IconButton
+              onClick={(event) => setOwnerMenuAnchorEl(event.currentTarget)}
+              disabled={statusActionLoading || deleteLoading}
+              aria-label="Listing actions"
+              aria-controls={isOwnerMenuOpen ? "owner-listing-actions" : undefined}
+              aria-haspopup="true"
+              aria-expanded={isOwnerMenuOpen ? "true" : undefined}
+              sx={{
+                border: 1,
+                borderColor: "divider",
+              }}
             >
-              {listing.status === "sold" ? "Sold" : "Mark as Sold"}
-            </Button>
-            <Button
-              variant="outlined"
-              color="inherit"
-              onClick={() => handleListingStatusUpdate("archived")}
-              disabled={statusActionLoading || listing.status === "archived"}
+              <MoreVert />
+            </IconButton>
+            <Menu
+              id="owner-listing-actions"
+              anchorEl={ownerMenuAnchorEl}
+              open={isOwnerMenuOpen}
+              onClose={closeOwnerMenu}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
-              {listing.status === "archived" ? "Archived" : "Archive"}
-            </Button>
+              {listing.status === "sold" ? (
+                <MenuItem onClick={() => handleListingStatusUpdate("active")}>
+                  <Restore fontSize="small" sx={{ mr: 1.25 }} />
+                  Mark Available
+                </MenuItem>
+              ) : (
+                <MenuItem onClick={openMarkSoldDialog}>
+                  <CheckCircle fontSize="small" sx={{ mr: 1.25 }} />
+                  Mark as Sold
+                </MenuItem>
+              )}
+              {listing.status === "archived" ? (
+                <MenuItem onClick={() => handleListingStatusUpdate("active")}>
+                  <Restore fontSize="small" sx={{ mr: 1.25 }} />
+                  Restore Listing
+                </MenuItem>
+              ) : listing.status !== "sold" ? (
+                <MenuItem onClick={() => handleListingStatusUpdate("archived")}>
+                  <Archive fontSize="small" sx={{ mr: 1.25 }} />
+                  Archive Listing
+                </MenuItem>
+              ) : null}
+              <Divider sx={{ my: 0.5 }} />
+              <MenuItem onClick={openDeleteDialog} sx={{ color: "error.main" }}>
+                <Delete fontSize="small" sx={{ mr: 1.25 }} />
+                Delete Listing
+              </MenuItem>
+            </Menu>
           </Box>
         ) : (
           <Box sx={{ display: "flex", gap: 1 }}>
@@ -1555,6 +1680,34 @@ function ListingDetail() {
             }
           >
             {saleAttributionMode === "attributed" ? "Mark Sold to Buyer" : "Mark Sold Off App"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showDeleteDialog}
+        onClose={closeDeleteDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Listing</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Permanently delete "{listing.title}"? This removes the listing and
+            its uploaded photos. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} color="inherit" disabled={deleteLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteListing}
+            color="error"
+            variant="contained"
+            disabled={deleteLoading}
+          >
+            {deleteLoading ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
