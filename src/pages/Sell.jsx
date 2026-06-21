@@ -18,7 +18,7 @@ import {
   Autocomplete,
   Chip,
   Alert,
-  Collapse,
+  Snackbar,
 } from "@mui/material";
 import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -262,6 +262,19 @@ function Sell() {
     !fulfillmentData.shippingAvailable ||
     fulfillmentData.shippingIncluded ||
     parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null;
+  const isPhotosInvalid = hasAttemptedSubmit && selectedPhotos.length === 0;
+  const isTitleInvalid = hasAttemptedSubmit && !listingData.title;
+  const isPriceInvalid = hasAttemptedSubmit && !listingData.price;
+  const isPuzzleTypeInvalid = hasAttemptedSubmit && !listingData.puzzleType;
+  const isConditionInvalid = hasAttemptedSubmit && !listingData.condition;
+  const isDescriptionInvalid = hasAttemptedSubmit && !listingData.description;
+
+  const handleSubmitNoticeClose = (_, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setSubmitNotice(null);
+  };
 
   const handleInputChange = (field) => (event) => {
     setSubmitNotice(null);
@@ -335,7 +348,7 @@ function Sell() {
       !isShippingCostValid
     ) {
       setSubmitNotice({
-        severity: "warning",
+        severity: "error",
         message: "Please fill in all required fields before publishing.",
       });
       setSubmitNoticePulse((prev) => prev + 1);
@@ -344,7 +357,7 @@ function Sell() {
 
     if (!isCompetitionValid) {
       setSubmitNotice({
-        severity: "warning",
+        severity: "error",
         message: "Please select at least one competition for meetup delivery.",
       });
       setSubmitNoticePulse((prev) => prev + 1);
@@ -501,6 +514,44 @@ function Sell() {
 
   return (
     <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2 }}>
+      <Snackbar
+        key={submitNoticePulse}
+        open={Boolean(submitNotice)}
+        autoHideDuration={3600}
+        onClose={handleSubmitNoticeClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        sx={{ mt: 7 }}
+      >
+        {submitNotice && (
+          <Alert
+            severity={submitNotice.severity}
+            variant="filled"
+            onClose={handleSubmitNoticeClose}
+            sx={{
+              minWidth: { xs: "calc(100vw - 32px)", sm: 420 },
+              alignItems: "center",
+              animation: "sellSubmitNoticePulse 420ms ease",
+              "@keyframes sellSubmitNoticePulse": {
+                "0%": {
+                  transform: "translateY(-8px)",
+                  opacity: 0,
+                },
+                "35%": {
+                  transform: "translateY(2px)",
+                  opacity: 1,
+                },
+                "100%": {
+                  transform: "translateY(0)",
+                  opacity: 1,
+                },
+              },
+            }}
+          >
+            {submitNotice.message}
+          </Alert>
+        )}
+      </Snackbar>
+
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         List Your Cube
       </Typography>
@@ -511,7 +562,11 @@ function Sell() {
       <Stack spacing={3}>
         <Card
           variant="outlined"
-          sx={{ width: "100%", boxShadow: "0 0 8px rgba(0, 0, 0, 0.1)" }}
+          sx={{
+            width: "100%",
+            boxShadow: "0 0 8px rgba(0, 0, 0, 0.1)",
+            borderColor: isPhotosInvalid ? "error.main" : undefined,
+          }}
         >
           {" "}
           <CardContent sx={{ p: 3 }}>
@@ -588,9 +643,9 @@ function Sell() {
                         width: 120,
                         height: 120,
                         border: "2px dashed",
-                        borderColor: "grey.400",
+                        borderColor: isPhotosInvalid ? "error.main" : "grey.400",
                         borderRadius: 1,
-                        color: "grey.600",
+                        color: isPhotosInvalid ? "error.main" : "grey.600",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
@@ -609,6 +664,11 @@ function Sell() {
                 </Grid>
               )}
             </Grid>
+            {isPhotosInvalid && (
+              <FormHelperText error sx={{ mt: 1 }}>
+                Add at least one photo.
+              </FormHelperText>
+            )}
           </CardContent>
         </Card>
 
@@ -635,6 +695,8 @@ function Sell() {
                 variant="outlined"
                 value={listingData.title}
                 onChange={handleInputChange("title")}
+                error={isTitleInvalid}
+                helperText={isTitleInvalid ? "Enter a title." : ""}
                 required
               />
 
@@ -647,6 +709,8 @@ function Sell() {
                     variant="outlined"
                     value={listingData.price}
                     onChange={handlePriceChange}
+                    error={isPriceInvalid}
+                    helperText={isPriceInvalid ? "Enter a price." : ""}
                     slotProps={{
                       htmlInput: {
                         inputMode: "decimal",
@@ -656,7 +720,12 @@ function Sell() {
                   />
                 </Grid>
                 <Grid>
-                  <FormControl fullWidth variant="outlined" required>
+                  <FormControl
+                    fullWidth
+                    variant="outlined"
+                    error={isPuzzleTypeInvalid}
+                    required
+                  >
                     <InputLabel id="puzzle-type-label">Puzzle Type</InputLabel>
                     <Select
                       labelId="puzzle-type-label"
@@ -672,10 +741,18 @@ function Sell() {
                         </MenuItem>
                       ))}
                     </Select>
+                    {isPuzzleTypeInvalid && (
+                      <FormHelperText>Select a puzzle type.</FormHelperText>
+                    )}
                   </FormControl>
                 </Grid>
                 <Grid>
-                  <FormControl fullWidth variant="outlined" required>
+                  <FormControl
+                    fullWidth
+                    variant="outlined"
+                    error={isConditionInvalid}
+                    required
+                  >
                     <InputLabel id="condition-label">Condition</InputLabel>
                     <Select
                       labelId="condition-label"
@@ -691,6 +768,9 @@ function Sell() {
                         </MenuItem>
                       ))}
                     </Select>
+                    {isConditionInvalid && (
+                      <FormHelperText>Select a condition.</FormHelperText>
+                    )}
                   </FormControl>
                 </Grid>
               </Grid>
@@ -704,6 +784,8 @@ function Sell() {
                 variant="outlined"
                 value={listingData.description}
                 onChange={handleInputChange("description")}
+                error={isDescriptionInvalid}
+                helperText={isDescriptionInvalid ? "Enter a description." : ""}
                 required
               />
 
@@ -776,7 +858,11 @@ function Sell() {
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
-                        helperText="Set a shipping price greater than $0 that buyers should expect to pay you directly."
+                        helperText={
+                          hasAttemptedSubmit && !isShippingCostValid
+                            ? "Enter a shipping price greater than $0."
+                            : "Set a shipping price greater than $0 that buyers should expect to pay you directly."
+                        }
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",
@@ -860,7 +946,11 @@ function Sell() {
                           {...params}
                           label="General Meetup Area"
                           placeholder="e.g., UCLA / Westwood"
-                          helperText="Keep this approximate, not an exact address."
+                          helperText={
+                            hasAttemptedSubmit && !isMeetupLocationValid
+                              ? "Enter a general meetup area."
+                              : "Keep this approximate, not an exact address."
+                          }
                           error={hasAttemptedSubmit && !isMeetupLocationValid}
                           required
                         />
@@ -931,6 +1021,11 @@ function Sell() {
                         placeholder="Search US competitions..."
                         variant="outlined"
                         error={hasAttemptedSubmit && !isCompetitionValid}
+                        helperText={
+                          hasAttemptedSubmit && !isCompetitionValid
+                            ? "Select at least one competition."
+                            : ""
+                        }
                       />
                     )}
                     renderTags={(tagValue, getTagProps) =>
@@ -978,37 +1073,6 @@ function Sell() {
             </FormControl>
           </CardContent>
         </Card>
-
-        <Collapse in={Boolean(submitNotice)}>
-          {submitNotice && (
-            <Alert
-              key={submitNoticePulse}
-              severity={submitNotice.severity}
-              variant="outlined"
-              sx={{
-                alignItems: "center",
-                borderColor: "warning.main",
-                animation: "sellSubmitNoticePulse 420ms ease",
-                "@keyframes sellSubmitNoticePulse": {
-                  "0%": {
-                    transform: "translateY(0)",
-                    boxShadow: "0 0 0 rgba(237, 108, 2, 0)",
-                  },
-                  "35%": {
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 0 0 4px rgba(237, 108, 2, 0.12)",
-                  },
-                  "100%": {
-                    transform: "translateY(0)",
-                    boxShadow: "0 0 0 rgba(237, 108, 2, 0)",
-                  },
-                },
-              }}
-            >
-              {submitNotice.message}
-            </Alert>
-          )}
-        </Collapse>
 
         <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mt: 1 }}>
           <Button

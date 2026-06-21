@@ -30,6 +30,7 @@ import {
   Alert,
   Collapse,
   Snackbar,
+  Tooltip,
 } from "@mui/material";
 import {
   Edit,
@@ -41,6 +42,7 @@ import {
   Close,
   Save,
   Star,
+  InfoOutlined,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -75,6 +77,26 @@ import {
 } from "../utils/wcaApi";
 import { getS3PublicUrl } from "../utils/s3";
 import { SoldRibbon } from "../components/ListingStatusDecorators";
+
+function FulfillmentInfoTitle({ children, info }) {
+  return (
+    <Typography
+      variant="h6"
+      gutterBottom
+      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+    >
+      {children}
+      <Tooltip title={info} arrow placement="top">
+        <InfoOutlined
+          tabIndex={0}
+          fontSize="small"
+          color="action"
+          sx={{ cursor: "help" }}
+        />
+      </Tooltip>
+    </Typography>
+  );
+}
 
 function ListingDetail() {
   const COMPETITION_BATCH_SIZE = 50;
@@ -1225,19 +1247,15 @@ function ListingDetail() {
             <Stack spacing={2.5}>
               {listing.localMeetupAvailable && (
                 <Box>
-                  <Typography variant="h6" gutterBottom>
+                  <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
                     Local Meetup
-                  </Typography>
+                  </FulfillmentInfoTitle>
                   <Typography
                     variant="body1"
                     sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
                   >
                     <LocationOn fontSize="small" />
                     {listing.meetupLocationLabel || "Meetup area"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Coordinate the exact meeting spot and time with the seller
-                    in chat.
                   </Typography>
                   <ApproximateMeetupMap
                     location={listing.meetupLocation}
@@ -1248,19 +1266,15 @@ function ListingDetail() {
 
               {listing.competitionMeetupAvailable && (
                 <Box>
-                  <Typography variant="h6" gutterBottom>
+                  <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
                     Competition Meetup
-                  </Typography>
+                  </FulfillmentInfoTitle>
                   <Typography
                     variant="body1"
                     sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
                   >
                     <Groups fontSize="small" />
                     Available at selected competitions
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Message the seller to coordinate where and when to meet at
-                    the competition.
                   </Typography>
                   {meetupCompetitionTags.length > 0 && (
                     <Stack spacing={1.25}>
@@ -1386,22 +1400,15 @@ function ListingDetail() {
 
               {listing.shippingAvailable && (
                 <Box>
-                  <Typography variant="h6" gutterBottom>
+                  <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
                     Shipping & Returns
-                  </Typography>
+                  </FulfillmentInfoTitle>
                   <Typography
                     variant="body1"
                     sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
                   >
                     <LocalShipping fontSize="small" />
                     {getShippingLabel(listing, formatPrice)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Shipping and payment are arranged directly with the seller.
-                    Use tracked shipping and buyer-protected payment methods.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No returns for this item.
                   </Typography>
                 </Box>
               )}
