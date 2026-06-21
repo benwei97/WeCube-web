@@ -44,6 +44,7 @@ import {
   fetchLocationSuggestionOptions,
   getLocationOptionLabel,
 } from "../utils/locationSearch";
+import { getS3PublicUrl } from "../utils/s3";
 
 const EARTH_RADIUS_MILES = 3958.8;
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
@@ -778,7 +779,7 @@ function Browse() {
               <ListingCardMediaFrame
                 imageUrl={
                   listing.photos?.[0]
-                    ? `https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`
+                    ? getS3PublicUrl(listing.photos[0].s3Key)
                     : null
                 }
                 alt={listing.title}

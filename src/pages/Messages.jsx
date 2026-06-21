@@ -35,6 +35,7 @@ import {
 } from "../utils/messaging";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+import { getS3PublicUrl } from "../utils/s3";
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 
@@ -564,7 +565,7 @@ function Messages() {
       return null;
     }
 
-    return `https://wecube.s3.us-east-1.amazonaws.com/${firstPhoto.s3Key}`;
+    return getS3PublicUrl(firstPhoto.s3Key);
   };
 
   if (loading) {

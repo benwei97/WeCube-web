@@ -73,6 +73,7 @@ import {
   getUpcomingCompetitions,
   searchCompetitions,
 } from "../utils/wcaApi";
+import { getS3PublicUrl } from "../utils/s3";
 import { SoldRibbon } from "../components/ListingStatusDecorators";
 
 function ListingDetail() {
@@ -1013,7 +1014,7 @@ function ListingDetail() {
                   {listing.status === "sold" && <SoldRibbon size="large" />}
                   <Box
                     component="img"
-                    src={`https://wecube.s3.us-east-1.amazonaws.com/${activePhoto.s3Key}`}
+                    src={getS3PublicUrl(activePhoto.s3Key)}
                     alt={`Listing photo ${currentPhotoIndex + 1}`}
                     sx={{
                       width: "100%",
@@ -1084,7 +1085,7 @@ function ListingDetail() {
                       >
                         <Box
                           component="img"
-                          src={`https://wecube.s3.us-east-1.amazonaws.com/${photo.s3Key}`}
+                          src={getS3PublicUrl(photo.s3Key)}
                           alt={`Thumbnail ${index + 1}`}
                           sx={{
                             width: "100%",

@@ -74,7 +74,18 @@ export async function uploadImageToS3(file, listingId) {
 }
 
 export function getS3PublicUrl(s3Key) {
-  return `https://wecube.s3.${import.meta.env.VITE_AWS_REGION}.amazonaws.com/${s3Key}`;
+  if (!s3Key) {
+    return null;
+  }
+
+  const publicBaseUrl = import.meta.env.VITE_S3_PUBLIC_BASE_URL;
+  if (publicBaseUrl) {
+    return `${publicBaseUrl.replace(/\/$/, "")}/${s3Key}`;
+  }
+
+  const bucketName = import.meta.env.VITE_S3_BUCKET_NAME;
+  const region = import.meta.env.VITE_AWS_REGION;
+  return `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
 }
 
 export async function uploadAvatarToS3(file, userId) {

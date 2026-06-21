@@ -29,6 +29,7 @@ import {
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import { getCompetitionById } from "../utils/wcaApi";
+import { getS3PublicUrl } from "../utils/s3";
 
 function CompetitionListings() {
   const navigate = useNavigate();
@@ -230,7 +231,7 @@ function CompetitionListings() {
                   <ListingCardMediaFrame
                     imageUrl={
                       cube.photos?.[0]
-                        ? `https://wecube.s3.us-east-1.amazonaws.com/${cube.photos[0].s3Key}`
+                        ? getS3PublicUrl(cube.photos[0].s3Key)
                         : null
                     }
                     alt={cube.title}

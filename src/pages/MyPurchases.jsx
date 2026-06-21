@@ -21,6 +21,7 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import { subscribeToUserReviews } from "../utils/reviews";
+import { getS3PublicUrl } from "../utils/s3";
 
 function MyPurchases() {
   const { currentUser } = useAuth();
@@ -125,7 +126,7 @@ function MyPurchases() {
                 <ListingCardMediaFrame
                   imageUrl={
                     listing.photos?.[0]
-                      ? `https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`
+                      ? getS3PublicUrl(listing.photos[0].s3Key)
                       : null
                   }
                   alt={listing.title}

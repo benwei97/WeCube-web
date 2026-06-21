@@ -45,7 +45,7 @@ import {
   LISTING_CARD_TITLE_SX,
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
-import { deleteMultipleImages } from "../utils/s3";
+import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import {
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
@@ -217,7 +217,7 @@ function MyListings() {
         <ListingCardMediaFrame
           imageUrl={
             listing.photos?.[0]
-              ? `https://wecube.s3.us-east-1.amazonaws.com/${listing.photos[0].s3Key}`
+              ? getS3PublicUrl(listing.photos[0].s3Key)
               : null
           }
           alt={listing.title}
