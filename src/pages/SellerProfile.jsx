@@ -201,7 +201,34 @@ function SellerProfile() {
                   ? getS3PublicUrl(listing.photos[0].s3Key)
                   : null;
                 return (
-                  <Card key={listing.id} variant="outlined">
+                  <Card
+                    key={listing.id}
+                    variant="outlined"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/listing/${listing.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(`/listing/${listing.id}`);
+                      }
+                    }}
+                    sx={{
+                      cursor: "pointer",
+                      transition:
+                        "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        boxShadow: 2,
+                        borderColor: "primary.main",
+                      },
+                      "&:focus-visible": {
+                        outline: "2px solid",
+                        outlineColor: "primary.main",
+                        outlineOffset: 2,
+                      },
+                    }}
+                  >
                     <CardContent
                       sx={{
                         p: 1.5,
@@ -271,16 +298,6 @@ function SellerProfile() {
                           </Box>
                         </Box>
                       </Stack>
-                      <Box>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => navigate(`/listing/${listing.id}`)}
-                          sx={{ alignSelf: "flex-start" }}
-                        >
-                          View Listing
-                        </Button>
-                      </Box>
                     </CardContent>
                   </Card>
                 );
