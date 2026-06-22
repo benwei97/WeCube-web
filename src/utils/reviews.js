@@ -1,7 +1,9 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   setDoc,
@@ -16,6 +18,20 @@ export function getReviewDocId(listingId, reviewerId) {
 export async function getExistingReview(listingId, reviewerId) {
   const reviewDoc = await getDoc(doc(db, "reviews", getReviewDocId(listingId, reviewerId)));
   return reviewDoc.exists() ? { id: reviewDoc.id, ...reviewDoc.data() } : null;
+}
+
+export async function deleteTransactionReviews(listingId) {
+  if (!listingId) return;
+
+  const reviewsQuery = query(
+    collection(db, "reviews"),
+    where("listingId", "==", listingId)
+  );
+  const snapshot = await getDocs(reviewsQuery);
+
+  await Promise.all(
+    snapshot.docs.map((reviewDoc) => deleteDoc(reviewDoc.ref))
+  );
 }
 
 export async function submitTransactionReview({

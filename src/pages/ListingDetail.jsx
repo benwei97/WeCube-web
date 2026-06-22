@@ -51,7 +51,7 @@ import {
   Star,
   InfoOutlined,
 } from "@mui/icons-material";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -62,7 +62,7 @@ import {
   getListingBuyerOptions,
   closeListingConversationsForSold,
 } from "../utils/messaging";
-import { subscribeToSellerReviews } from "../utils/reviews";
+import { deleteTransactionReviews, subscribeToSellerReviews } from "../utils/reviews";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import {
   fetchLocationSuggestionOptions,
@@ -86,6 +86,7 @@ import {
 } from "../utils/wcaApi";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
+import PostSaleReviewPrompt from "../components/PostSaleReviewPrompt";
 
 function FulfillmentInfoTitle({ children, info }) {
   return (
@@ -134,6 +135,8 @@ function ListingDetail() {
   const [buyerOptions, setBuyerOptions] = useState([]);
   const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
+  const [postSaleReviewPrompt, setPostSaleReviewPrompt] = useState(null);
+  const postSaleReviewPromptTimerRef = useRef(null);
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitions, setCompetitions] = useState([]);
@@ -356,6 +359,14 @@ function ListingDetail() {
     setCurrentPhotoIndex(0);
     setShowFullDescription(false);
   }, [listing?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (postSaleReviewPromptTimerRef.current) {
+        window.clearTimeout(postSaleReviewPromptTimerRef.current);
+      }
+    };
+  }, []);
 
   const checkExistingConversation = async () => {
     try {
@@ -798,6 +809,10 @@ function ListingDetail() {
 
       if (status === "archived") {
         updates.archivedAt = now;
+        updates.soldAt = null;
+        updates.soldMethod = null;
+        updates.buyerId = null;
+        updates.soldConversationId = null;
       }
 
       if (status === "active") {
@@ -809,6 +824,9 @@ function ListingDetail() {
       }
 
       await updateDoc(docRef, updates);
+      if (listing.status === "sold" && status !== "sold") {
+        await deleteTransactionReviews(id);
+      }
       setListing((prev) => ({
         ...prev,
         ...updates,
@@ -876,6 +894,24 @@ function ListingDetail() {
         ...updates,
       }));
       closeMarkSoldDialog();
+      if (saleAttributionMode === "attributed" && selectedBuyer) {
+        if (postSaleReviewPromptTimerRef.current) {
+          window.clearTimeout(postSaleReviewPromptTimerRef.current);
+        }
+        postSaleReviewPromptTimerRef.current = window.setTimeout(() => {
+          setPostSaleReviewPrompt({
+            listing: {
+              ...listing,
+              ...updates,
+            },
+            recipientId: selectedBuyer.buyerId,
+            recipientName: selectedBuyer.buyerName,
+            recipientAvatarUrl: selectedBuyer.buyerAvatarUrl,
+            recipientRole: "buyer",
+          });
+          postSaleReviewPromptTimerRef.current = null;
+        }, 700);
+      }
       setMessageSnackbar({
         severity: "success",
         message: "Listing marked as sold.",
@@ -1646,18 +1682,79 @@ function ListingDetail() {
             ) : saleAttributionMode === "attributed" ? (
               buyerOptions.length > 0 ? (
                 <FormControl fullWidth>
-                  <InputLabel>Completed Buyer</InputLabel>
-                  <Select
-                    value={selectedBuyerId}
-                    label="Completed Buyer"
-                    onChange={(event) => setSelectedBuyerId(event.target.value)}
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Completed buyer
+                  </Typography>
+                  <Stack
+                    spacing={1}
+                    sx={{
+                      maxHeight: 280,
+                      overflowY: "auto",
+                      pr: 0.5,
+                    }}
                   >
-                    {buyerOptions.map((option) => (
-                      <MenuItem key={option.conversationId} value={option.buyerId}>
-                        {option.buyerName} {option.status === "approved" ? "• approved chat" : "• pending request"}
-                      </MenuItem>
-                    ))}
-                  </Select>
+                    {buyerOptions.map((option) => {
+                      const isSelected = selectedBuyerId === option.buyerId;
+                      return (
+                        <Box
+                          key={option.conversationId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedBuyerId(option.buyerId)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedBuyerId(option.buyerId);
+                            }
+                          }}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                            p: 1.5,
+                            border: 1,
+                            borderColor: isSelected ? "primary.main" : "divider",
+                            borderRadius: 1.5,
+                            bgcolor: isSelected ? "primary.50" : "background.paper",
+                            cursor: "pointer",
+                            transition: "border-color 0.2s, background-color 0.2s",
+                            "&:hover": {
+                              borderColor: "primary.main",
+                              bgcolor: isSelected ? "primary.50" : "action.hover",
+                            },
+                            "&:focus-visible": {
+                              outline: "2px solid",
+                              outlineColor: "primary.main",
+                              outlineOffset: 2,
+                            },
+                          }}
+                        >
+                          <Avatar
+                            src={option.buyerAvatarUrl || undefined}
+                            sx={{ width: 44, height: 44, flexShrink: 0 }}
+                          >
+                            {option.buyerName?.charAt(0)?.toUpperCase() || "B"}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography variant="body1" fontWeight={700}>
+                              {option.buyerName}
+                            </Typography>
+                            {option.buyerEmail &&
+                              option.buyerEmail !== option.buyerName && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: "block" }}
+                                >
+                                  {option.buyerEmail}
+                                </Typography>
+                              )}
+                          </Box>
+                          <Radio checked={isSelected} tabIndex={-1} />
+                        </Box>
+                      );
+                    })}
+                  </Stack>
                   <FormHelperText>
                     Only sales attributed to a buyer in-app will unlock buyer reviews.
                   </FormHelperText>
@@ -1694,6 +1791,19 @@ function ListingDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PostSaleReviewPrompt
+        open={Boolean(postSaleReviewPrompt)}
+        onClose={() => setPostSaleReviewPrompt(null)}
+        listing={postSaleReviewPrompt?.listing}
+        reviewer={currentUser}
+        recipientId={postSaleReviewPrompt?.recipientId}
+        recipientName={postSaleReviewPrompt?.recipientName}
+        recipientAvatarUrl={postSaleReviewPrompt?.recipientAvatarUrl}
+        recipientRole={postSaleReviewPrompt?.recipientRole}
+        title="Congratulations on selling your puzzle!"
+        subtitle="Leave a quick review for the buyer now, or handle it later from My Reviews."
+      />
 
       <Dialog
         open={showDeleteDialog}

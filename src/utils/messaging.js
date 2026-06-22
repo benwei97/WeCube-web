@@ -597,6 +597,8 @@ export async function getListingBuyerOptions(listingId, sellerId) {
     const buyerOptions = await Promise.all(
       conversations.map(async (conversation) => {
         let buyerName = "Buyer";
+        let buyerAvatarUrl = "";
+        let buyerEmail = "";
 
         try {
           const buyerDoc = await getDoc(doc(db, "users", conversation.buyerId));
@@ -606,6 +608,8 @@ export async function getListingBuyerOptions(listingId, sellerId) {
               `${buyerData.firstName || ""} ${buyerData.lastName || ""}`.trim() ||
               buyerData.email ||
               "Buyer";
+            buyerAvatarUrl = buyerData.avatarUrl || buyerData.photoURL || "";
+            buyerEmail = buyerData.email || "";
           }
         } catch (error) {
           console.error("Error fetching buyer profile for sale attribution:", error);
@@ -614,6 +618,8 @@ export async function getListingBuyerOptions(listingId, sellerId) {
         return {
           buyerId: conversation.buyerId,
           buyerName,
+          buyerAvatarUrl,
+          buyerEmail,
           conversationId: conversation.id,
           status: conversation.status,
           lastMessage: conversation.lastMessage || "",

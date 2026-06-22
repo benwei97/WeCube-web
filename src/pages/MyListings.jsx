@@ -52,6 +52,7 @@ import {
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
 } from "../utils/listingUtils";
+import { deleteTransactionReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
 function MyListings() {
@@ -154,11 +155,11 @@ function MyListings() {
     });
   };
 
-  const handleStatusUpdate = async (listingId, status) => {
+  const handleStatusUpdate = async (listing, status) => {
     closeActionMenu();
     setStatusActionLoading((prev) => ({
       ...prev,
-      [listingId]: true,
+      [listing.id]: true,
     }));
 
     try {
@@ -192,14 +193,17 @@ function MyListings() {
         updates.soldConversationId = null;
       }
 
-      await updateDoc(doc(db, "listings", listingId), updates);
+      await updateDoc(doc(db, "listings", listing.id), updates);
+      if (listing.status === "sold" && status !== "sold") {
+        await deleteTransactionReviews(listing.id);
+      }
     } catch (error) {
-      console.error(`Error updating listing ${listingId} to ${status}:`, error);
+      console.error(`Error updating listing ${listing.id} to ${status}:`, error);
       alert("Failed to update listing status");
     } finally {
       setStatusActionLoading((prev) => ({
         ...prev,
-        [listingId]: false,
+        [listing.id]: false,
       }));
     }
   };
@@ -344,21 +348,21 @@ function MyListings() {
                 transformOrigin={{ vertical: "top", horizontal: "right" }}
               >
                 {listing.status !== "sold" && (
-                  <MenuItem onClick={() => handleStatusUpdate(listing.id, "sold")}>
+                  <MenuItem onClick={() => handleStatusUpdate(listing, "sold")}>
                     <CheckCircle fontSize="small" sx={{ mr: 1.25 }} />
                     Mark as Sold
                   </MenuItem>
                 )}
                 {listing.status !== "archived" && (
                   <MenuItem
-                    onClick={() => handleStatusUpdate(listing.id, "archived")}
+                    onClick={() => handleStatusUpdate(listing, "archived")}
                   >
                     <PendingActions fontSize="small" sx={{ mr: 1.25 }} />
                     Mark Pending
                   </MenuItem>
                 )}
                 {(listing.status === "archived" || listing.status === "sold") && (
-                  <MenuItem onClick={() => handleStatusUpdate(listing.id, "active")}>
+                  <MenuItem onClick={() => handleStatusUpdate(listing, "active")}>
                     <RestoreFromTrash fontSize="small" sx={{ mr: 1.25 }} />
                     Mark Available
                   </MenuItem>
