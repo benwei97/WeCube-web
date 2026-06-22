@@ -153,6 +153,29 @@ export function formatListedLocationLabel(location, fallbackLabel = "") {
   return label;
 }
 
+export function getListingCompetitionPayload(competition = {}, options = {}) {
+  const payload = {
+    id: competition.id || "",
+    name: competition.name || "",
+    city: competition.city || "",
+    country: competition.country || competition.countryIso2 || "",
+    latitude:
+      typeof competition.latitude === "number" ? competition.latitude : null,
+    longitude:
+      typeof competition.longitude === "number" ? competition.longitude : null,
+    displayName:
+      competition.displayName || competition.name || "Competition meetup",
+    dateRange: competition.dateRange || "",
+  };
+
+  if (options.includeSchedule) {
+    payload.startDate = competition.startDate || null;
+    payload.endDate = competition.endDate || null;
+  }
+
+  return payload;
+}
+
 export function getPrimaryFulfillmentOption(listing = {}, options = {}) {
   const fulfillment = getNormalizedFulfillmentFields(listing);
   const competitionTags = fulfillment.meetupCompetitionTags || [];

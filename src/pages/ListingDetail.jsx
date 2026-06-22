@@ -73,6 +73,7 @@ import {
   PUZZLE_TYPE_OPTIONS,
   getConditionLabel,
   formatListedLocationLabel,
+  getListingCompetitionPayload,
   getNormalizedFulfillmentFields,
   getShippingLabel,
   normalizeConditionValue,
@@ -599,28 +600,12 @@ function ListingDetail() {
         shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
-        competitions: selectedCompetitions.map((competition) => ({
-          id: competition.id,
-          name: competition.name,
-          city: competition.city,
-          country: competition.country,
-          latitude: competition.latitude,
-          longitude: competition.longitude,
-          startDate: competition.startDate,
-          endDate: competition.endDate,
-          displayName: competition.displayName || competition.name,
-          dateRange: competition.dateRange,
-        })),
-        meetupCompetitionTags: selectedCompetitions.map((competition) => ({
-          id: competition.id,
-          name: competition.name,
-          city: competition.city,
-          country: competition.country,
-          latitude: competition.latitude,
-          longitude: competition.longitude,
-          displayName: competition.displayName || competition.name,
-          dateRange: competition.dateRange,
-        })),
+        competitions: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition, { includeSchedule: true })
+        ),
+        meetupCompetitionTags: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition)
+        ),
         updatedAt: new Date(),
       });
 
@@ -650,17 +635,12 @@ function ListingDetail() {
         shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
-        competitions: selectedCompetitions,
-        meetupCompetitionTags: selectedCompetitions.map((competition) => ({
-          id: competition.id,
-          name: competition.name,
-          city: competition.city,
-          country: competition.country,
-          latitude: competition.latitude,
-          longitude: competition.longitude,
-          displayName: competition.displayName || competition.name,
-          dateRange: competition.dateRange,
-        })),
+        competitions: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition, { includeSchedule: true })
+        ),
+        meetupCompetitionTags: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition)
+        ),
         updatedAt: new Date(),
       }));
 

@@ -39,6 +39,7 @@ import {
 } from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
+  getListingCompetitionPayload,
   PUZZLE_TYPE_OPTIONS,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
@@ -421,28 +422,12 @@ function Sell() {
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
           fulfillmentData.competitionMeetupAvailable,
-        competitions: selectedCompetitions.map((comp) => ({
-          id: comp.id,
-          name: comp.name,
-          city: comp.city,
-          country: comp.country,
-          latitude: comp.latitude,
-          longitude: comp.longitude,
-          startDate: comp.startDate,
-          endDate: comp.endDate,
-          displayName: comp.displayName,
-          dateRange: comp.dateRange,
-        })),
-        meetupCompetitionTags: selectedCompetitions.map((comp) => ({
-          id: comp.id,
-          name: comp.name,
-          city: comp.city,
-          country: comp.country,
-          latitude: comp.latitude,
-          longitude: comp.longitude,
-          displayName: comp.displayName,
-          dateRange: comp.dateRange,
-        })),
+        competitions: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition, { includeSchedule: true })
+        ),
+        meetupCompetitionTags: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition)
+        ),
         status: "active", // New listings start as active
         createdAt: new Date(),
         soldAt: null,
