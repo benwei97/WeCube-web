@@ -617,6 +617,10 @@ function Messages() {
   const formatLastMessagePreview = (conversation) => {
     if (!conversation.lastMessage) return "No messages yet";
 
+    if (conversation.lastMessageReviewPrompt) {
+      return formatReviewPromptText(conversation, conversation);
+    }
+
     if (
       conversation.lastMessageType === "system" ||
       conversation.lastMessage === "Conversation approved. You can now message freely!"
@@ -647,6 +651,55 @@ function Messages() {
     }
 
     return `${senderName}: ${conversation.lastMessage}`;
+  };
+
+  const getReviewPromptCounterpartName = (conversation, source = {}) => {
+    if (!conversation) {
+      return "this user";
+    }
+
+    if (conversation.userRole === "seller") {
+      return (
+        source.buyerName ||
+        getUserDisplayName(conversation.buyerId, "Buyer")
+      );
+    }
+
+    return (
+      source.sellerName ||
+      getUserDisplayName(conversation.sellerId, "Seller")
+    );
+  };
+
+  const formatReviewPromptText = (source = {}, conversation = null) => {
+    const counterpartName = getReviewPromptCounterpartName(conversation, source);
+    const sellerName =
+      source.sellerName ||
+      getUserDisplayName(conversation?.sellerId, "Seller");
+    const listingTitle =
+      source.listingTitle ||
+      source.lastMessageListingTitle ||
+      getListingTitle(conversation?.listingId);
+
+    return `Rate your experience with ${counterpartName}. ${sellerName} marked "${listingTitle}" as sold.`;
+  };
+
+  const formatReviewPromptTitle = (source = {}, conversation = null) => {
+    const counterpartName = getReviewPromptCounterpartName(conversation, source);
+
+    return `Rate your experience with ${counterpartName}`;
+  };
+
+  const formatReviewPromptDetail = (source = {}, conversation = null) => {
+    const sellerName =
+      source.sellerName ||
+      getUserDisplayName(conversation?.sellerId, "Seller");
+    const listingTitle =
+      source.listingTitle ||
+      source.lastMessageListingTitle ||
+      getListingTitle(conversation?.listingId);
+
+    return `${sellerName} marked "${listingTitle}" as sold.`;
   };
 
   const isUnreadConversation = (conversation) => {
@@ -1108,10 +1161,16 @@ function Messages() {
                           <CardContent>
                             <Stack spacing={1.5}>
                               <Typography variant="body1" fontWeight={700}>
-                                Rate your experience
+                                {formatReviewPromptTitle(
+                                  message,
+                                  selectedConversation
+                                )}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {message.text}
+                                {formatReviewPromptDetail(
+                                  message,
+                                  selectedConversation
+                                )}
                               </Typography>
                               {response ? (
                                 <Alert

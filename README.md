@@ -191,7 +191,9 @@ Sale review prompts:
 
 - The selected buyer conversation is approved before the sold review prompt is posted
 - Other conversations for the listing are left open and do not receive review prompts
-- The prompt appears as an in-chat card with `Leave Review` and `No Thanks`
+- The prompt appears as an unread inbox notification for both buyer and seller
+- Opening the conversation marks that review prompt notification as read
+- The prompt appears in chat as a card with `Leave Review` and `No Thanks`
 - Declining only hides/dismisses that prompt for the current user
 - Normal chat remains available after the prompt
 - Reverting a sold listing cancels active review prompts and posts a system message explaining that the review request was closed

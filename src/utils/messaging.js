@@ -365,6 +365,21 @@ export async function closeListingConversationsForSold(
         });
       }
 
+      let buyerName = "Buyer";
+      try {
+        const buyerDoc = await getDoc(doc(db, "users", conversation.buyerId));
+        if (buyerDoc.exists()) {
+          const buyerData = buyerDoc.data();
+          buyerName =
+            `${buyerData?.firstName || ""} ${buyerData?.lastName || ""}`.trim() ||
+            buyerData?.displayName ||
+            buyerData?.email ||
+            "Buyer";
+        }
+      } catch (error) {
+        console.error("Error fetching buyer profile for review prompt:", error);
+      }
+
       await addDoc(collection(db, "messages"), {
         conversationId: conversationDoc.id,
         senderId: sellerId,
@@ -372,6 +387,9 @@ export async function closeListingConversationsForSold(
         type: "system",
         reviewPrompt: true,
         saleEventId,
+        listingTitle,
+        sellerName: sellerFirstName || "Seller",
+        buyerName,
         reviewResponses: {},
         createdAt: serverTimestamp(),
       });
@@ -379,6 +397,10 @@ export async function closeListingConversationsForSold(
       await updateDoc(conversationRef, {
         lastMessage: "Rate your experience?",
         lastMessageType: "system",
+        lastMessageReviewPrompt: true,
+        lastMessageListingTitle: listingTitle,
+        lastMessageSellerName: sellerFirstName || "Seller",
+        lastMessageBuyerName: buyerName,
         lastMessageAt: serverTimestamp(),
         lastMessageSenderId: sellerId,
         activeSaleEventId: saleEventId,
@@ -422,6 +444,7 @@ export async function cancelListingReviewPrompts(listingId, sellerId) {
         activeSaleEventId: null,
         lastMessage: "The review request was closed.",
         lastMessageType: "system",
+        lastMessageReviewPrompt: false,
         lastMessageAt: serverTimestamp(),
         lastMessageSenderId: sellerId,
         updatedAt: serverTimestamp(),
@@ -486,7 +509,10 @@ export function isConversationUnread(conversation, userId) {
     return false;
   }
 
-  if (conversation.lastMessageSenderId === userId) {
+  if (
+    conversation.lastMessageSenderId === userId &&
+    !conversation.lastMessageReviewPrompt
+  ) {
     return false;
   }
 
