@@ -107,6 +107,70 @@ export async function submitTransactionReview({
   );
 }
 
+export async function submitConversationReview({
+  listing,
+  conversation,
+  reviewer,
+  rating,
+  comment,
+  recipientId,
+  recipientName,
+  recipientRole,
+  saleEventId,
+}) {
+  if (!listing?.id || !conversation?.id || !reviewer?.uid || !recipientId) {
+    throw new Error("Missing review context");
+  }
+
+  if (
+    reviewer.uid !== conversation.buyerId &&
+    reviewer.uid !== conversation.sellerId
+  ) {
+    throw new Error("Only conversation participants can review this experience");
+  }
+
+  if (recipientId === reviewer.uid) {
+    throw new Error("Invalid review recipient");
+  }
+
+  const normalizedRating = Number(rating);
+  if (!Number.isFinite(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+    throw new Error("Rating must be between 1 and 5");
+  }
+
+  const reviewerRole =
+    reviewer.uid === conversation.buyerId ? "buyer" : "seller";
+  const reviewId = `${conversation.id}_${reviewer.uid}`;
+  const reviewRef = doc(db, "reviews", reviewId);
+  const existingReview = await getDoc(reviewRef);
+  const now = new Date();
+
+  await setDoc(
+    reviewRef,
+    {
+      listingId: listing.id,
+      listingTitle: listing.title,
+      conversationId: conversation.id,
+      saleEventId: saleEventId || null,
+      sellerId: conversation.sellerId,
+      buyerId: conversation.buyerId,
+      reviewerId: reviewer.uid,
+      reviewerName:
+        `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() ||
+        (reviewerRole === "buyer" ? "Buyer" : "Seller"),
+      reviewerRole,
+      recipientId,
+      recipientName: recipientName || "",
+      recipientRole,
+      rating: normalizedRating,
+      comment: comment.trim(),
+      createdAt: existingReview.exists() ? existingReview.data().createdAt : now,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+}
+
 export async function getUserReviewSummary(userId) {
   const reviews = await new Promise((resolve, reject) => {
     const unsubscribe = subscribeToReceivedReviews(

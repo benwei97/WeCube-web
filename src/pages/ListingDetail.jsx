@@ -18,9 +18,6 @@ import {
   DialogActions,
   TextField,
   Autocomplete,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   FormControl,
   InputLabel,
   Select,
@@ -33,6 +30,7 @@ import {
   Snackbar,
   Tooltip,
   Menu,
+  Radio,
 } from "@mui/material";
 import {
   CheckCircle,
@@ -51,7 +49,7 @@ import {
   Star,
   InfoOutlined,
 } from "@mui/icons-material";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -61,6 +59,7 @@ import {
   getExistingConversation,
   getListingBuyerOptions,
   closeListingConversationsForSold,
+  cancelListingReviewPrompts,
 } from "../utils/messaging";
 import { deleteTransactionReviews, subscribeToSellerReviews } from "../utils/reviews";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
@@ -86,7 +85,6 @@ import {
 } from "../utils/wcaApi";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
-import PostSaleReviewPrompt from "../components/PostSaleReviewPrompt";
 
 function FulfillmentInfoTitle({ children, info }) {
   return (
@@ -131,12 +129,12 @@ function ListingDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
-  const [saleAttributionMode, setSaleAttributionMode] = useState("attributed");
   const [buyerOptions, setBuyerOptions] = useState([]);
+  const [selectedBuyerConversationId, setSelectedBuyerConversationId] =
+    useState("");
   const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
-  const [selectedBuyerId, setSelectedBuyerId] = useState("");
-  const [postSaleReviewPrompt, setPostSaleReviewPrompt] = useState(null);
-  const postSaleReviewPromptTimerRef = useRef(null);
+  const [openedMarkSoldFromRoute, setOpenedMarkSoldFromRoute] =
+    useState(false);
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitions, setCompetitions] = useState([]);
@@ -359,14 +357,6 @@ function ListingDetail() {
     setCurrentPhotoIndex(0);
     setShowFullDescription(false);
   }, [listing?.id]);
-
-  useEffect(() => {
-    return () => {
-      if (postSaleReviewPromptTimerRef.current) {
-        window.clearTimeout(postSaleReviewPromptTimerRef.current);
-      }
-    };
-  }, []);
 
   const checkExistingConversation = async () => {
     try {
@@ -755,24 +745,21 @@ function ListingDetail() {
     closeOwnerMenu();
     setShowMarkSoldDialog(true);
     setLoadingBuyerOptions(true);
+    setSelectedBuyerConversationId("");
 
     try {
       const options = await getListingBuyerOptions(id, listing.userId);
       setBuyerOptions(options);
-
-      if (options.length > 0) {
-        setSaleAttributionMode("attributed");
-        if (options.length === 1) {
-          setSelectedBuyerId(options[0].buyerId);
-        }
-      } else {
-        setSaleAttributionMode("off_app");
-        setSelectedBuyerId("");
+      if (options.length === 1) {
+        setSelectedBuyerConversationId(options[0].conversationId);
       }
     } catch (error) {
-      console.error("Error loading buyer options for sale attribution:", error);
+      console.error("Error loading buyer options:", error);
       setBuyerOptions([]);
-      setSaleAttributionMode("off_app");
+      setMessageSnackbar({
+        severity: "error",
+        message: "Failed to load buyer conversations.",
+      });
     } finally {
       setLoadingBuyerOptions(false);
     }
@@ -781,11 +768,33 @@ function ListingDetail() {
   const closeMarkSoldDialog = () => {
     if (statusActionLoading) return;
     setShowMarkSoldDialog(false);
-    setSaleAttributionMode("attributed");
-    setBuyerOptions([]);
-    setLoadingBuyerOptions(false);
-    setSelectedBuyerId("");
   };
+
+  useEffect(() => {
+    if (
+      !location.state?.openMarkSoldDialog ||
+      openedMarkSoldFromRoute ||
+      !listing ||
+      !currentUser ||
+      currentUser.uid !== listing.userId ||
+      showMarkSoldDialog
+    ) {
+      return;
+    }
+
+    setOpenedMarkSoldFromRoute(true);
+    openMarkSoldDialog();
+    navigate(location.pathname, {
+      replace: true,
+      state: { ...location.state, openMarkSoldDialog: false },
+    });
+  }, [
+    location.state,
+    openedMarkSoldFromRoute,
+    listing,
+    currentUser,
+    showMarkSoldDialog,
+  ]);
 
   const closeOwnerMenu = () => {
     setOwnerMenuAnchorEl(null);
@@ -825,6 +834,7 @@ function ListingDetail() {
 
       await updateDoc(docRef, updates);
       if (listing.status === "sold" && status !== "sold") {
+        await cancelListingReviewPrompts(id, listing.userId);
         await deleteTransactionReviews(id);
       }
       setListing((prev) => ({
@@ -852,18 +862,23 @@ function ListingDetail() {
   };
 
   const handleConfirmMarkSold = async () => {
-    if (saleAttributionMode === "attributed" && !selectedBuyerId) {
-      setMessageSnackbar({
-        severity: "error",
-        message: "Select the buyer who completed the sale, or choose sold off app.",
-      });
-      return;
-    }
-
     try {
+      const selectedBuyer =
+        buyerOptions.find(
+          (option) => option.conversationId === selectedBuyerConversationId
+        ) || null;
+
+      if (buyerOptions.length > 0 && !selectedBuyer) {
+        setMessageSnackbar({
+          severity: "error",
+          message: "Select the buyer who completed the sale.",
+        });
+        return;
+      }
+
       setStatusActionLoading(true);
       const now = new Date();
-      const selectedBuyer = buyerOptions.find((option) => option.buyerId === selectedBuyerId);
+      const saleEventId = `${id}_${now.getTime()}`;
       const sellerFirstName =
         listing?.sellerName?.trim()?.split(/\s+/)?.[0] || "Seller";
       const updates = {
@@ -871,50 +886,41 @@ function ListingDetail() {
         soldAt: now,
         archivedAt: null,
         updatedAt: now,
-        soldMethod:
-          saleAttributionMode === "attributed"
-            ? "meetup_in_app"
-            : "meetup_off_app",
-        buyerId: saleAttributionMode === "attributed" ? selectedBuyerId : null,
-        soldConversationId:
-          saleAttributionMode === "attributed"
-            ? selectedBuyer?.conversationId || null
-            : null,
+        soldMethod: selectedBuyer ? "buyer_selected" : "seller_marked_sold",
+        saleEventId,
+        buyerId: selectedBuyer?.buyerId || null,
+        soldConversationId: selectedBuyer?.conversationId || null,
       };
 
       await updateDoc(doc(db, "listings", id), updates);
-      await closeListingConversationsForSold(
-        id,
-        listing.userId,
-        sellerFirstName,
-        listing.title
-      );
+      let reviewPromptSent = false;
+      if (selectedBuyer) {
+        try {
+          await closeListingConversationsForSold(
+            id,
+            listing.userId,
+            sellerFirstName,
+            listing.title,
+            saleEventId,
+            selectedBuyer.conversationId
+          );
+          reviewPromptSent = true;
+        } catch (promptError) {
+          console.error("Error sending sold review prompt:", promptError);
+        }
+      }
       setListing((prev) => ({
         ...prev,
         ...updates,
       }));
       closeMarkSoldDialog();
-      if (saleAttributionMode === "attributed" && selectedBuyer) {
-        if (postSaleReviewPromptTimerRef.current) {
-          window.clearTimeout(postSaleReviewPromptTimerRef.current);
-        }
-        postSaleReviewPromptTimerRef.current = window.setTimeout(() => {
-          setPostSaleReviewPrompt({
-            listing: {
-              ...listing,
-              ...updates,
-            },
-            recipientId: selectedBuyer.buyerId,
-            recipientName: selectedBuyer.buyerName,
-            recipientAvatarUrl: selectedBuyer.buyerAvatarUrl,
-            recipientRole: "buyer",
-          });
-          postSaleReviewPromptTimerRef.current = null;
-        }, 700);
-      }
       setMessageSnackbar({
-        severity: "success",
-        message: "Listing marked as sold.",
+        severity: selectedBuyer && !reviewPromptSent ? "warning" : "success",
+        message: selectedBuyer
+          ? reviewPromptSent
+            ? "Listing marked as sold. A review request was sent in that chat."
+            : "Listing marked as sold, but the review request could not be sent."
+          : "Listing marked as sold.",
       });
     } catch (error) {
       console.error("Error marking listing as sold:", error);
@@ -1644,7 +1650,6 @@ function ListingDetail() {
         </Grid>
       </Grid>
 
-      {/* Edit Dialog */}
       <Dialog
         open={showMarkSoldDialog}
         onClose={closeMarkSoldDialog}
@@ -1655,119 +1660,118 @@ function ListingDetail() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              For meetup or in-person deals, choose the buyer who completed the sale so reviews can be tied to the right transaction.
+              Select the buyer who completed the sale. Only that chat will
+              receive the review request, and messages will stay open.
             </Typography>
-
-            <RadioGroup
-              value={saleAttributionMode}
-              onChange={(event) => setSaleAttributionMode(event.target.value)}
-            >
-              <FormControlLabel
-                value="attributed"
-                control={<Radio />}
-                disabled={loadingBuyerOptions || buyerOptions.length === 0}
-                label="Sold to a buyer from WeCube messages"
-              />
-              <FormControlLabel
-                value="off_app"
-                control={<Radio />}
-                label="Sold off app or without a matched buyer"
-              />
-            </RadioGroup>
 
             {loadingBuyerOptions ? (
               <Typography variant="body2" color="text.secondary">
                 Loading buyer conversations...
               </Typography>
-            ) : saleAttributionMode === "attributed" ? (
-              buyerOptions.length > 0 ? (
-                <FormControl fullWidth>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Completed buyer
-                  </Typography>
-                  <Stack
-                    spacing={1}
-                    sx={{
-                      maxHeight: 280,
-                      overflowY: "auto",
-                      pr: 0.5,
-                    }}
-                  >
-                    {buyerOptions.map((option) => {
-                      const isSelected = selectedBuyerId === option.buyerId;
-                      return (
-                        <Box
-                          key={option.conversationId}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setSelectedBuyerId(option.buyerId)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setSelectedBuyerId(option.buyerId);
-                            }
-                          }}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                            p: 1.5,
-                            border: 1,
-                            borderColor: isSelected ? "primary.main" : "divider",
-                            borderRadius: 1.5,
-                            bgcolor: isSelected ? "primary.50" : "background.paper",
-                            cursor: "pointer",
-                            transition: "border-color 0.2s, background-color 0.2s",
-                            "&:hover": {
-                              borderColor: "primary.main",
-                              bgcolor: isSelected ? "primary.50" : "action.hover",
-                            },
-                            "&:focus-visible": {
-                              outline: "2px solid",
-                              outlineColor: "primary.main",
-                              outlineOffset: 2,
-                            },
-                          }}
-                        >
+            ) : buyerOptions.length > 0 ? (
+              <Stack spacing={1}>
+                {buyerOptions.map((buyer) => {
+                  const isSelected =
+                    selectedBuyerConversationId === buyer.conversationId;
+                  return (
+                    <Card
+                      key={buyer.conversationId}
+                      variant="outlined"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() =>
+                        setSelectedBuyerConversationId(buyer.conversationId)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedBuyerConversationId(buyer.conversationId);
+                        }
+                      }}
+                      sx={{
+                        cursor: "pointer",
+                        borderColor: isSelected ? "primary.main" : "divider",
+                        bgcolor: isSelected ? "action.selected" : "background.paper",
+                      }}
+                    >
+                      <CardContent
+                        sx={{
+                          py: 1.25,
+                          px: 1.5,
+                          "&:last-child": { pb: 1.25 },
+                        }}
+                      >
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Radio
+                            checked={isSelected}
+                            value={buyer.conversationId}
+                            inputProps={{
+                              "aria-label": `Select ${buyer.buyerName}`,
+                            }}
+                            sx={{ p: 0.5 }}
+                          />
                           <Avatar
-                            src={option.buyerAvatarUrl || undefined}
-                            sx={{ width: 44, height: 44, flexShrink: 0 }}
+                            src={buyer.buyerAvatarUrl || undefined}
+                            alt={buyer.buyerName}
+                            sx={{ width: 40, height: 40 }}
                           >
-                            {option.buyerName?.charAt(0)?.toUpperCase() || "B"}
+                            {buyer.buyerName.charAt(0).toUpperCase()}
                           </Avatar>
                           <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body1" fontWeight={700}>
-                              {option.buyerName}
-                            </Typography>
-                            {option.buyerEmail &&
-                              option.buyerEmail !== option.buyerName && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ display: "block" }}
-                                >
-                                  {option.buyerEmail}
-                                </Typography>
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="center"
+                              sx={{ minWidth: 0 }}
+                            >
+                              <Typography
+                                variant="subtitle2"
+                                noWrap
+                                sx={{ minWidth: 0 }}
+                              >
+                                {buyer.buyerName}
+                              </Typography>
+                              {buyer.status === "pending" && (
+                                <Chip
+                                  label="Pending chat"
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                />
                               )}
+                            </Stack>
+                            {buyer.buyerEmail && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                noWrap
+                                component="div"
+                              >
+                                {buyer.buyerEmail}
+                              </Typography>
+                            )}
+                            {buyer.lastMessage && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                noWrap
+                                component="div"
+                              >
+                                {buyer.lastMessage}
+                              </Typography>
+                            )}
                           </Box>
-                          <Radio checked={isSelected} tabIndex={-1} />
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                  <FormHelperText>
-                    Only sales attributed to a buyer in-app will unlock buyer reviews.
-                  </FormHelperText>
-                </FormControl>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No eligible buyer conversations were found for this listing. Mark it as sold off app if the sale happened outside WeCube.
-                </Typography>
-              )
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Stack>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                This will mark the listing as sold without linking it to a buyer, so no buyer review will unlock from this sale.
-              </Typography>
+              <Alert severity="info">
+                No buyer conversations were found. You can still mark the
+                listing as sold, but no review request will be sent.
+              </Alert>
             )}
           </Stack>
         </DialogContent>
@@ -1779,31 +1783,12 @@ function ListingDetail() {
             onClick={handleConfirmMarkSold}
             variant="contained"
             color="primary"
-            disabled={
-              statusActionLoading ||
-              loadingBuyerOptions ||
-              (saleAttributionMode === "attributed" &&
-                buyerOptions.length > 0 &&
-                !selectedBuyerId)
-            }
+            disabled={statusActionLoading || loadingBuyerOptions}
           >
-            {saleAttributionMode === "attributed" ? "Mark Sold to Buyer" : "Mark Sold Off App"}
+            Mark as Sold
           </Button>
         </DialogActions>
       </Dialog>
-
-      <PostSaleReviewPrompt
-        open={Boolean(postSaleReviewPrompt)}
-        onClose={() => setPostSaleReviewPrompt(null)}
-        listing={postSaleReviewPrompt?.listing}
-        reviewer={currentUser}
-        recipientId={postSaleReviewPrompt?.recipientId}
-        recipientName={postSaleReviewPrompt?.recipientName}
-        recipientAvatarUrl={postSaleReviewPrompt?.recipientAvatarUrl}
-        recipientRole={postSaleReviewPrompt?.recipientRole}
-        title="Congratulations on selling your puzzle!"
-        subtitle="Leave a quick review for the buyer now, or handle it later from My Reviews."
-      />
 
       <Dialog
         open={showDeleteDialog}

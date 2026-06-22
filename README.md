@@ -162,6 +162,7 @@ Listing detail seller actions:
 
 - Main button: `Mark as Sold` or `Mark as Available`
 - Three-dot menu: edit listing, mark pending/available, delete
+- Marking sold asks the seller to select the buyer conversation that completed the sale
 - Delete removes uploaded listing photos from S3 and deletes the Firestore listing
 
 My Listings:
@@ -170,6 +171,7 @@ My Listings:
 - Cards are directly clickable
 - Three-dot action menu appears in the title row
 - Action menu includes status actions and delete
+- `Mark as Sold` opens the listing detail sold flow so the seller can pick the buyer
 - Cards no longer show type/status pills
 
 ## Messaging
@@ -182,49 +184,47 @@ Current behavior:
 - Sellers approve/reject pending requests
 - Listing detail message request success/failure uses in-app snackbar
 - Pending listings disable contact and show `Pending`
-- Sold listing conversations are closed when an attributed sale completes
+- Sold listing conversations remain open so users can keep chatting
+- When a seller marks a listing sold, only the selected buyer/seller conversation receives a `Rate your experience` review prompt message
 
-Buyer attribution for sales:
+Sale review prompts:
 
-- `getListingBuyerOptions()` fetches approved and pending conversations
-- The mark-sold dialog shows selectable buyer rows with avatar/name/email
-- Selecting a buyer sets `buyerId` and unlocks buyer/seller review tasks
+- The selected buyer conversation is approved before the sold review prompt is posted
+- Other conversations for the listing are left open and do not receive review prompts
+- The prompt appears as an in-chat card with `Leave Review` and `No Thanks`
+- Declining only hides/dismisses that prompt for the current user
+- Normal chat remains available after the prompt
+- Reverting a sold listing cancels active review prompts and posts a system message explaining that the review request was closed
 
 ## Reviews and Post-Sale Prompts
 
 Review utilities live in `src/utils/reviews.js`.
 
-Review document id:
+Listing transaction review document id:
 
 ```js
 `${listingId}_${reviewerId}`
 ```
 
-Both buyer and seller can review an attributed transaction:
+Conversation experience review document id:
 
-- Buyer reviews seller when `listing.buyerId === currentUser.uid`
-- Seller reviews buyer when `listing.userId === currentUser.uid` and `buyerId` exists
+```js
+`${conversationId}_${reviewerId}`
+```
+
+Current review model:
+
+- Chat-based review prompts are created when a listing is marked sold
+- Either participant in a prompted conversation can review the other participant
+- Reviews are experience reviews, not strictly confirmed-purchase reviews
+- The prompt stores per-user dismiss/submitted state locally in the browser to avoid mutating message documents
+- Submitted reviews are written to `reviews`
+- Reverting a sold listing removes stale review documents for that listing and disables active prompts
 
 Pages/components:
 
 - `src/pages/MyReviews.jsx` - canonical review management page
-- `src/components/PostSaleReviewPrompt.jsx` - shared animated post-sale review popup
-- `src/components/BuyerPostSaleReviewPrompt.jsx` - global buyer prompt listener
-
-Seller prompt:
-
-- Appears after a seller marks a listing sold to a selected WeCube buyer
-- Opens after a `0.7s` delay
-- Title: `Congratulations on selling your puzzle!`
-- Includes puzzle thumbnail, buyer avatar/name, 5 clickable stars, quick review textbox
-
-Buyer prompt:
-
-- Mounted globally in `src/App.jsx`
-- Appears anywhere in the app after login if the user has an unreviewed completed purchase
-- Opens after a `0.7s` delay
-- Title: `Congratulations on your new puzzle!`
-- Dismissals are stored in localStorage by user/listing/sale timestamp, so a later resale can prompt again
+- `src/pages/Messages.jsx` - in-chat review prompt rendering and review dialog
 
 When sold status is reverted, `deleteTransactionReviews(listingId)` removes stale review documents for that transaction.
 
@@ -262,19 +262,17 @@ Behavior:
 
 ## Key Files
 
-- `src/App.jsx` - app shell/routes/global buyer prompt
+- `src/App.jsx` - app shell/routes
 - `src/pages/Browse.jsx` - browsing/filtering/listing cards
 - `src/pages/Sell.jsx` - listing creation
 - `src/pages/ListingDetail.jsx` - listing view/edit/seller actions/mark sold
 - `src/pages/MyListings.jsx` - seller listing management
 - `src/pages/MyPurchases.jsx` - buyer purchase history
 - `src/pages/MyReviews.jsx` - review management
-- `src/pages/Messages.jsx` - messages and pending requests
-- `src/components/PostSaleReviewPrompt.jsx` - shared post-sale popup
-- `src/components/BuyerPostSaleReviewPrompt.jsx` - global buyer popup listener
+- `src/pages/Messages.jsx` - messages, pending requests, and in-chat review prompts
 - `src/components/ListingStatusDecorators.jsx` - card style constants and sold/pending badges
 - `src/utils/listingUtils.js` - listing normalization, fulfillment display, sorting
-- `src/utils/messaging.js` - conversations/message requests/sale buyer options
+- `src/utils/messaging.js` - conversations/message requests/sold review prompts
 - `src/utils/reviews.js` - review CRUD/subscriptions/review cleanup
 - `src/utils/s3.js` - S3 uploads/deletes/public URLs
 - `src/utils/locationSearch.js` - US city search
@@ -293,4 +291,3 @@ Known warnings:
 - Vite warns that some chunks are larger than 500 kB.
 - ESLint full-run can report Fast Refresh issues in `ListingStatusDecorators.jsx` because it exports non-component constants/functions.
 - Some existing hook dependency warnings remain in page components.
-

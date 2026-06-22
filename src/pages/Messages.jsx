@@ -15,11 +15,15 @@ import {
   Stack,
   Card,
   CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Alert,
   Tabs,
   Tab,
 } from "@mui/material";
-import { Send, Check, Close, Person } from "@mui/icons-material";
+import { Send, Check, Close, Person, Star } from "@mui/icons-material";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,11 +37,13 @@ import {
   isConversationUnread,
   updateConversationStatus,
 } from "../utils/messaging";
+import { submitTransactionReview } from "../utils/reviews";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getS3PublicUrl } from "../utils/s3";
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
+const REVIEW_PROMPT_RESPONSE_STORAGE_KEY = "wecubeReviewPromptResponses";
 
 function getTimestampDate(timestamp) {
   if (!timestamp) {
@@ -111,11 +117,69 @@ function Messages() {
   const [listingDetails, setListingDetails] = useState({});
   const [userDetails, setUserDetails] = useState({});
   const [activeTab, setActiveTab] = useState(0); // 0 = Messages, 1 = Pending Requests
+  const [reviewDialog, setReviewDialog] = useState({
+    open: false,
+    message: null,
+    conversation: null,
+  });
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    comment: "",
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewPromptResponses, setReviewPromptResponses] = useState({});
   const messagesScrollRef = useRef(null);
+
+  const getReviewPromptResponseKey = (messageId) =>
+    currentUserId && messageId ? `${currentUserId}:${messageId}` : null;
+
+  const saveReviewPromptResponse = (messageId, response) => {
+    const responseKey = getReviewPromptResponseKey(messageId);
+    if (!responseKey) return;
+
+    setReviewPromptResponses((prev) => {
+      const next = {
+        ...prev,
+        [responseKey]: response,
+      };
+      window.localStorage.setItem(
+        REVIEW_PROMPT_RESPONSE_STORAGE_KEY,
+        JSON.stringify(next)
+      );
+      return next;
+    });
+  };
+
+  const getReviewPromptResponse = (message) => {
+    const responseKey = getReviewPromptResponseKey(message?.id);
+    return (
+      message?.reviewResponses?.[currentUserId] ||
+      (responseKey ? reviewPromptResponses[responseKey] : null)
+    );
+  };
   const messagesEndRef = useRef(null);
   const messagesUnsubscribeRef = useRef(null);
   const previousMessageCountRef = useRef(0);
   const previousConversationIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setReviewPromptResponses({});
+      return;
+    }
+
+    try {
+      const storedResponses = window.localStorage.getItem(
+        REVIEW_PROMPT_RESPONSE_STORAGE_KEY
+      );
+      setReviewPromptResponses(
+        storedResponses ? JSON.parse(storedResponses) : {}
+      );
+    } catch (error) {
+      console.error("Error loading review prompt responses:", error);
+      setReviewPromptResponses({});
+    }
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -354,6 +418,75 @@ function Messages() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const openReviewDialog = (message, conversation) => {
+    setReviewDialog({
+      open: true,
+      message,
+      conversation,
+    });
+    setReviewForm({
+      rating: 5,
+      comment: "",
+    });
+  };
+
+  const closeReviewDialog = () => {
+    if (submittingReview) return;
+    setReviewDialog({
+      open: false,
+      message: null,
+      conversation: null,
+    });
+    setReviewForm({
+      rating: 5,
+      comment: "",
+    });
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!currentUser || !reviewDialog.message || !reviewDialog.conversation) {
+      return;
+    }
+
+    const conversation = reviewDialog.conversation;
+    const recipientId = getConversationCounterpartId(conversation);
+    const recipientRole = conversation.userRole === "seller" ? "buyer" : "seller";
+    const listingDetailsForReview = listingDetails[conversation.listingId] || {};
+    const listing = {
+      id: conversation.listingId,
+      ...listingDetailsForReview,
+      title: listingDetailsForReview.title || "Listing",
+      userId: conversation.sellerId,
+      buyerId: conversation.buyerId,
+    };
+
+    setSubmittingReview(true);
+    try {
+      await submitTransactionReview({
+        listing,
+        reviewer: currentUser,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+        recipientId,
+        recipientName: getConversationCounterpartName(conversation),
+        recipientRole,
+      });
+      saveReviewPromptResponse(reviewDialog.message.id, "reviewed");
+      closeReviewDialog();
+    } catch (error) {
+      console.error("Error submitting conversation review:", error);
+      alert(error.message || "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeclineReviewPrompt = async (message) => {
+    if (!currentUserId) return;
+
+    saveReviewPromptResponse(message.id, "declined");
   };
 
   const handleApproveRequest = async (conversation) => {
@@ -874,25 +1007,16 @@ function Messages() {
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {getListingTitle(selectedConversation.listingId)} •{" "}
-                    {selectedConversation.closedAt
-                      ? "Conversation closed"
-                      : selectedConversation.userRole === "seller"
+                    {selectedConversation.userRole === "seller"
                         ? "Buyer inquiry"
                         : "Your inquiry"}
-                    {(selectedConversation.closedAt ||
-                      selectedConversation.status !== "approved") && (
+                    {selectedConversation.status !== "approved" && (
                       <Chip
-                        label={
-                          selectedConversation.closedAt
-                            ? "Status: sold"
-                            : `Status: ${selectedConversation.status}`
-                        }
+                        label={`Status: ${selectedConversation.status}`}
                         size="small"
                         sx={{ ml: 1 }}
                         color={
-                          selectedConversation.closedAt
-                            ? "default"
-                            : selectedConversation.status === "pending"
+                          selectedConversation.status === "pending"
                               ? "primary"
                               : "error"
                         }
@@ -904,11 +1028,7 @@ function Messages() {
 
               {/* Messages */}
                 <Box ref={messagesScrollRef} sx={{ flex: 1, overflow: "auto", p: 2 }}>
-                {selectedConversation.closedAt ? (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    This conversation has ended because the listing was sold.
-                  </Alert>
-                ) : selectedConversation.status !== "approved" && (
+                {selectedConversation.status !== "approved" && (
                   <Alert severity="info" sx={{ mb: 2 }}>
                     {selectedConversation.status === "pending"
                       ? selectedConversation.userRole === "seller"
@@ -949,6 +1069,8 @@ function Messages() {
                   }
 
                   const { message } = item;
+                  const isReviewPrompt =
+                    message.type === "review_prompt" || message.reviewPrompt;
                   const isCurrentUserMessage = message.senderId === currentUserId;
                   const nextMessageItem = transcriptItems
                     .slice(index + 1)
@@ -956,7 +1078,81 @@ function Messages() {
                   const showIncomingAvatar =
                     !isCurrentUserMessage &&
                     message.type !== "system" &&
+                    !isReviewPrompt &&
                     nextMessageItem?.message?.senderId !== message.senderId;
+
+                  if (isReviewPrompt) {
+                    const response = getReviewPromptResponse(message);
+                    const isPromptClosed =
+                      selectedConversation.activeSaleEventId !==
+                        message.saleEventId || response;
+
+                    return (
+                      <Box
+                        key={message.id}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          my: 2,
+                        }}
+                      >
+                        <Card
+                          variant="outlined"
+                          sx={{
+                            maxWidth: 420,
+                            width: "100%",
+                            borderColor: "primary.main",
+                            bgcolor: "background.paper",
+                          }}
+                        >
+                          <CardContent>
+                            <Stack spacing={1.5}>
+                              <Typography variant="body1" fontWeight={700}>
+                                Rate your experience
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {message.text}
+                              </Typography>
+                              {response ? (
+                                <Alert
+                                  severity={response === "reviewed" ? "success" : "info"}
+                                >
+                                  {response === "reviewed"
+                                    ? "Review submitted."
+                                    : "Review request dismissed."}
+                                </Alert>
+                              ) : selectedConversation.activeSaleEventId !==
+                                message.saleEventId ? (
+                                <Alert severity="info">
+                                  This review request is no longer active.
+                                </Alert>
+                              ) : (
+                                <Stack direction="row" spacing={1}>
+                                  <Button
+                                    variant="contained"
+                                    onClick={() =>
+                                      openReviewDialog(message, selectedConversation)
+                                    }
+                                    disabled={Boolean(isPromptClosed)}
+                                  >
+                                    Leave Review
+                                  </Button>
+                                  <Button
+                                    variant="outlined"
+                                    color="inherit"
+                                    onClick={() => handleDeclineReviewPrompt(message)}
+                                    disabled={Boolean(isPromptClosed)}
+                                  >
+                                    No Thanks
+                                  </Button>
+                                </Stack>
+                              )}
+                            </Stack>
+                          </CardContent>
+                        </Card>
+                      </Box>
+                    );
+                  }
 
                   if (message.type === "system") {
                     return (
@@ -1065,8 +1261,7 @@ function Messages() {
               </Box>
 
               {/* Message Input */}
-              {selectedConversation.status === "approved" &&
-                !selectedConversation.closedAt && (
+              {selectedConversation.status === "approved" && (
                 <Box
                   sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
                 >
@@ -1116,6 +1311,82 @@ function Messages() {
           )}
         </Paper>
       </Box>
+
+      <Dialog
+        open={reviewDialog.open}
+        onClose={closeReviewDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Rate your experience</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {getListingTitle(reviewDialog.conversation?.listingId)} with{" "}
+              {reviewDialog.conversation
+                ? getConversationCounterpartName(reviewDialog.conversation)
+                : "this user"}
+            </Typography>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Rating
+              </Typography>
+              <Stack direction="row" spacing={0.5}>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <IconButton
+                    key={value}
+                    aria-label={`${value} ${value === 1 ? "star" : "stars"}`}
+                    onClick={() =>
+                      setReviewForm((prev) => ({
+                        ...prev,
+                        rating: value,
+                      }))
+                    }
+                    size="small"
+                    sx={{
+                      color:
+                        value <= reviewForm.rating
+                          ? "primary.main"
+                          : "action.disabled",
+                    }}
+                  >
+                    <Star />
+                  </IconButton>
+                ))}
+              </Stack>
+            </Box>
+            <TextField
+              label="Review"
+              multiline
+              minRows={4}
+              value={reviewForm.comment}
+              onChange={(event) =>
+                setReviewForm((prev) => ({
+                  ...prev,
+                  comment: event.target.value,
+                }))
+              }
+              placeholder="Share how the experience went."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeReviewDialog}
+            color="inherit"
+            disabled={submittingReview}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleReviewSubmit}
+            variant="contained"
+            disabled={submittingReview}
+          >
+            Save Review
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -115,6 +115,68 @@ export async function getExistingConversation(listingId, buyerId) {
   }
 }
 
+export async function getListingBuyerOptions(listingId, sellerId) {
+  try {
+    const conversationsQuery = query(
+      collection(db, "conversations"),
+      where("listingId", "==", listingId),
+      where("sellerId", "==", sellerId)
+    );
+
+    const snapshot = await getDocs(conversationsQuery);
+    const conversations = snapshot.docs
+      .map((conversationDoc) => ({
+        id: conversationDoc.id,
+        ...conversationDoc.data(),
+      }))
+      .filter(
+        (conversation) =>
+          conversation.status === "approved" || conversation.status === "pending"
+      )
+      .sort((a, b) => {
+        if (a.status !== b.status) {
+          return a.status === "approved" ? -1 : 1;
+        }
+        const aTime = a.lastMessageAt?.toMillis?.() || 0;
+        const bTime = b.lastMessageAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
+    return Promise.all(
+      conversations.map(async (conversation) => {
+        let buyerData = null;
+
+        try {
+          const buyerDoc = await getDoc(doc(db, "users", conversation.buyerId));
+          buyerData = buyerDoc.exists() ? buyerDoc.data() : null;
+        } catch (error) {
+          console.error("Error fetching buyer profile:", error);
+        }
+
+        const buyerName =
+          `${buyerData?.firstName || ""} ${buyerData?.lastName || ""}`.trim() ||
+          buyerData?.displayName ||
+          buyerData?.email ||
+          "Buyer";
+
+        return {
+          buyerId: conversation.buyerId,
+          buyerName,
+          buyerEmail: buyerData?.email || "",
+          buyerAvatarUrl: buyerData?.avatarUrl || "",
+          conversationId: conversation.id,
+          status: conversation.status,
+          lastMessage: conversation.lastMessage || "",
+          lastMessageAt: conversation.lastMessageAt || null,
+        };
+      })
+    );
+  } catch (error) {
+    console.error("Error getting listing buyer options:", error);
+    throw error;
+  }
+}
+
 /**
  * Get conversations for a user (both as buyer and seller) - excludes pending requests
  */
@@ -238,10 +300,6 @@ export async function addMessage(
       throw new Error("Conversation must be approved before sending messages");
     }
 
-    if (type === "message" && conversation.closedAt) {
-      throw new Error("This conversation has ended because the listing was sold");
-    }
-
     // Add message
     await addDoc(collection(db, "messages"), {
       conversationId,
@@ -271,10 +329,16 @@ export async function closeListingConversationsForSold(
   listingId,
   sellerId,
   sellerFirstName,
-  listingTitle
+  listingTitle,
+  saleEventId = null,
+  soldConversationId = null
 ) {
   try {
-    const soldMessage = `${sellerFirstName || "Seller"} sold ${listingTitle}`;
+    if (!soldConversationId) {
+      return;
+    }
+
+    const soldMessage = `${sellerFirstName || "Seller"} marked ${listingTitle} as sold. Rate your experience?`;
     const conversationsQuery = query(
       collection(db, "conversations"),
       where("listingId", "==", listingId),
@@ -287,7 +351,10 @@ export async function closeListingConversationsForSold(
       const conversationRef = doc(db, "conversations", conversationDoc.id);
       const conversation = conversationDoc.data();
 
-      if (conversation.closedAt || conversation.status === "rejected") {
+      if (
+        conversation.status === "rejected" ||
+        conversationDoc.id !== soldConversationId
+      ) {
         continue;
       }
 
@@ -298,11 +365,25 @@ export async function closeListingConversationsForSold(
         });
       }
 
-      await addMessage(conversationDoc.id, sellerId, soldMessage, "system");
+      await addDoc(collection(db, "messages"), {
+        conversationId: conversationDoc.id,
+        senderId: sellerId,
+        text: soldMessage,
+        type: "system",
+        reviewPrompt: true,
+        saleEventId,
+        reviewResponses: {},
+        createdAt: serverTimestamp(),
+      });
 
       await updateDoc(conversationRef, {
-        closedAt: serverTimestamp(),
-        closedReason: "listing_sold",
+        lastMessage: "Rate your experience?",
+        lastMessageType: "system",
+        lastMessageAt: serverTimestamp(),
+        lastMessageSenderId: sellerId,
+        activeSaleEventId: saleEventId,
+        closedAt: null,
+        closedReason: null,
         updatedAt: serverTimestamp(),
       });
     }
@@ -310,6 +391,57 @@ export async function closeListingConversationsForSold(
     console.error("Error closing listing conversations after sale:", error);
     throw error;
   }
+}
+
+export async function cancelListingReviewPrompts(listingId, sellerId) {
+  try {
+    const conversationsQuery = query(
+      collection(db, "conversations"),
+      where("listingId", "==", listingId),
+      where("sellerId", "==", sellerId)
+    );
+    const snapshot = await getDocs(conversationsQuery);
+
+    for (const conversationDoc of snapshot.docs) {
+      const conversationRef = doc(db, "conversations", conversationDoc.id);
+      const conversation = conversationDoc.data();
+
+      if (!conversation.activeSaleEventId) {
+        continue;
+      }
+
+      await addDoc(collection(db, "messages"), {
+        conversationId: conversationDoc.id,
+        senderId: sellerId,
+        text: "The seller marked this listing as available again. The review request was closed.",
+        type: "system",
+        createdAt: serverTimestamp(),
+      });
+
+      await updateDoc(conversationRef, {
+        activeSaleEventId: null,
+        lastMessage: "The review request was closed.",
+        lastMessageType: "system",
+        lastMessageAt: serverTimestamp(),
+        lastMessageSenderId: sellerId,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("Error cancelling listing review prompts:", error);
+    throw error;
+  }
+}
+
+export async function updateReviewPromptResponse(messageId, userId, response) {
+  if (!messageId || !userId) {
+    throw new Error("Missing review prompt context");
+  }
+
+  await updateDoc(doc(db, "messages", messageId), {
+    [`reviewResponses.${userId}`]: response,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**
@@ -555,82 +687,6 @@ export async function getPendingRequests(sellerId) {
     }
   } catch (error) {
     console.error("Error getting pending requests:", error);
-    throw error;
-  }
-}
-
-/**
- * Get buyer options for a seller to attribute a completed listing sale.
- * Prioritizes approved conversations but also includes pending requests.
- */
-export async function getListingBuyerOptions(listingId, sellerId) {
-  try {
-    const conversationsQuery = query(
-      collection(db, "conversations"),
-      where("listingId", "==", listingId),
-      where("sellerId", "==", sellerId)
-    );
-
-    const snapshot = await getDocs(conversationsQuery);
-    const conversations = snapshot.docs
-      .map((conversationDoc) => ({
-        id: conversationDoc.id,
-        ...conversationDoc.data(),
-      }))
-      .filter((conversation) => conversation.status === "approved" || conversation.status === "pending")
-      .sort((a, b) => {
-        const statusWeight = {
-          approved: 0,
-          pending: 1,
-        };
-        const aStatus = statusWeight[a.status] ?? 99;
-        const bStatus = statusWeight[b.status] ?? 99;
-        if (aStatus !== bStatus) {
-          return aStatus - bStatus;
-        }
-
-        const aTime = a.lastMessageAt?.toMillis?.() || 0;
-        const bTime = b.lastMessageAt?.toMillis?.() || 0;
-        return bTime - aTime;
-      });
-
-    const buyerOptions = await Promise.all(
-      conversations.map(async (conversation) => {
-        let buyerName = "Buyer";
-        let buyerAvatarUrl = "";
-        let buyerEmail = "";
-
-        try {
-          const buyerDoc = await getDoc(doc(db, "users", conversation.buyerId));
-          if (buyerDoc.exists()) {
-            const buyerData = buyerDoc.data();
-            buyerName =
-              `${buyerData.firstName || ""} ${buyerData.lastName || ""}`.trim() ||
-              buyerData.email ||
-              "Buyer";
-            buyerAvatarUrl = buyerData.avatarUrl || buyerData.photoURL || "";
-            buyerEmail = buyerData.email || "";
-          }
-        } catch (error) {
-          console.error("Error fetching buyer profile for sale attribution:", error);
-        }
-
-        return {
-          buyerId: conversation.buyerId,
-          buyerName,
-          buyerAvatarUrl,
-          buyerEmail,
-          conversationId: conversation.id,
-          status: conversation.status,
-          lastMessage: conversation.lastMessage || "",
-          lastMessageAt: conversation.lastMessageAt || null,
-        };
-      })
-    );
-
-    return buyerOptions;
-  } catch (error) {
-    console.error("Error getting listing buyer options:", error);
     throw error;
   }
 }

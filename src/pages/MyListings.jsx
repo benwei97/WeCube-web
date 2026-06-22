@@ -52,6 +52,9 @@ import {
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
 } from "../utils/listingUtils";
+import {
+  cancelListingReviewPrompts,
+} from "../utils/messaging";
 import { deleteTransactionReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
@@ -170,9 +173,11 @@ function MyListings() {
       };
 
       if (status === "sold") {
+        const saleEventId = `${listing.id}_${now.getTime()}`;
         updates.soldAt = now;
         updates.archivedAt = null;
         updates.soldMethod = "seller_marked_sold";
+        updates.saleEventId = saleEventId;
         updates.buyerId = null;
         updates.soldConversationId = null;
       }
@@ -195,6 +200,7 @@ function MyListings() {
 
       await updateDoc(doc(db, "listings", listing.id), updates);
       if (listing.status === "sold" && status !== "sold") {
+        await cancelListingReviewPrompts(listing.id, listing.userId);
         await deleteTransactionReviews(listing.id);
       }
     } catch (error) {
@@ -348,7 +354,14 @@ function MyListings() {
                 transformOrigin={{ vertical: "top", horizontal: "right" }}
               >
                 {listing.status !== "sold" && (
-                  <MenuItem onClick={() => handleStatusUpdate(listing, "sold")}>
+                  <MenuItem
+                    onClick={() => {
+                      closeActionMenu();
+                      navigate(`/listing/${listing.id}`, {
+                        state: { openMarkSoldDialog: true },
+                      });
+                    }}
+                  >
                     <CheckCircle fontSize="small" sx={{ mr: 1.25 }} />
                     Mark as Sold
                   </MenuItem>
