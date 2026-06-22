@@ -6,23 +6,26 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  IconButton,
+  Menu,
+  MenuItem,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from "@mui/material";
 import {
+  CheckCircle,
   Delete,
+  MoreVert,
   PendingActions,
   RestoreFromTrash,
-  Visibility,
 } from "@mui/icons-material";
 import {
   collection,
@@ -63,6 +66,10 @@ function MyListings() {
     listing: null,
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [actionMenu, setActionMenu] = useState({
+    anchorEl: null,
+    listing: null,
+  });
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -132,20 +139,49 @@ function MyListings() {
     return date.toLocaleDateString();
   };
 
+  const openActionMenu = (event, listing) => {
+    event.stopPropagation();
+    setActionMenu({
+      anchorEl: event.currentTarget,
+      listing,
+    });
+  };
+
+  const closeActionMenu = () => {
+    setActionMenu({
+      anchorEl: null,
+      listing: null,
+    });
+  };
+
   const handleStatusUpdate = async (listingId, status) => {
+    closeActionMenu();
     setStatusActionLoading((prev) => ({
       ...prev,
       [listingId]: true,
     }));
 
     try {
+      const now = new Date();
       const updates = {
         status,
-        updatedAt: new Date(),
+        updatedAt: now,
       };
 
+      if (status === "sold") {
+        updates.soldAt = now;
+        updates.archivedAt = null;
+        updates.soldMethod = "seller_marked_sold";
+        updates.buyerId = null;
+        updates.soldConversationId = null;
+      }
+
       if (status === "archived") {
-        updates.archivedAt = new Date();
+        updates.archivedAt = now;
+        updates.soldAt = null;
+        updates.soldMethod = null;
+        updates.buyerId = null;
+        updates.soldConversationId = null;
       }
 
       if (status === "active") {
@@ -169,6 +205,7 @@ function MyListings() {
   };
 
   const handleDeleteClick = (listing) => {
+    closeActionMenu();
     setDeleteDialog({
       open: true,
       listing,
@@ -215,9 +252,44 @@ function MyListings() {
     const fulfillmentOption = getPrimaryFulfillmentOption(normalizedListing);
     const soldDate = formatDate(listing.soldAt);
     const archivedDate = formatDate(listing.archivedAt || listing.updatedAt);
+    const isActionMenuOpen =
+      Boolean(actionMenu.anchorEl) && actionMenu.listing?.id === listing.id;
 
     return (
-      <Card key={listing.id} sx={LISTING_CARD_SX}>
+      <Card
+        key={listing.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          if (actionMenu.anchorEl) {
+            return;
+          }
+          navigate(`/listing/${listing.id}`);
+        }}
+        onKeyDown={(event) => {
+          if (actionMenu.anchorEl) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            navigate(`/listing/${listing.id}`);
+          }
+        }}
+        sx={{
+          ...LISTING_CARD_SX,
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: 3,
+          },
+          "&:focus-visible": {
+            outline: "2px solid",
+            outlineColor: "primary.main",
+            outlineOffset: 2,
+          },
+        }}
+      >
         <ListingCardMediaFrame
           imageUrl={
             listing.photos?.[0]
@@ -241,39 +313,73 @@ function MyListings() {
 
         <CardContent sx={LISTING_CARD_CONTENT_SX}>
           <Box sx={LISTING_CARD_TEXT_STACK_SX}>
-            <Typography variant="h6" sx={LISTING_CARD_TITLE_SX}>
-              {listing.title}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+              <Typography variant="h6" sx={{ ...LISTING_CARD_TITLE_SX, flex: 1 }}>
+                {listing.title}
+              </Typography>
+              <IconButton
+                size="small"
+                aria-label="Listing actions"
+                aria-controls={
+                  isActionMenuOpen ? `listing-actions-${listing.id}` : undefined
+                }
+                aria-haspopup="true"
+                aria-expanded={isActionMenuOpen ? "true" : undefined}
+                onClick={(event) => openActionMenu(event, listing)}
+                onKeyDown={(event) => event.stopPropagation()}
+                disabled={
+                  Boolean(statusActionLoading[listing.id]) || deleteLoading
+                }
+                sx={{ mt: -0.5, mr: -0.75, flexShrink: 0 }}
+              >
+                <MoreVert fontSize="small" />
+              </IconButton>
+              <Menu
+                id={`listing-actions-${listing.id}`}
+                anchorEl={actionMenu.anchorEl}
+                open={isActionMenuOpen}
+                onClose={closeActionMenu}
+                onClick={(event) => event.stopPropagation()}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+              >
+                {listing.status !== "sold" && (
+                  <MenuItem onClick={() => handleStatusUpdate(listing.id, "sold")}>
+                    <CheckCircle fontSize="small" sx={{ mr: 1.25 }} />
+                    Mark as Sold
+                  </MenuItem>
+                )}
+                {listing.status !== "archived" && (
+                  <MenuItem
+                    onClick={() => handleStatusUpdate(listing.id, "archived")}
+                  >
+                    <PendingActions fontSize="small" sx={{ mr: 1.25 }} />
+                    Mark Pending
+                  </MenuItem>
+                )}
+                {(listing.status === "archived" || listing.status === "sold") && (
+                  <MenuItem onClick={() => handleStatusUpdate(listing.id, "active")}>
+                    <RestoreFromTrash fontSize="small" sx={{ mr: 1.25 }} />
+                    Mark Available
+                  </MenuItem>
+                )}
+                <Divider sx={{ my: 0.5 }} />
+                <MenuItem
+                  onClick={() => handleDeleteClick(listing)}
+                  sx={{ color: "error.main" }}
+                >
+                  <Delete fontSize="small" sx={{ mr: 1.25 }} />
+                  Delete
+                </MenuItem>
+              </Menu>
+            </Box>
             <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.1 }}>
               {formatPrice(listing.price)}
             </Typography>
             <ListingFulfillmentLine option={fulfillmentOption} />
           </Box>
 
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            <Chip
-              label={
-                listing.status === "sold"
-                  ? "Sold"
-                  : listing.status === "archived"
-                    ? "Pending"
-                    : "Active"
-              }
-              color={
-                listing.status === "sold"
-                  ? "default"
-                  : listing.status === "archived"
-                    ? "error"
-                    : "success"
-              }
-              size="small"
-            />
-          </Stack>
-
           <Box sx={{ color: "text.secondary" }}>
-            {listing.puzzleType && (
-              <Typography variant="body2">Type: {listing.puzzleType}</Typography>
-            )}
             {listing.brand && (
               <Typography variant="body2">Brand: {listing.brand}</Typography>
             )}
@@ -284,47 +390,6 @@ function MyListings() {
               <Typography variant="body2">Pending since {archivedDate}</Typography>
             )}
           </Box>
-
-          <Divider />
-
-          <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-            <Button
-              variant="outlined"
-              startIcon={<Visibility />}
-              onClick={() => navigate(`/listing/${listing.id}`)}
-            >
-              View
-            </Button>
-            {listing.status === "archived" || listing.status === "sold" ? (
-              <Button
-                variant="contained"
-                startIcon={<RestoreFromTrash />}
-                onClick={() => handleStatusUpdate(listing.id, "active")}
-                disabled={Boolean(statusActionLoading[listing.id])}
-              >
-                Mark Available
-              </Button>
-            ) : (
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<PendingActions />}
-                onClick={() => handleStatusUpdate(listing.id, "archived")}
-                disabled={Boolean(statusActionLoading[listing.id])}
-              >
-                Mark Pending
-              </Button>
-            )}
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<Delete />}
-              onClick={() => handleDeleteClick(listing)}
-              disabled={deleteLoading}
-            >
-              Delete
-            </Button>
-          </Stack>
         </CardContent>
       </Card>
     );
