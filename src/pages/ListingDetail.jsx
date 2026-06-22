@@ -35,7 +35,6 @@ import {
   Menu,
 } from "@mui/material";
 import {
-  Archive,
   CheckCircle,
   Delete,
   Edit,
@@ -46,6 +45,7 @@ import {
   ArrowForwardIos,
   Close,
   MoreVert,
+  PendingActions,
   Restore,
   Save,
   Star,
@@ -72,6 +72,7 @@ import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
   getConditionLabel,
+  formatListedLocationLabel,
   getNormalizedFulfillmentFields,
   getShippingLabel,
   normalizeConditionValue,
@@ -826,7 +827,7 @@ function ListingDetail() {
           status === "active"
             ? "Listing is available again."
             : status === "archived"
-              ? "Listing archived."
+              ? "Listing marked as pending."
               : "Listing marked as sold.",
       });
     } catch (error) {
@@ -1021,6 +1022,10 @@ function ListingDetail() {
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
   const isOwnerMenuOpen = Boolean(ownerMenuAnchorEl);
+  const listedLocationLabel = formatListedLocationLabel(
+    listing.meetupLocation,
+    listing.meetupLocationLabel || listing.location
+  );
   const hasApprovedConversation = existingConversation?.status === "approved";
   const cameFromPublish = Boolean(location.state?.fromPublish);
   const isListingUnavailable =
@@ -1034,13 +1039,19 @@ function ListingDetail() {
   const handleMessageAction = hasApprovedConversation
     ? () => navigate(`/messages/${existingConversation.id}`)
     : openMessageDialog;
+  const handleOwnerPrimaryAction = listing.status === "sold"
+    ? () => handleListingStatusUpdate("active")
+    : openMarkSoldDialog;
+  const ownerPrimaryActionText = listing.status === "sold"
+    ? "Mark as Available"
+    : "Mark as Sold";
 
   if (listing.status === "archived" && !isOwner) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
         <Typography variant="h4">Listing not available</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-          This listing has been archived by the seller and is no longer publicly available.
+          This listing is pending with another buyer and is not currently available.
         </Typography>
         <Button onClick={() => navigate("/")} sx={{ mt: 2 }} variant="outlined">
           Back to Browse
@@ -1069,10 +1080,14 @@ function ListingDetail() {
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button
               variant="contained"
-              startIcon={<Edit />}
-              onClick={handleEditToggle}
+              color={listing.status === "sold" ? "success" : "warning"}
+              startIcon={
+                listing.status === "sold" ? <Restore /> : <CheckCircle />
+              }
+              onClick={handleOwnerPrimaryAction}
+              disabled={statusActionLoading || deleteLoading}
             >
-              Edit Listing
+              {ownerPrimaryActionText}
             </Button>
             <IconButton
               onClick={(event) => setOwnerMenuAnchorEl(event.currentTarget)}
@@ -1096,26 +1111,24 @@ function ListingDetail() {
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
-              {listing.status === "sold" ? (
-                <MenuItem onClick={() => handleListingStatusUpdate("active")}>
-                  <Restore fontSize="small" sx={{ mr: 1.25 }} />
-                  Mark Available
-                </MenuItem>
-              ) : (
-                <MenuItem onClick={openMarkSoldDialog}>
-                  <CheckCircle fontSize="small" sx={{ mr: 1.25 }} />
-                  Mark as Sold
-                </MenuItem>
-              )}
+              <MenuItem
+                onClick={() => {
+                  closeOwnerMenu();
+                  handleEditToggle();
+                }}
+              >
+                <Edit fontSize="small" sx={{ mr: 1.25 }} />
+                Edit Listing
+              </MenuItem>
               {listing.status === "archived" ? (
                 <MenuItem onClick={() => handleListingStatusUpdate("active")}>
                   <Restore fontSize="small" sx={{ mr: 1.25 }} />
-                  Restore Listing
+                  Mark as Available
                 </MenuItem>
-              ) : listing.status !== "sold" ? (
+              ) : listing.status === "active" || !listing.status ? (
                 <MenuItem onClick={() => handleListingStatusUpdate("archived")}>
-                  <Archive fontSize="small" sx={{ mr: 1.25 }} />
-                  Archive Listing
+                  <PendingActions fontSize="small" sx={{ mr: 1.25 }} />
+                  Mark as Pending
                 </MenuItem>
               ) : null}
               <Divider sx={{ my: 0.5 }} />
@@ -1318,6 +1331,11 @@ function ListingDetail() {
                 {listing.puzzleType}
               </Typography>
             )}
+            {listedLocationLabel && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Listed in {listedLocationLabel}
+              </Typography>
+            )}
             {listing.brand && (
               <Typography variant="body1" sx={{ mb: 0.5 }}>
                 <Box component="span" sx={{ fontWeight: 600 }}>
@@ -1328,12 +1346,7 @@ function ListingDetail() {
             )}
             {listing.status === "archived" && (
               <Typography variant="body2" color="text.secondary">
-                Archived
-              </Typography>
-            )}
-            {listing.meetupLocationLabel && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Meetup Area: {listing.meetupLocationLabel}
+                Pending
               </Typography>
             )}
 

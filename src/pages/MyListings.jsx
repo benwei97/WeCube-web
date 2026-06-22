@@ -19,8 +19,8 @@ import {
   Typography,
 } from "@mui/material";
 import {
-  Archive,
   Delete,
+  PendingActions,
   RestoreFromTrash,
   Visibility,
 } from "@mui/icons-material";
@@ -150,6 +150,10 @@ function MyListings() {
 
       if (status === "active") {
         updates.archivedAt = null;
+        updates.soldAt = null;
+        updates.soldMethod = null;
+        updates.buyerId = null;
+        updates.soldConversationId = null;
       }
 
       await updateDoc(doc(db, "listings", listingId), updates);
@@ -251,7 +255,7 @@ function MyListings() {
                 listing.status === "sold"
                   ? "Sold"
                   : listing.status === "archived"
-                    ? "Archived"
+                    ? "Pending"
                     : "Active"
               }
               color={
@@ -276,7 +280,7 @@ function MyListings() {
               <Typography variant="body2">Sold on {soldDate}</Typography>
             )}
             {archivedDate && listing.status === "archived" && (
-              <Typography variant="body2">Archived on {archivedDate}</Typography>
+              <Typography variant="body2">Pending since {archivedDate}</Typography>
             )}
           </Box>
 
@@ -290,24 +294,24 @@ function MyListings() {
             >
               View
             </Button>
-            {listing.status === "archived" ? (
+            {listing.status === "archived" || listing.status === "sold" ? (
               <Button
                 variant="contained"
                 startIcon={<RestoreFromTrash />}
                 onClick={() => handleStatusUpdate(listing.id, "active")}
                 disabled={Boolean(statusActionLoading[listing.id])}
               >
-                Unarchive
+                Mark Available
               </Button>
             ) : (
               <Button
                 variant="outlined"
                 color="warning"
-                startIcon={<Archive />}
+                startIcon={<PendingActions />}
                 onClick={() => handleStatusUpdate(listing.id, "archived")}
                 disabled={Boolean(statusActionLoading[listing.id])}
               >
-                Archive
+                Mark Pending
               </Button>
             )}
             <Button
@@ -353,7 +357,7 @@ function MyListings() {
         My Listings
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Manage active listings, sold history, and anything you have archived.
+        Manage active listings, sold history, and pending exchanges.
       </Typography>
 
       <Tabs
@@ -363,13 +367,13 @@ function MyListings() {
       >
         <Tab label={`Active (${activeListings.length})`} value="active" />
         <Tab label={`Sold (${soldListings.length})`} value="sold" />
-        <Tab label={`Archived (${archivedListings.length})`} value="archived" />
+        <Tab label={`Pending (${archivedListings.length})`} value="archived" />
       </Tabs>
 
       {visibleListings.length === 0 ? (
         <Alert severity="info">
           {tab === "archived"
-            ? "You do not have any archived listings yet."
+            ? "You do not have any pending listings yet."
             : tab === "sold"
               ? "You do not have any sold listings yet."
               : "You do not have any active listings yet."}

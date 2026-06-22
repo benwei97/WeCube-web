@@ -320,7 +320,7 @@ function Dashboard() {
                   My Listings
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Manage active, sold, and archived listings.
+                  Manage active, sold, and pending listings.
                 </Typography>
                 <Button variant="contained" onClick={() => navigate("/my-listings")}>
                   Open My Listings
@@ -369,7 +369,7 @@ function Dashboard() {
             <Chip label={`${sellingSummary.totalListings} total listing${sellingSummary.totalListings === 1 ? "" : "s"}`} />
             <Chip label={`${sellingSummary.activeListings} active`} />
             <Chip label={`${sellingSummary.soldListings} sold`} />
-            <Chip label={`${sellingSummary.archivedListings} archived`} />
+            <Chip label={`${sellingSummary.archivedListings} pending`} />
             <Chip label={`${purchaseCount} purchase${purchaseCount === 1 ? "" : "s"}`} />
           </Stack>
           <Button variant="text" onClick={() => navigate("/my-listings")}>

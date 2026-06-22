@@ -132,6 +132,27 @@ function formatLocalMeetupLabel(label = "") {
   return label.replace(/,\s*United States$/i, "").trim();
 }
 
+export function formatListedLocationLabel(location, fallbackLabel = "") {
+  const city = location?.city?.trim();
+  const region = location?.region?.trim();
+
+  if (city && region) {
+    return `${city}, ${region}`;
+  }
+
+  const label = formatLocalMeetupLabel(fallbackLabel);
+  const [labelCity, labelRegion] = label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (labelCity && labelRegion) {
+    return `${labelCity}, ${labelRegion}`;
+  }
+
+  return label;
+}
+
 export function getPrimaryFulfillmentOption(listing = {}, options = {}) {
   const fulfillment = getNormalizedFulfillmentFields(listing);
   const competitionTags = fulfillment.meetupCompetitionTags || [];
