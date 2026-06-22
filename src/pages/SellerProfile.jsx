@@ -278,7 +278,7 @@ function SellerProfile() {
                           {listing.status === "archived" && (
                             <Chip
                               label="Pending"
-                              color="warning"
+                              color="error"
                               size="small"
                               sx={{
                                 position: "absolute",

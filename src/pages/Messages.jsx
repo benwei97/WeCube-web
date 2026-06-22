@@ -893,7 +893,7 @@ function Messages() {
                           selectedConversation.closedAt
                             ? "default"
                             : selectedConversation.status === "pending"
-                              ? "warning"
+                              ? "primary"
                               : "error"
                         }
                       />

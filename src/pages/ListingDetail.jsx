@@ -682,7 +682,7 @@ function ListingDetail() {
 
     if (currentUser.uid === listing.userId) {
       setMessageNotice({
-        severity: "warning",
+        severity: "error",
         message: "You cannot message yourself.",
       });
       return;
@@ -690,7 +690,7 @@ function ListingDetail() {
 
     if (!messageText.trim()) {
       setMessageNotice({
-        severity: "warning",
+        severity: "error",
         message: "Please enter a message before sending.",
       });
       return;
@@ -836,7 +836,7 @@ function ListingDetail() {
   const handleConfirmMarkSold = async () => {
     if (saleAttributionMode === "attributed" && !selectedBuyerId) {
       setMessageSnackbar({
-        severity: "warning",
+        severity: "error",
         message: "Select the buyer who completed the sale, or choose sold off app.",
       });
       return;
@@ -1063,7 +1063,7 @@ function ListingDetail() {
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button
               variant="contained"
-              color={listing.status === "sold" ? "success" : "warning"}
+              color={listing.status === "sold" ? "success" : "primary"}
               startIcon={
                 listing.status === "sold" ? <Restore /> : <CheckCircle />
               }
@@ -1667,7 +1667,7 @@ function ListingDetail() {
           <Button
             onClick={handleConfirmMarkSold}
             variant="contained"
-            color="warning"
+            color="primary"
             disabled={
               statusActionLoading ||
               loadingBuyerOptions ||

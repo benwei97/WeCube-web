@@ -263,7 +263,7 @@ function MyListings() {
                 listing.status === "sold"
                   ? "default"
                   : listing.status === "archived"
-                    ? "warning"
+                    ? "error"
                     : "success"
               }
               size="small"
@@ -307,7 +307,7 @@ function MyListings() {
             ) : (
               <Button
                 variant="outlined"
-                color="warning"
+                color="error"
                 startIcon={<PendingActions />}
                 onClick={() => handleStatusUpdate(listing.id, "archived")}
                 disabled={Boolean(statusActionLoading[listing.id])}
