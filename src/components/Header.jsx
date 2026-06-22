@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
@@ -261,17 +261,8 @@ function Header() {
               }}
             >
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
-                Dashboard
-              </MenuItem>
-              <MenuItem onClick={() => handleMenuNavigation("/my-listings")}>
-                My Listings
-              </MenuItem>
-              <MenuItem onClick={() => handleMenuNavigation("/my-purchases")}>
-                My Purchases
-              </MenuItem>
-              <MenuItem onClick={() => handleMenuNavigation("/my-reviews")}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", gap: 2 }}>
-                  <span>My Reviews</span>
+                  <span>Dashboard</span>
                   {pendingReviewCount > 0 && (
                     <Badge badgeContent={pendingReviewCount} color="error" />
                   )}

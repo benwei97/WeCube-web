@@ -85,10 +85,8 @@ Important: the current S3 implementation uses `VITE_AWS_*` variables in the brow
 - `/sell` - Create a listing
 - `/listing/:id` - Listing detail and seller controls
 - `/messages` and `/messages/:conversationId` - Messaging and request management
-- `/my-listings` - Seller listing management
-- `/my-purchases` - Buyer purchase history
-- `/my-reviews` - Pending/written/received reviews
-- `/dashboard` - Account dashboard
+- `/dashboard` - Account dashboard, listings, purchases, and reviews
+- `/my-listings`, `/my-purchases`, `/my-reviews` - legacy redirects to `/dashboard`
 - `/seller/:userId` and `/user/:userId` - Public seller profile
 - `/competitions` - WCA competitions
 - `/competitions/:competitionId/listings` - Listings available at a competition
@@ -165,14 +163,15 @@ Listing detail seller actions:
 - Marking sold asks the seller to select the buyer conversation that completed the sale
 - Delete removes uploaded listing photos from S3 and deletes the Firestore listing
 
-My Listings:
+Dashboard marketplace management:
 
-- `src/pages/MyListings.jsx`
-- Cards are directly clickable
-- Three-dot action menu appears in the title row
-- Action menu includes status actions and delete
+- `src/pages/Dashboard.jsx`
+- Consolidates profile, selling summary, listings, purchases, and reviews
+- Listing cards are directly clickable
+- Listing three-dot action menu appears in the title row
+- Listing action menu includes status actions and delete
 - `Mark as Sold` opens the listing detail sold flow so the seller can pick the buyer
-- Cards no longer show type/status pills
+- Purchases and review tasks are concise dashboard sections instead of separate primary pages
 
 ## Messaging
 
@@ -225,7 +224,7 @@ Current review model:
 
 Pages/components:
 
-- `src/pages/MyReviews.jsx` - canonical review management page
+- `src/pages/Dashboard.jsx` - account reviews and pending review tasks
 - `src/pages/Messages.jsx` - in-chat review prompt rendering and review dialog
 
 When sold status is reverted, `deleteTransactionReviews(listingId)` removes stale review documents for that transaction.
@@ -268,9 +267,7 @@ Behavior:
 - `src/pages/Browse.jsx` - browsing/filtering/listing cards
 - `src/pages/Sell.jsx` - listing creation
 - `src/pages/ListingDetail.jsx` - listing view/edit/seller actions/mark sold
-- `src/pages/MyListings.jsx` - seller listing management
-- `src/pages/MyPurchases.jsx` - buyer purchase history
-- `src/pages/MyReviews.jsx` - review management
+- `src/pages/Dashboard.jsx` - profile, seller listing management, purchases, and reviews
 - `src/pages/Messages.jsx` - messages, pending requests, and in-chat review prompts
 - `src/components/ListingStatusDecorators.jsx` - card style constants and sold/pending badges
 - `src/utils/listingUtils.js` - listing normalization, fulfillment display, sorting

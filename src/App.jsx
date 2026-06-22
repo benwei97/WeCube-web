@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import { Box } from "@mui/material";
 import "./App.css";
@@ -12,9 +12,6 @@ import CompetitionListings from "./pages/CompetitionListings";
 import Sell from "./pages/Sell";
 import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
-import MyListings from "./pages/MyListings";
-import MyPurchases from "./pages/MyPurchases";
-import MyReviews from "./pages/MyReviews";
 import SellerProfile from "./pages/SellerProfile";
 
 function App() {
@@ -46,9 +43,9 @@ function App() {
               <Route path="/user/:userId" element={<SellerProfile />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
-              <Route path="/my-listings" element={<MyListings />} />
-              <Route path="/my-purchases" element={<MyPurchases />} />
-              <Route path="/my-reviews" element={<MyReviews />} />
+              <Route path="/my-listings" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/my-purchases" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/my-reviews" element={<Navigate to="/dashboard" replace />} />
               <Route
                 path="/settings"
                 element={
