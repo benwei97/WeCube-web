@@ -76,7 +76,7 @@ function SellerProfile() {
   const activeListings = useMemo(
     () =>
       sellerListings.filter(
-        (listing) => listing.status !== "sold" && listing.status !== "archived"
+        (listing) => listing.status !== "sold"
       ),
     [sellerListings]
   );
@@ -252,6 +252,7 @@ function SellerProfile() {
                             overflow: "hidden",
                             bgcolor: "grey.100",
                             flexShrink: 0,
+                            position: "relative",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -273,6 +274,23 @@ function SellerProfile() {
                             <Typography variant="caption" color="text.secondary">
                               No Image
                             </Typography>
+                          )}
+                          {listing.status === "archived" && (
+                            <Chip
+                              label="Pending"
+                              color="warning"
+                              size="small"
+                              sx={{
+                                position: "absolute",
+                                left: 4,
+                                top: 4,
+                                height: 18,
+                                fontSize: "0.62rem",
+                                fontWeight: 800,
+                                textTransform: "uppercase",
+                                "& .MuiChip-label": { px: 0.65 },
+                              }}
+                            />
                           )}
                         </Box>
                         <Box sx={{ minWidth: 0, flex: 1 }}>

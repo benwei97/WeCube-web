@@ -94,7 +94,6 @@ function CompetitionListings() {
 
         const cubesForCompetition = allListings.filter(
           (listing) =>
-            listing.status !== "archived" &&
             isSoldListingPubliclyVisible(listing) &&
             listing.competitions &&
             listing.competitions.some((comp) => comp.id === competitionId)
@@ -230,6 +229,8 @@ function CompetitionListings() {
                         : null
                     }
                     alt={cube.title}
+                    isSold={cube.status === "sold"}
+                    isPending={cube.status === "archived"}
                     imageSx={{ objectFit: "cover" }}
                     placeholderSx={{
                       backgroundColor: "grey.200",

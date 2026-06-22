@@ -261,11 +261,15 @@ export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
 
 export function sortListingsByAvailabilityAndDate(listings = []) {
   return [...listings].sort((a, b) => {
+    const aPending = a.status === "archived";
+    const bPending = b.status === "archived";
     const aSold = a.status === "sold";
     const bSold = b.status === "sold";
+    const aRank = aSold ? 2 : aPending ? 1 : 0;
+    const bRank = bSold ? 2 : bPending ? 1 : 0;
 
-    if (aSold !== bSold) {
-      return aSold ? 1 : -1;
+    if (aRank !== bRank) {
+      return aRank - bRank;
     }
 
     return getListingTimestampMs(b.createdAt) - getListingTimestampMs(a.createdAt);

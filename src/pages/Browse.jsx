@@ -476,7 +476,7 @@ function Browse() {
     let filtered = sourceListings.filter(
       (listing) =>
         listing.userId === currentUser?.uid ||
-        (listing.status !== "archived" && isSoldListingPubliclyVisible(listing))
+        isSoldListingPubliclyVisible(listing)
     );
 
     // Search filter
@@ -829,6 +829,7 @@ function Browse() {
                 }
                 alt={listing.title}
                 isSold={listing.status === "sold"}
+                isPending={listing.status === "archived"}
                 imageSx={{ objectFit: "cover" }}
                 placeholderSx={{
                   backgroundColor: "grey.200",

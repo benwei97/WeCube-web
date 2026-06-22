@@ -71,6 +71,34 @@ export function SoldRibbon({ size = "default" }) {
   );
 }
 
+export function PendingBadge({ size = "default" }) {
+  const isLarge = size === "large";
+
+  return (
+    <Box
+      sx={{
+        position: "absolute",
+        top: isLarge ? 18 : 12,
+        left: isLarge ? 18 : 12,
+        px: isLarge ? 1.4 : 1.1,
+        py: isLarge ? 0.65 : 0.45,
+        borderRadius: 999,
+        backgroundColor: "warning.main",
+        color: "warning.contrastText",
+        fontSize: isLarge ? "0.82rem" : "0.72rem",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        boxShadow: 2,
+        zIndex: 2,
+        pointerEvents: "none",
+      }}
+    >
+      Pending
+    </Box>
+  );
+}
+
 export function getSoldMediaSx(baseSx = {}) {
   return {
     ...baseSx,
@@ -90,6 +118,7 @@ export function ListingCardMediaFrame({
   imageUrl,
   alt,
   isSold = false,
+  isPending = false,
   topLeftAdornment = null,
   imageSx = {},
   placeholderSx = {},
@@ -103,7 +132,8 @@ export function ListingCardMediaFrame({
   return (
     <>
       {isSold && <SoldRibbon />}
-      {topLeftAdornment}
+      {isPending && !isSold && <PendingBadge />}
+      {!isPending && topLeftAdornment}
       {imageUrl ? (
         <CardMedia
           component="img"

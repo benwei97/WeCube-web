@@ -226,6 +226,7 @@ function MyListings() {
           }
           alt={listing.title}
           isSold={listing.status === "sold"}
+          isPending={listing.status === "archived"}
           imageSx={{
             objectFit: "cover",
             backgroundColor: "grey.50",

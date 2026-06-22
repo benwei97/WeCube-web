@@ -85,7 +85,7 @@ import {
   searchCompetitions,
 } from "../utils/wcaApi";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
-import { SoldRibbon } from "../components/ListingStatusDecorators";
+import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
 
 function FulfillmentInfoTitle({ children, info }) {
   return (
@@ -117,6 +117,7 @@ function ListingDetail() {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [editNotice, setEditNotice] = useState(null);
+  const [hasAttemptedEditSave, setHasAttemptedEditSave] = useState(false);
   const [editSnackbar, setEditSnackbar] = useState(null);
   const [existingConversation, setExistingConversation] = useState(null);
   const [showMessageDialog, setShowMessageDialog] = useState(false);
@@ -368,6 +369,7 @@ function ListingDetail() {
   const handleEditToggle = () => {
     setEditMode((prev) => !prev);
     setEditNotice(null);
+    setHasAttemptedEditSave(false);
   };
 
   const handleEditSnackbarClose = (_, reason) => {
@@ -533,36 +535,45 @@ function ListingDetail() {
     }
   };
 
-  const handleSave = async () => {
-    try {
-      const isDeliveryValid =
-        editData.shippingAvailable ||
-        editData.localMeetupAvailable ||
-        editData.competitionMeetupAvailable;
-      const isMeetupLocationValid =
-        !editData.localMeetupAvailable ||
-        Boolean(editData.meetupLocationLabel.trim());
-      const isCompetitionValid =
-        !editData.competitionMeetupAvailable ||
-        selectedCompetitions.length > 0;
-      const isShippingCostValid =
-        !editData.shippingAvailable ||
-        editData.shippingIncluded ||
-        parsePositiveCurrencyAmount(editData.shippingCost) !== null;
+  const isEditDeliveryValid =
+    editData.shippingAvailable ||
+    editData.localMeetupAvailable ||
+    editData.competitionMeetupAvailable;
+  const isEditMeetupLocationValid =
+    !editData.localMeetupAvailable ||
+    Boolean(editData.meetupLocationLabel.trim());
+  const isEditCompetitionValid =
+    !editData.competitionMeetupAvailable ||
+    selectedCompetitions.length > 0;
+  const isEditShippingCostValid =
+    !editData.shippingAvailable ||
+    editData.shippingIncluded ||
+    parsePositiveCurrencyAmount(editData.shippingCost) !== null;
+  const isEditTitleInvalid = hasAttemptedEditSave && !editData.title.trim();
+  const isEditPriceInvalid = hasAttemptedEditSave && !editData.price;
+  const isEditPuzzleTypeInvalid =
+    hasAttemptedEditSave && !editData.puzzleType;
+  const isEditConditionInvalid = hasAttemptedEditSave && !editData.condition;
+  const isEditDescriptionInvalid =
+    hasAttemptedEditSave && !editData.description.trim();
 
+  const handleSave = async () => {
+    setHasAttemptedEditSave(true);
+
+    try {
       if (
-        !editData.title ||
+        !editData.title.trim() ||
         !editData.price ||
         !editData.condition ||
-        !editData.description ||
+        !editData.description.trim() ||
         !editData.puzzleType ||
-        !isDeliveryValid ||
-        !isMeetupLocationValid ||
-        !isCompetitionValid ||
-        !isShippingCostValid
+        !isEditDeliveryValid ||
+        !isEditMeetupLocationValid ||
+        !isEditCompetitionValid ||
+        !isEditShippingCostValid
       ) {
         setEditNotice({
-          severity: "warning",
+          severity: "error",
           message: "Please fill in all required fields before saving.",
         });
         return;
@@ -646,6 +657,7 @@ function ListingDetail() {
 
       setEditMode(false);
       setEditNotice(null);
+      setHasAttemptedEditSave(false);
       setEditSnackbar({
         severity: "success",
         message: "Listing updated successfully.",
@@ -917,6 +929,8 @@ function ListingDetail() {
   };
 
   const getMessageButtonText = () => {
+    if (listing?.status === "archived") return "Pending";
+    if (listing?.status === "sold") return "Sold";
     if (!existingConversation) return "Message";
 
     switch (existingConversation.status) {
@@ -1010,9 +1024,12 @@ function ListingDetail() {
   const cameFromPublish = Boolean(location.state?.fromPublish);
   const isListingUnavailable =
     listing.status === "sold" || listing.status === "archived";
-  const primaryActionText = hasApprovedConversation
-    ? "Continue Chat"
-    : "Send Message";
+  const primaryActionText =
+    listing.status === "archived"
+      ? "Pending"
+      : hasApprovedConversation
+        ? "Continue Chat"
+        : "Send Message";
   const primaryActionHelperText = listing.shippingAvailable
     ? "Shipping is arranged directly with the seller. Message them to confirm payment, shipping cost, and tracking."
     : "Message the seller to coordinate pickup.";
@@ -1025,20 +1042,6 @@ function ListingDetail() {
   const ownerPrimaryActionText = listing.status === "sold"
     ? "Mark as Available"
     : "Mark as Sold";
-
-  if (listing.status === "archived" && !isOwner) {
-    return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Listing not available</Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-          This listing is pending with another buyer and is not currently available.
-        </Typography>
-        <Button onClick={() => navigate("/")} sx={{ mt: 2 }} variant="outlined">
-          Back to Browse
-        </Button>
-      </Box>
-    );
-  }
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -1152,6 +1155,7 @@ function ListingDetail() {
                   }}
                 >
                   {listing.status === "sold" && <SoldRibbon size="large" />}
+                  {listing.status === "archived" && <PendingBadge size="large" />}
                   <Box
                     component="img"
                     src={getS3PublicUrl(activePhoto.s3Key)}
@@ -1732,7 +1736,7 @@ function ListingDetail() {
               {editNotice && (
                 <Alert
                   severity={editNotice.severity}
-                  variant="outlined"
+                  variant="filled"
                   sx={{ alignItems: "center" }}
                 >
                   {editNotice.message}
@@ -1745,6 +1749,8 @@ function ListingDetail() {
               fullWidth
               value={editData.title}
               onChange={handleInputChange("title")}
+              error={isEditTitleInvalid}
+              helperText={isEditTitleInvalid ? "Enter a title." : ""}
               required
             />
 
@@ -1755,6 +1761,8 @@ function ListingDetail() {
                   fullWidth
                   value={editData.price}
                   onChange={handlePriceChange}
+                  error={isEditPriceInvalid}
+                  helperText={isEditPriceInvalid ? "Enter a price." : ""}
                   slotProps={{
                     htmlInput: {
                       inputMode: "decimal",
@@ -1764,7 +1772,7 @@ function ListingDetail() {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl fullWidth required error={isEditPuzzleTypeInvalid}>
                   <InputLabel>Puzzle Type</InputLabel>
                   <Select
                     value={editData.puzzleType}
@@ -1777,10 +1785,13 @@ function ListingDetail() {
                       </MenuItem>
                     ))}
                   </Select>
+                  {isEditPuzzleTypeInvalid && (
+                    <FormHelperText>Select a puzzle type.</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl fullWidth required error={isEditConditionInvalid}>
                   <InputLabel>Condition</InputLabel>
                   <Select
                     value={editData.condition}
@@ -1793,6 +1804,9 @@ function ListingDetail() {
                       </MenuItem>
                     ))}
                   </Select>
+                  {isEditConditionInvalid && (
+                    <FormHelperText>Select a condition.</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
             </Grid>
@@ -1811,9 +1825,19 @@ function ListingDetail() {
               rows={4}
               value={editData.description}
               onChange={handleInputChange("description")}
+              error={isEditDescriptionInvalid}
+              helperText={
+                isEditDescriptionInvalid ? "Enter a description." : ""
+              }
             />
 
-            <FormControl required>
+            <FormControl
+              required
+              error={
+                hasAttemptedEditSave &&
+                (!isEditDeliveryValid || !isEditCompetitionValid)
+              }
+            >
               <Typography variant="subtitle1" gutterBottom>
                 Fulfillment Methods
               </Typography>
@@ -1855,7 +1879,12 @@ function ListingDetail() {
                         placeholder="e.g., 8.00"
                         value={editData.shippingCost}
                         onChange={handleShippingCostChange}
-                        helperText="Set a shipping price greater than $0 that buyers should expect to pay you directly."
+                        error={hasAttemptedEditSave && !isEditShippingCostValid}
+                        helperText={
+                          hasAttemptedEditSave && !isEditShippingCostValid
+                            ? "Enter a shipping price greater than $0."
+                            : "Set a shipping price greater than $0 that buyers should expect to pay you directly."
+                        }
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",
@@ -1924,7 +1953,14 @@ function ListingDetail() {
                           {...params}
                           label="General Meetup Area"
                           placeholder="e.g., UCLA / Westwood"
-                          helperText="Keep this approximate, not an exact address."
+                          helperText={
+                            hasAttemptedEditSave && !isEditMeetupLocationValid
+                              ? "Enter a general meetup area."
+                              : "Keep this approximate, not an exact address."
+                          }
+                          error={
+                            hasAttemptedEditSave && !isEditMeetupLocationValid
+                          }
                           required
                         />
                       )}
@@ -1974,6 +2010,12 @@ function ListingDetail() {
                         {...params}
                         label="Search competitions"
                         placeholder="Search US competitions..."
+                        error={hasAttemptedEditSave && !isEditCompetitionValid}
+                        helperText={
+                          hasAttemptedEditSave && !isEditCompetitionValid
+                            ? "Select at least one competition."
+                            : ""
+                        }
                       />
                     )}
                     renderTags={(tagValue, getTagProps) =>
@@ -1990,11 +2032,15 @@ function ListingDetail() {
                   />
                 </Box>
               )}
-              {!editData.shippingAvailable &&
-                !editData.localMeetupAvailable &&
-                !editData.competitionMeetupAvailable && (
-                  <FormHelperText error>
+              {!isEditDeliveryValid && (
+                  <FormHelperText error={hasAttemptedEditSave}>
                     Please select at least one fulfillment method
+                  </FormHelperText>
+              )}
+              {editData.competitionMeetupAvailable &&
+                !isEditCompetitionValid && (
+                  <FormHelperText error={hasAttemptedEditSave}>
+                    Please select at least one competition
                   </FormHelperText>
                 )}
             </FormControl>
