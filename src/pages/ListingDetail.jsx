@@ -1328,12 +1328,6 @@ function ListingDetail() {
                 {listing.brand}
               </Typography>
             )}
-            {listing.status === "archived" && (
-              <Typography variant="body2" color="text.secondary">
-                Pending
-              </Typography>
-            )}
-
             <Divider sx={{ my: 2 }} />
 
             <Typography variant="h6" gutterBottom>
