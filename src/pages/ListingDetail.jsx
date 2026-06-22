@@ -1536,7 +1536,35 @@ function ListingDetail() {
             <Typography variant="h6" gutterBottom>
               Seller Details
             </Typography>
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={2}
+              alignItems="center"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/seller/${listing.userId}`)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  navigate(`/seller/${listing.userId}`);
+                }
+              }}
+              sx={{
+                cursor: "pointer",
+                borderRadius: 1,
+                p: 1,
+                mx: -1,
+                transition: "background-color 0.2s",
+                "&:hover": {
+                  bgcolor: "action.hover",
+                },
+                "&:focus-visible": {
+                  outline: "2px solid",
+                  outlineColor: "primary.main",
+                  outlineOffset: 2,
+                },
+              }}
+            >
               <Avatar
                 src={listing.sellerAvatarUrl || undefined}
                 sx={{ width: 56, height: 56 }}
@@ -1565,14 +1593,6 @@ function ListingDetail() {
                     No reviews yet
                   </Typography>
                 )}
-              </Box>
-              <Box sx={{ ml: "auto" }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => navigate(`/seller/${listing.userId}`)}
-                >
-                  View Seller
-                </Button>
               </Box>
             </Stack>
 
