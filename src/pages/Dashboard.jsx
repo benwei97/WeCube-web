@@ -619,9 +619,6 @@ function Dashboard() {
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Dashboard
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Your profile, listings, and purchases in one place.
-      </Typography>
 
       <Stack spacing={3}>
         <Paper sx={{ p: 3 }}>
@@ -672,19 +669,9 @@ function Dashboard() {
         </Paper>
 
         <Paper sx={{ p: 3 }}>
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
-            <Box>
-              <Typography variant="h5" fontWeight="bold">
-                Listings
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Manage active listings, pending exchanges, and sold history.
-              </Typography>
-            </Box>
-            <Button variant="contained" onClick={() => navigate("/sell")}>
-              Sell Puzzle
-            </Button>
-          </Stack>
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+            My Listings
+          </Typography>
           <Tabs
             value={listingTab}
             onChange={(_, nextTab) => {
@@ -718,11 +705,8 @@ function Dashboard() {
         </Paper>
 
         <Paper sx={{ p: 3 }}>
-          <Typography variant="h5" fontWeight="bold">
-            Purchases
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Recent puzzles you bought.
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+            My Purchases
           </Typography>
           {purchases.length === 0 ? (
             <Alert severity="info">You do not have any purchases yet.</Alert>
