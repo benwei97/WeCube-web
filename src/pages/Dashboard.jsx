@@ -21,7 +21,6 @@ import {
   Stack,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from "@mui/material";
 import {
@@ -36,7 +35,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   onSnapshot,
   query,
   updateDoc,
@@ -46,7 +44,6 @@ import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
   deleteTransactionReviews,
-  submitTransactionReview,
   subscribeToReceivedReviews,
   subscribeToUserReviews,
 } from "../utils/reviews";
@@ -79,7 +76,6 @@ function Dashboard() {
   const [purchases, setPurchases] = useState([]);
   const [writtenReviewsByListingId, setWrittenReviewsByListingId] = useState({});
   const [receivedReviews, setReceivedReviews] = useState([]);
-  const [userNamesById, setUserNamesById] = useState({});
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [listingTab, setListingTab] = useState("active");
@@ -89,9 +85,6 @@ function Dashboard() {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, listing: null });
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionMenu, setActionMenu] = useState({ anchorEl: null, listing: null });
-  const [reviewDialog, setReviewDialog] = useState({ open: false, task: null });
-  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
-  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -191,42 +184,6 @@ function Dashboard() {
     ? purchases
     : purchases.slice(0, PURCHASE_PREVIEW_LIMIT);
 
-  const pendingReviewTasks = useMemo(() => {
-    const purchaseTasks = purchases
-      .filter((listing) => listing.status === "sold" && !writtenReviewsByListingId[listing.id])
-      .map((listing) => ({
-        id: `buyer-${listing.id}`,
-        listing,
-        recipientId: listing.userId,
-        recipientRole: "seller",
-        title: "Review Seller",
-        subtitle: "You bought this puzzle",
-      }));
-
-    const saleTasks = soldListings
-      .filter((listing) => listing.buyerId && !writtenReviewsByListingId[listing.id])
-      .map((listing) => ({
-        id: `seller-${listing.id}`,
-        listing,
-        recipientId: listing.buyerId,
-        recipientRole: "buyer",
-        title: "Review Buyer",
-        subtitle: "You sold this puzzle",
-      }));
-
-    return [...purchaseTasks, ...saleTasks].sort(
-      (a, b) => getDateTime(b.listing.soldAt) - getDateTime(a.listing.soldAt)
-    );
-  }, [purchases, soldListings, writtenReviewsByListingId]);
-
-  const writtenReviews = useMemo(
-    () =>
-      Object.values(writtenReviewsByListingId).sort(
-        (a, b) => getDateTime(b.updatedAt || b.createdAt) - getDateTime(a.updatedAt || a.createdAt)
-      ),
-    [writtenReviewsByListingId]
-  );
-
   const reviewSummary = useMemo(() => {
     const reviewCount = receivedReviews.length;
     const averageRating =
@@ -236,43 +193,6 @@ function Dashboard() {
         : null;
     return { reviewCount, averageRating };
   }, [receivedReviews]);
-
-  useEffect(() => {
-    const userIds = new Set();
-    pendingReviewTasks.forEach((task) => task.recipientId && userIds.add(task.recipientId));
-    writtenReviews.forEach((review) => review.recipientId && userIds.add(review.recipientId));
-
-    const missingUserIds = [...userIds].filter((userId) => !userNamesById[userId]);
-    if (missingUserIds.length === 0) return undefined;
-
-    let cancelled = false;
-    Promise.all(
-      missingUserIds.map(async (userId) => {
-        try {
-          const userDoc = await getDoc(doc(db, "users", userId));
-          if (!userDoc.exists()) return [userId, "User"];
-          const userData = userDoc.data();
-          return [
-            userId,
-            `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
-              userData.email ||
-              "User",
-          ];
-        } catch (error) {
-          console.error("Error fetching review user name:", error);
-          return [userId, "User"];
-        }
-      })
-    ).then((entries) => {
-      if (!cancelled) {
-        setUserNamesById((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pendingReviewTasks, userNamesById, writtenReviews]);
 
   const userName =
     `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim() ||
@@ -393,44 +313,6 @@ function Dashboard() {
       alert(`Failed to delete listing: ${error.message}`);
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  const openReviewDialog = (task) => {
-    const existingReview = writtenReviewsByListingId[task.listing.id];
-    setReviewDialog({ open: true, task });
-    setReviewForm({
-      rating: existingReview?.rating || 5,
-      comment: existingReview?.comment || "",
-    });
-  };
-
-  const closeReviewDialog = () => {
-    if (submittingReview) return;
-    setReviewDialog({ open: false, task: null });
-    setReviewForm({ rating: 5, comment: "" });
-  };
-
-  const handleReviewSubmit = async () => {
-    if (!reviewDialog.task) return;
-
-    setSubmittingReview(true);
-    try {
-      await submitTransactionReview({
-        listing: reviewDialog.task.listing,
-        reviewer: currentUser,
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
-        recipientId: reviewDialog.task.recipientId,
-        recipientName: userNamesById[reviewDialog.task.recipientId] || "User",
-        recipientRole: reviewDialog.task.recipientRole,
-      });
-      closeReviewDialog();
-    } catch (error) {
-      console.error("Error submitting review:", error);
-      alert(error.message || "Failed to submit review");
-    } finally {
-      setSubmittingReview(false);
     }
   };
 
@@ -602,34 +484,6 @@ function Dashboard() {
     );
   };
 
-  const renderReviewTask = (task) => (
-    <Card key={task.id} variant="outlined">
-      <CardContent>
-        <Stack spacing={1.5}>
-          <Box>
-            <Typography variant="subtitle1" fontWeight={700}>
-              {task.listing.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {task.subtitle} · {formatDate(task.listing.soldAt)}
-            </Typography>
-          </Box>
-          <Typography variant="body2">
-            {task.title} for {userNamesById[task.recipientId] || "User"}
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button variant="contained" onClick={() => openReviewDialog(task)}>
-              {task.title}
-            </Button>
-            <Button variant="outlined" onClick={() => navigate(`/listing/${task.listing.id}`)}>
-              Listing
-            </Button>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-
   if (!currentUser) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -655,7 +509,7 @@ function Dashboard() {
         Dashboard
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Your profile, listings, purchases, and reviews in one place.
+        Your profile, listings, and purchases in one place.
       </Typography>
 
       <Stack spacing={3}>
@@ -773,51 +627,6 @@ function Dashboard() {
           )}
         </Paper>
 
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h5" fontWeight="bold">
-            Reviews
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Finish pending reviews and see recent feedback.
-          </Typography>
-          <Stack spacing={2}>
-            {pendingReviewTasks.length > 0 ? (
-              <>
-                <Typography variant="subtitle1" fontWeight={700}>
-                  To Review
-                </Typography>
-                {pendingReviewTasks.slice(0, 4).map(renderReviewTask)}
-              </>
-            ) : (
-              <Alert severity="success">You do not have any reviews left to write.</Alert>
-            )}
-
-            <Divider />
-
-            <Typography variant="subtitle1" fontWeight={700}>
-              Recent Feedback
-            </Typography>
-            {receivedReviews.length === 0 ? (
-              <Alert severity="info">No one has reviewed you yet.</Alert>
-            ) : (
-              receivedReviews.slice(0, 3).map((review) => (
-                <Card key={review.id} variant="outlined">
-                  <CardContent>
-                    <Typography variant="body1" fontWeight={600}>
-                      {review.reviewerName || "User"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-                      <Star fontSize="inherit" />
-                      {Number(review.rating || 0).toFixed(1)}
-                      {review.listingTitle ? ` · ${review.listingTitle}` : ""}
-                    </Typography>
-                    {review.comment && <Typography variant="body1">{review.comment}</Typography>}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </Stack>
-        </Paper>
       </Stack>
 
       <Dialog open={deleteDialog.open} onClose={handleDeleteCancel} maxWidth="xs" fullWidth>
@@ -839,54 +648,6 @@ function Dashboard() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={reviewDialog.open} onClose={closeReviewDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {writtenReviewsByListingId[reviewDialog.task?.listing?.id] ? "Edit Review" : "Leave Review"}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {reviewDialog.task?.listing?.title}
-            </Typography>
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Rating
-              </Typography>
-              <Stack direction="row" spacing={0.5}>
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <IconButton
-                    key={value}
-                    aria-label={`${value} ${value === 1 ? "star" : "stars"}`}
-                    onClick={() => setReviewForm((prev) => ({ ...prev, rating: value }))}
-                    size="small"
-                    sx={{ color: value <= reviewForm.rating ? "primary.main" : "action.disabled" }}
-                  >
-                    <Star />
-                  </IconButton>
-                ))}
-              </Stack>
-            </Box>
-            <TextField
-              label="Review"
-              multiline
-              minRows={4}
-              value={reviewForm.comment}
-              onChange={(event) =>
-                setReviewForm((prev) => ({ ...prev, comment: event.target.value }))
-              }
-              placeholder="Share how the transaction went."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeReviewDialog} color="inherit" disabled={submittingReview}>
-            Cancel
-          </Button>
-          <Button onClick={handleReviewSubmit} variant="contained" disabled={submittingReview}>
-            Save Review
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -85,7 +85,7 @@ Important: the current S3 implementation uses `VITE_AWS_*` variables in the brow
 - `/sell` - Create a listing
 - `/listing/:id` - Listing detail and seller controls
 - `/messages` and `/messages/:conversationId` - Messaging and request management
-- `/dashboard` - Account dashboard, listings, purchases, and reviews
+- `/dashboard` - Account dashboard, listings, and purchases
 - `/my-listings`, `/my-purchases`, `/my-reviews` - legacy redirects to `/dashboard`
 - `/seller/:userId` and `/user/:userId` - Public seller profile
 - `/competitions` - WCA competitions
@@ -166,12 +166,12 @@ Listing detail seller actions:
 Dashboard marketplace management:
 
 - `src/pages/Dashboard.jsx`
-- Consolidates profile, selling summary, listings, purchases, and reviews
+- Consolidates profile, selling summary, listings, and purchases
 - Listing cards are directly clickable
 - Listing three-dot action menu appears in the title row
 - Listing action menu includes status actions and delete
 - `Mark as Sold` opens the listing detail sold flow so the seller can pick the buyer
-- Purchases and review tasks are concise dashboard sections instead of separate primary pages
+- Purchases are shown as a concise dashboard section instead of a separate primary page
 
 ## Messaging
 
@@ -224,7 +224,7 @@ Current review model:
 
 Pages/components:
 
-- `src/pages/Dashboard.jsx` - account reviews and pending review tasks
+- `src/pages/Dashboard.jsx` - account dashboard with profile, listings, and purchases
 - `src/pages/Messages.jsx` - in-chat review prompt rendering and review dialog
 
 When sold status is reverted, `deleteTransactionReviews(listingId)` removes stale review documents for that transaction.
@@ -267,7 +267,7 @@ Behavior:
 - `src/pages/Browse.jsx` - browsing/filtering/listing cards
 - `src/pages/Sell.jsx` - listing creation
 - `src/pages/ListingDetail.jsx` - listing view/edit/seller actions/mark sold
-- `src/pages/Dashboard.jsx` - profile, seller listing management, purchases, and reviews
+- `src/pages/Dashboard.jsx` - profile, seller listing management, and purchases
 - `src/pages/Messages.jsx` - messages, pending requests, and in-chat review prompts
 - `src/components/ListingStatusDecorators.jsx` - card style constants and sold/pending badges
 - `src/utils/listingUtils.js` - listing normalization, fulfillment display, sorting
