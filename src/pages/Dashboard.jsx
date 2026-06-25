@@ -7,7 +7,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -691,13 +690,6 @@ function Dashboard() {
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Member since {formatDate(currentUser?.createdAt)}
               </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
-                <Chip label={`${activeListings.length} active`} />
-                <Chip label={`${pendingListings.length} pending`} />
-                <Chip label={`${soldListings.length} sold`} />
-                <Chip label={`${purchases.length} purchased`} />
-                <Chip label={`${pendingReviewTasks.length} to review`} color={pendingReviewTasks.length ? "primary" : "default"} />
-              </Stack>
             </Box>
 
             <Box>
