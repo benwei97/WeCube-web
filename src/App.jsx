@@ -46,15 +46,6 @@ function App() {
               <Route path="/my-listings" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-purchases" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-reviews" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/settings"
-                element={
-                  <div>
-                    <h1>Settings</h1>
-                    <p>Coming soon...</p>
-                  </div>
-                }
-              />
             </Routes>
           </Box>
         </Router>

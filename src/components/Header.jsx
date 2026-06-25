@@ -252,9 +252,6 @@ function Header() {
                 Dashboard
               </MenuItem>
               <Divider />
-              <MenuItem onClick={() => handleMenuNavigation("/settings")}>
-                Settings
-              </MenuItem>
               <MenuItem onClick={handleLogoutClick}>Sign Out</MenuItem>
             </Menu>
           </Box>
