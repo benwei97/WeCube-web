@@ -483,12 +483,6 @@ function Messages() {
     }
   };
 
-  const handleDeclineReviewPrompt = async (message) => {
-    if (!currentUserId) return;
-
-    saveReviewPromptResponse(message.id, "declined");
-  };
-
   const handleApproveRequest = async (conversation) => {
     if (!currentUserId) return;
 
@@ -1173,12 +1167,8 @@ function Messages() {
                                 )}
                               </Typography>
                               {response ? (
-                                <Alert
-                                  severity={response === "reviewed" ? "success" : "info"}
-                                >
-                                  {response === "reviewed"
-                                    ? "Review submitted."
-                                    : "Review request dismissed."}
+                                <Alert severity="success">
+                                  Review submitted.
                                 </Alert>
                               ) : selectedConversation.activeSaleEventId !==
                                 message.saleEventId ? (
@@ -1186,25 +1176,16 @@ function Messages() {
                                   This review request is no longer active.
                                 </Alert>
                               ) : (
-                                <Stack direction="row" spacing={1}>
-                                  <Button
-                                    variant="contained"
-                                    onClick={() =>
-                                      openReviewDialog(message, selectedConversation)
-                                    }
-                                    disabled={Boolean(isPromptClosed)}
-                                  >
-                                    Leave Review
-                                  </Button>
-                                  <Button
-                                    variant="outlined"
-                                    color="inherit"
-                                    onClick={() => handleDeclineReviewPrompt(message)}
-                                    disabled={Boolean(isPromptClosed)}
-                                  >
-                                    No Thanks
-                                  </Button>
-                                </Stack>
+                                <Button
+                                  variant="contained"
+                                  onClick={() =>
+                                    openReviewDialog(message, selectedConversation)
+                                  }
+                                  disabled={Boolean(isPromptClosed)}
+                                  sx={{ alignSelf: "flex-start" }}
+                                >
+                                  Rate
+                                </Button>
                               )}
                             </Stack>
                           </CardContent>
