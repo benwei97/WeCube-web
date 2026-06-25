@@ -56,7 +56,7 @@ function Sell() {
     puzzleType: "",
   });
   const [fulfillmentData, setFulfillmentData] = useState({
-    shippingAvailable: true,
+    shippingAvailable: false,
     shippingIncluded: false,
     shippingCost: "",
     localMeetupAvailable: false,
@@ -350,7 +350,9 @@ function Sell() {
     ) {
       setSubmitNotice({
         severity: "error",
-        message: "Please fill in all required fields before publishing.",
+        message: !isDeliveryValid
+          ? "Please select at least one fulfillment method before publishing."
+          : "Please fill in all required fields before publishing.",
       });
       setSubmitNoticePulse((prev) => prev + 1);
       return;
@@ -471,7 +473,7 @@ function Sell() {
       puzzleType: "",
     });
     setFulfillmentData({
-      shippingAvailable: true,
+      shippingAvailable: false,
       shippingIncluded: false,
       shippingCost: "",
       localMeetupAvailable: false,
