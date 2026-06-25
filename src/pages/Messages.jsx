@@ -67,26 +67,69 @@ function ConversationIdentityThumb({
   userName,
   size = 52,
   avatarSize = 24,
+  onListingClick,
+  onUserClick,
 }) {
+  const handleKeyboardClick = (event, handler) => {
+    if (!handler || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    handler(event);
+  };
+
   return (
     <Box sx={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <Avatar
+        role={onListingClick ? "button" : undefined}
+        tabIndex={onListingClick ? 0 : undefined}
         src={listingPhotoUrl || undefined}
         variant="rounded"
+        onClick={(event) => {
+          if (!onListingClick) return;
+          event.stopPropagation();
+          onListingClick(event);
+        }}
+        onKeyDown={(event) => handleKeyboardClick(event, onListingClick)}
         sx={{
           width: size,
           height: size,
           bgcolor: "grey.200",
+          cursor: onListingClick ? "pointer" : "default",
+          transition: "box-shadow 0.18s ease, outline-color 0.18s ease",
+          outline: "2px solid transparent",
+          outlineOffset: 2,
+          "&:hover": onListingClick
+            ? {
+                outlineColor: "primary.main",
+                boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.14)",
+              }
+            : undefined,
+          "&:focus-visible": {
+            outlineColor: "primary.main",
+            boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.18)",
+          },
         }}
       >
         <Person />
       </Avatar>
       <Avatar
+        role={onUserClick ? "button" : undefined}
+        tabIndex={onUserClick ? 0 : undefined}
         src={userAvatarUrl || undefined}
+        onClick={(event) => {
+          if (!onUserClick) return;
+          event.stopPropagation();
+          onUserClick(event);
+        }}
+        onKeyDown={(event) => handleKeyboardClick(event, onUserClick)}
         sx={{
           position: "absolute",
           right: -4,
           bottom: -4,
+          zIndex: 1,
           width: avatarSize,
           height: avatarSize,
           border: "2px solid",
@@ -94,6 +137,23 @@ function ConversationIdentityThumb({
           bgcolor: "primary.main",
           fontSize: avatarSize <= 24 ? "0.72rem" : "0.85rem",
           fontWeight: 700,
+          cursor: onUserClick ? "pointer" : "default",
+          transition:
+            "box-shadow 0.18s ease, outline-color 0.18s ease, transform 0.18s ease",
+          outline: "2px solid transparent",
+          outlineOffset: 2,
+          "&:hover": onUserClick
+            ? {
+                outlineColor: "primary.main",
+                boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.2)",
+                transform: "scale(1.08)",
+              }
+            : undefined,
+          "&:focus-visible": {
+            outlineColor: "primary.main",
+            boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.24)",
+            transform: "scale(1.08)",
+          },
         }}
       >
         {userName?.charAt(0)?.toUpperCase() || "U"}
@@ -829,6 +889,12 @@ function Messages() {
                         getConversationCounterpartId(conversation)
                       )}
                       userName={getConversationCounterpartName(conversation)}
+                      onListingClick={() =>
+                        navigate(`/listing/${conversation.listingId}`)
+                      }
+                      onUserClick={() =>
+                        navigate(`/user/${getConversationCounterpartId(conversation)}`)
+                      }
                     />
                   </ListItemAvatar>
                   <ListItemText
@@ -939,6 +1005,10 @@ function Messages() {
                             userName={getUserDisplayName(request.buyerId, "Buyer")}
                             size={46}
                             avatarSize={22}
+                            onListingClick={() =>
+                              navigate(`/listing/${request.listingId}`)
+                            }
+                            onUserClick={() => navigate(`/user/${request.buyerId}`)}
                           />
                           <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Box
@@ -1047,6 +1117,14 @@ function Messages() {
                   userName={getConversationCounterpartName(
                     selectedConversation
                   )}
+                  onListingClick={() =>
+                    navigate(`/listing/${selectedConversation.listingId}`)
+                  }
+                  onUserClick={() =>
+                    navigate(
+                      `/user/${getConversationCounterpartId(selectedConversation)}`
+                    )
+                  }
                 />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="h6" noWrap>
