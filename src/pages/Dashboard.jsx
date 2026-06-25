@@ -47,14 +47,6 @@ import {
   subscribeToReceivedReviews,
   subscribeToUserReviews,
 } from "../utils/reviews";
-import {
-  LISTING_CARD_CONTENT_SX,
-  LISTING_CARD_GRID_SX,
-  LISTING_CARD_SX,
-  LISTING_CARD_TEXT_STACK_SX,
-  LISTING_CARD_TITLE_SX,
-  ListingCardMediaFrame,
-} from "../components/ListingStatusDecorators";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { cancelListingReviewPrompts } from "../utils/messaging";
 import { getNormalizedFulfillmentFields, getPrimaryFulfillmentOption } from "../utils/listingUtils";
@@ -67,6 +59,15 @@ import {
 
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
+const COMPACT_CARD_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: {
+    xs: "1fr",
+    sm: "repeat(2, minmax(0, 1fr))",
+    lg: "repeat(3, minmax(0, 1fr))",
+  },
+  gap: 1.5,
+};
 
 function Dashboard() {
   const { currentUser } = useAuth();
@@ -325,6 +326,9 @@ function Dashboard() {
     const soldDate = listing.status === "sold" ? formatDate(listing.soldAt) : null;
     const pendingDate =
       listing.status === "archived" ? formatDate(listing.archivedAt || listing.updatedAt) : null;
+    const thumbnailUrl = listing.photos?.[0]?.s3Key
+      ? getS3PublicUrl(listing.photos[0].s3Key)
+      : null;
     const isActionMenuOpen =
       Boolean(actionMenu.anchorEl) && actionMenu.listing?.id === listing.id;
 
@@ -344,36 +348,82 @@ function Dashboard() {
           }
         }}
         sx={{
-          ...LISTING_CARD_SX,
           cursor: "pointer",
-          transition: "transform 0.2s, box-shadow 0.2s",
-          "&:hover": { transform: "translateY(-2px)", boxShadow: 3 },
+          transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: 2,
+            borderColor: "primary.main",
+          },
           "&:focus-visible": {
             outline: "2px solid",
             outlineColor: "primary.main",
             outlineOffset: 2,
           },
         }}
+        variant="outlined"
       >
-        <ListingCardMediaFrame
-          imageUrl={listing.photos?.[0] ? getS3PublicUrl(listing.photos[0].s3Key) : null}
-          alt={listing.title}
-          isSold={listing.status === "sold"}
-          isPending={listing.status === "archived"}
-          imageSx={{ objectFit: "cover", backgroundColor: "grey.50" }}
-          placeholderSx={{
-            backgroundColor: "grey.100",
+        <CardContent
+          sx={{
+            p: 1.5,
+            height: "100%",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            flexDirection: "column",
+            gap: 1.25,
           }}
-        />
-        <CardContent sx={LISTING_CARD_CONTENT_SX}>
-          <Box sx={LISTING_CARD_TEXT_STACK_SX}>
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-              <Typography variant="h6" sx={{ ...LISTING_CARD_TITLE_SX, flex: 1 }}>
-                {listing.title}
-              </Typography>
+        >
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: 1,
+                overflow: "hidden",
+                bgcolor: "grey.100",
+                flexShrink: 0,
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: listing.status === "sold" ? 0.58 : 1,
+              }}
+            >
+              {thumbnailUrl ? (
+                <Box
+                  component="img"
+                  src={thumbnailUrl}
+                  alt={listing.title}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  No Image
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight={700}
+                    sx={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {listing.title}
+                  </Typography>
+                  <Typography variant="body2" color="primary" fontWeight="bold">
+                    {formatPrice(listing.price)}
+                  </Typography>
+                </Box>
               <IconButton
                 size="small"
                 aria-label="Listing actions"
@@ -424,16 +474,16 @@ function Dashboard() {
                 </MenuItem>
               </Menu>
             </Box>
-            <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.1 }}>
-              {formatPrice(listing.price)}
-            </Typography>
-            <ListingFulfillmentLine option={fulfillmentOption} />
-          </Box>
-          <Box sx={{ color: "text.secondary" }}>
-            {listing.brand && <Typography variant="body2">Brand: {listing.brand}</Typography>}
-            {soldDate && <Typography variant="body2">Sold on {soldDate}</Typography>}
-            {pendingDate && <Typography variant="body2">Pending since {pendingDate}</Typography>}
-          </Box>
+              <Box sx={{ mt: 0.5 }}>
+                <ListingFulfillmentLine option={fulfillmentOption} />
+              </Box>
+              {(soldDate || pendingDate) && (
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                  {soldDate ? `Sold on ${soldDate}` : `Pending since ${pendingDate}`}
+                </Typography>
+              )}
+            </Box>
+          </Stack>
         </CardContent>
       </Card>
     );
@@ -441,44 +491,105 @@ function Dashboard() {
 
   const renderPurchaseCard = (listing) => {
     const existingReview = writtenReviewsByListingId[listing.id];
+    const thumbnailUrl = listing.photos?.[0]?.s3Key
+      ? getS3PublicUrl(listing.photos[0].s3Key)
+      : null;
     return (
       <Card
         key={listing.id}
         role="button"
         tabIndex={0}
         onClick={() => navigate(`/listing/${listing.id}`)}
-        sx={{ ...LISTING_CARD_SX, cursor: "pointer" }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            navigate(`/listing/${listing.id}`);
+          }
+        }}
+        variant="outlined"
+        sx={{
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: 2,
+            borderColor: "primary.main",
+          },
+          "&:focus-visible": {
+            outline: "2px solid",
+            outlineColor: "primary.main",
+            outlineOffset: 2,
+          },
+        }}
       >
-        <ListingCardMediaFrame
-          imageUrl={listing.photos?.[0] ? getS3PublicUrl(listing.photos[0].s3Key) : null}
-          alt={listing.title}
-          isSold={listing.status === "sold"}
-          imageSx={{ objectFit: "cover", backgroundColor: "grey.50" }}
-          placeholderSx={{
-            backgroundColor: "grey.100",
+        <CardContent
+          sx={{
+            p: 1.5,
+            height: "100%",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            flexDirection: "column",
+            gap: 1.25,
           }}
-        />
-        <CardContent sx={LISTING_CARD_CONTENT_SX}>
-          <Box sx={LISTING_CARD_TEXT_STACK_SX}>
-            <Typography variant="h6" sx={LISTING_CARD_TITLE_SX}>
-              {listing.title}
-            </Typography>
-            <Typography variant="h5" color="primary" fontWeight="bold" sx={{ lineHeight: 1.1 }}>
-              {formatPrice(listing.price)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.12 }}>
-              Purchased on {formatDate(listing.soldAt)}
-            </Typography>
-            <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
-          </Box>
-          <Alert severity={existingReview ? "success" : "info"}>
-            {existingReview
-              ? `Reviewed: ${Number(existingReview.rating || 0).toFixed(1)} stars`
-              : "You have not reviewed this seller yet."}
-          </Alert>
+        >
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: 1,
+                overflow: "hidden",
+                bgcolor: "grey.100",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: listing.status === "sold" ? 0.58 : 1,
+              }}
+            >
+              {thumbnailUrl ? (
+                <Box
+                  component="img"
+                  src={thumbnailUrl}
+                  alt={listing.title}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  No Image
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography
+                variant="subtitle1"
+                fontWeight={700}
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {listing.title}
+              </Typography>
+              <Typography variant="body2" color="primary" fontWeight="bold">
+                {formatPrice(listing.price)}
+              </Typography>
+              <Box sx={{ mt: 0.5 }}>
+                <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
+              </Box>
+              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                Purchased on {formatDate(listing.soldAt)}
+                {existingReview
+                  ? ` · Reviewed: ${Number(existingReview.rating || 0).toFixed(1)} stars`
+                  : ""}
+              </Typography>
+            </Box>
+          </Stack>
         </CardContent>
       </Card>
     );
@@ -596,7 +707,7 @@ function Dashboard() {
             </Alert>
           ) : (
             <>
-              <Box sx={LISTING_CARD_GRID_SX}>{displayedListings.map(renderListingCard)}</Box>
+              <Box sx={COMPACT_CARD_GRID_SX}>{displayedListings.map(renderListingCard)}</Box>
               {visibleListings.length > LISTING_PREVIEW_LIMIT && (
                 <Button sx={{ mt: 2 }} onClick={() => setShowAllListings((prev) => !prev)}>
                   {showAllListings ? "Show Less" : `View ${visibleListings.length - LISTING_PREVIEW_LIMIT} More`}
@@ -617,7 +728,7 @@ function Dashboard() {
             <Alert severity="info">You do not have any purchases yet.</Alert>
           ) : (
             <>
-              <Box sx={LISTING_CARD_GRID_SX}>{displayedPurchases.map(renderPurchaseCard)}</Box>
+              <Box sx={COMPACT_CARD_GRID_SX}>{displayedPurchases.map(renderPurchaseCard)}</Box>
               {purchases.length > PURCHASE_PREVIEW_LIMIT && (
                 <Button sx={{ mt: 2 }} onClick={() => setShowAllPurchases((prev) => !prev)}>
                   {showAllPurchases ? "Show Less" : `View ${purchases.length - PURCHASE_PREVIEW_LIMIT} More`}
