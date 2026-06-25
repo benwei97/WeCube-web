@@ -8,7 +8,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Divider,
   Box,
   Avatar,
   Dialog,
@@ -251,8 +250,9 @@ function Header() {
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
               </MenuItem>
-              <Divider />
-              <MenuItem onClick={handleLogoutClick}>Sign Out</MenuItem>
+              <MenuItem onClick={handleLogoutClick} sx={{ color: "error.main" }}>
+                Sign Out
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
