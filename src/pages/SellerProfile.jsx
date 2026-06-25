@@ -169,11 +169,6 @@ function SellerProfile() {
           </Box>
         </Stack>
 
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 3 }}>
-          <Chip label={`${activeListings.length} active listing${activeListings.length === 1 ? "" : "s"}`} />
-          <Chip label={`${soldListings.length} completed sale${soldListings.length === 1 ? "" : "s"}`} />
-          <Chip label={`${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`} />
-        </Stack>
       </Paper>
 
       <Stack spacing={3}>
