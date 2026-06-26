@@ -574,11 +574,14 @@ function Sell() {
         )}
       </Snackbar>
 
-      <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+      <Typography
+        variant="h3"
+        component="h1"
+        gutterBottom
+        fontWeight="bold"
+        sx={{ mb: 4 }}
+      >
         List Your Cube
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Fill out the details below to create your listing
       </Typography>
 
       <Stack spacing={3}>
