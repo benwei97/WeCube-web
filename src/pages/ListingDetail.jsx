@@ -89,9 +89,14 @@ import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators"
 function FulfillmentInfoTitle({ children, info }) {
   return (
     <Typography
-      variant="h6"
-      gutterBottom
-      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+      variant="subtitle2"
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.75,
+        mb: 0.75,
+        fontWeight: 650,
+      }}
     >
       {children}
       <Tooltip title={info} arrow placement="top">
@@ -1086,13 +1091,28 @@ function ListingDetail() {
     : "Mark as Sold";
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box
+      sx={{
+        width: { xs: "100%", lg: "86vw" },
+        maxWidth: 1180,
+        height: { lg: "calc(100dvh - 64px)" },
+        boxSizing: "border-box",
+        overflow: { lg: "hidden" },
+        display: { lg: "flex" },
+        flexDirection: { lg: "column" },
+        mx: "auto",
+        px: { xs: 2, md: 3 },
+        py: { xs: 3, lg: 2 },
+        mt: { xs: 1, lg: 0 },
+      }}
+    >
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 3,
+          mb: { xs: 3, lg: 2 },
+          flexShrink: 0,
         }}
       >
         <Button
@@ -1163,37 +1183,47 @@ function ListingDetail() {
               </MenuItem>
             </Menu>
           </Box>
-        ) : (
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button
-              variant="outlined"
-              color="info"
-              onClick={handleMessageAction}
-              disabled={isMessageButtonDisabled() || isListingUnavailable}
-            >
-              {getMessageButtonText()}
-            </Button>
-          </Box>
-        )}
+        ) : null}
       </Box>
 
-      <Grid container spacing={3} alignItems="flex-start">
+      <Grid
+        container
+        spacing={3.5}
+        alignItems="stretch"
+        sx={{
+          flex: { lg: 1 },
+          height: { lg: "auto" },
+          minHeight: { lg: 0 },
+        }}
+      >
         {/* Images Section */}
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Paper sx={{ p: 2, position: { lg: "sticky" }, top: { lg: 24 } }}>
-            <Typography variant="h6" gutterBottom>
-              Photos
-            </Typography>
+        <Grid size={{ xs: 12, lg: 7 }} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: { xs: 1, md: 1.5 },
+              position: { lg: "sticky" },
+              top: { lg: 24 },
+              height: { lg: "100%" },
+              display: "flex",
+              flexDirection: "column",
+              borderColor: "divider",
+              bgcolor: "background.paper",
+              boxShadow: "0 10px 28px rgba(31, 53, 99, 0.07)",
+            }}
+          >
             {activePhoto ? (
-              <Stack spacing={2}>
+              <Stack spacing={1.5} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
                 <Box
                   sx={{
                     position: "relative",
                     width: "100%",
-                    aspectRatio: "1 / 1",
-                    borderRadius: 2,
+                    aspectRatio: { xs: "1 / 1", lg: "auto" },
+                    flex: { lg: 1 },
+                    minHeight: { lg: 0 },
+                    borderRadius: 1.5,
                     overflow: "hidden",
-                    backgroundColor: "grey.100",
+                    backgroundColor: "grey.50",
                   }}
                 >
                   {listing.status === "sold" && <SoldRibbon size="large" />}
@@ -1251,7 +1281,11 @@ function ListingDetail() {
                 </Box>
 
                 {photoCount > 1 && (
-                  <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 0.5 }}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ overflowX: "auto", pb: 0.5, flexShrink: 0 }}
+                  >
                     {listing.photos.map((photo, index) => (
                       <Box
                         key={photo.s3Key || index}
@@ -1300,352 +1334,380 @@ function ListingDetail() {
         </Grid>
 
         {/* Details Section */}
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              {listing.title}
-            </Typography>
-
-            <Typography
-              variant="h3"
-              color="primary"
-              fontWeight="bold"
-              sx={{ mb: 2 }}
-            >
-              {formatPrice(listing.price)}
-            </Typography>
-
-            {!isOwner && (
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  mb: 2.5,
-                  borderColor: "divider",
-                  bgcolor: "background.default",
-                }}
-              >
-                <Stack spacing={1.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    {primaryActionHelperText}
+        <Grid
+          size={{ xs: 12, lg: 5 }}
+          sx={{
+            height: { lg: "100%" },
+            minHeight: 0,
+            overflowY: { lg: "auto" },
+            pr: { lg: 0.5 },
+          }}
+        >
+          <Paper
+            variant="outlined"
+            sx={{
+              p: { xs: 2.25, md: 3 },
+              borderColor: "divider",
+              boxShadow: "0 10px 28px rgba(31, 53, 99, 0.07)",
+            }}
+          >
+            <Stack spacing={2.75}>
+              <Box>
+                <Box>
+                  <Typography
+                    variant="h4"
+                    component="h1"
+                    fontWeight={650}
+                    sx={{ lineHeight: 1.14, mb: 1 }}
+                  >
+                    {listing.title}
                   </Typography>
-                  <Button
-                    variant="contained"
+                  <Typography
+                    variant="h4"
                     color="primary"
-                    size="large"
-                    fullWidth
-                    onClick={handleMessageAction}
-                    disabled={isListingUnavailable || isMessageButtonDisabled()}
+                    fontWeight={650}
+                    sx={{ lineHeight: 1 }}
                   >
-                    {listing.status === "sold" ? "Sold" : primaryActionText}
-                  </Button>
-                </Stack>
-              </Paper>
-            )}
-
-            <Typography variant="body1" sx={{ mb: 0.5 }}>
-              <Box component="span" sx={{ fontWeight: 600 }}>
-                Condition:
-              </Box>{" "}
-              {getConditionLabel(listing.condition)}
-            </Typography>
-            {listing.puzzleType && (
-              <Typography variant="body1" sx={{ mb: 0.5 }}>
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  Puzzle Type:
-                </Box>{" "}
-                {listing.puzzleType}
-              </Typography>
-            )}
-            {listedLocationLabel && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Listed in {listedLocationLabel}
-              </Typography>
-            )}
-            {listing.brand && (
-              <Typography variant="body1" sx={{ mb: 0.5 }}>
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  Brand:
-                </Box>{" "}
-                {listing.brand}
-              </Typography>
-            )}
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="h6" gutterBottom>
-              Description
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{
-                whiteSpace: "pre-wrap",
-                ...(shouldCollapseDescription && !showFullDescription
-                  ? {
-                      display: "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: 4,
-                      overflow: "hidden",
-                    }
-                  : {}),
-              }}
-            >
-              {descriptionText}
-            </Typography>
-            {shouldCollapseDescription && (
-              <Button
-                variant="text"
-                sx={{ mt: 1, px: 0, alignSelf: "flex-start" }}
-                onClick={() => setShowFullDescription((prev) => !prev)}
-              >
-                {showFullDescription ? "Show less" : "See more"}
-              </Button>
-            )}
-
-            <Divider sx={{ my: 2 }} />
-
-            <Stack spacing={2.5}>
-              {listing.localMeetupAvailable && (
-                <Box>
-                  <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
-                    Local Meetup
-                  </FulfillmentInfoTitle>
-                  <Typography
-                    variant="body1"
-                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                  >
-                    <LocationOn fontSize="small" />
-                    {listing.meetupLocationLabel || "Meetup area"}
+                    {formatPrice(listing.price)}
                   </Typography>
-                  <ApproximateMeetupMap
-                    location={listing.meetupLocation}
-                    label={listing.meetupLocationLabel}
-                  />
                 </Box>
-              )}
 
-              {listing.competitionMeetupAvailable && (
-                <Box>
-                  <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
-                    Competition Meetup
-                  </FulfillmentInfoTitle>
-                  <Typography
-                    variant="body1"
-                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                  >
-                    <Groups fontSize="small" />
-                    Available at selected competitions
-                  </Typography>
-                  {meetupCompetitionTags.length > 0 && (
-                    <Stack spacing={1.25}>
-                      {visibleCompetitionMeetups.map((competition) => (
-                        <Paper
-                          key={competition.id || competition.name}
-                          variant="outlined"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleViewCompetitionListings(competition)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              handleViewCompetitionListings(competition);
-                            }
-                          }}
-                          sx={{
-                            p: 1.5,
-                            cursor: "pointer",
-                            borderRadius: 2,
-                            bgcolor: "background.default",
-                            transition:
-                              "background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s",
-                            "&:hover": {
-                              borderColor: "primary.main",
-                              bgcolor: "primary.50",
-                              boxShadow: 2,
-                              transform: "translateY(-1px)",
-                            },
-                            "&:focus-visible": {
-                              outline: "2px solid",
-                              outlineColor: "primary.main",
-                              outlineOffset: 2,
-                            },
-                          }}
-                        >
-                          <Stack
-                            direction="row"
-                            spacing={1.5}
-                            alignItems="center"
-                          >
-                            <Box
-                              sx={{
-                                width: 42,
-                                height: 42,
-                                borderRadius: "50%",
-                                bgcolor: "primary.50",
-                                color: "primary.main",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flexShrink: 0,
-                              }}
-                            >
-                              <Groups fontSize="small" />
-                            </Box>
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography
-                                variant="body1"
-                                fontWeight={700}
-                                sx={{
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {competition.name}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                              >
-                                {[competition.city, competition.country]
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </Typography>
-                              {competition.dateRange && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ display: "block" }}
-                                >
-                                  {competition.dateRange}
-                                </Typography>
-                              )}
-                              <Typography
-                                variant="caption"
-                                color="primary"
-                                sx={{
-                                  display: "block",
-                                  fontWeight: 700,
-                                  mt: 0.25,
-                                }}
-                              >
-                                View competition listings
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </Paper>
-                      ))}
-                      {meetupCompetitionTags.length > 3 && (
-                        <Button
-                          variant="text"
-                          size="small"
-                          onClick={() =>
-                            setShowAllCompetitionMeetups((prev) => !prev)
-                          }
-                          sx={{ alignSelf: "flex-start", px: 0 }}
-                        >
-                          {showAllCompetitionMeetups
-                            ? "Show fewer competitions"
-                            : `Show ${hiddenCompetitionMeetupCount} more ${
-                                hiddenCompetitionMeetupCount === 1
-                                  ? "competition"
-                                  : "competitions"
-                              }`}
-                        </Button>
-                      )}
+                <Stack
+                  spacing={1}
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    borderRadius: 1.5,
+                    bgcolor: "grey.50",
+                    border: 1,
+                    borderColor: "divider",
+                  }}
+                >
+                  <Stack direction="row" justifyContent="space-between" spacing={2}>
+                    <Typography variant="body2" color="text.secondary">
+                      Condition
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600} textAlign="right">
+                      {getConditionLabel(listing.condition)}
+                    </Typography>
+                  </Stack>
+                  {listing.brand && (
+                    <Stack direction="row" justifyContent="space-between" spacing={2}>
+                      <Typography variant="body2" color="text.secondary">
+                        Brand
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600} textAlign="right">
+                        {listing.brand}
+                      </Typography>
                     </Stack>
                   )}
-                </Box>
-              )}
+                  {listedLocationLabel && (
+                    <Stack direction="row" justifyContent="space-between" spacing={2}>
+                      <Typography variant="body2" color="text.secondary">
+                        Listed in
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600} textAlign="right">
+                        {listedLocationLabel}
+                      </Typography>
+                    </Stack>
+                  )}
+                </Stack>
 
-              {listing.shippingAvailable && (
-                <Box>
-                  <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
-                    Shipping & Returns
-                  </FulfillmentInfoTitle>
-                  <Typography
-                    variant="body1"
-                    sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                  >
-                    <LocalShipping fontSize="small" />
-                    {getShippingLabel(listing, formatPrice)}
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="h6" gutterBottom>
-              Seller Details
-            </Typography>
-            <Stack
-              direction="row"
-              spacing={2}
-              alignItems="center"
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(`/seller/${listing.userId}`)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  navigate(`/seller/${listing.userId}`);
-                }
-              }}
-              sx={{
-                cursor: "pointer",
-                borderRadius: 1,
-                p: 1,
-                mx: -1,
-                transition: "background-color 0.2s",
-                "&:hover": {
-                  bgcolor: "action.hover",
-                },
-                "&:focus-visible": {
-                  outline: "2px solid",
-                  outlineColor: "primary.main",
-                  outlineOffset: 2,
-                },
-              }}
-            >
-              <Avatar
-                src={listing.sellerAvatarUrl || undefined}
-                sx={{ width: 56, height: 56 }}
-              >
-                {listing.sellerName?.charAt(0)?.toUpperCase() || "S"}
-              </Avatar>
-              <Box>
-                <Typography variant="body1" fontWeight={600}>
-                  {listing.sellerName}
-                </Typography>
-                {listing.sellerReviewCount > 0 ? (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-                  >
-                    <Star fontSize="inherit" />
-                    {listing.sellerRating
-                      ? `${listing.sellerRating.toFixed(1)} · `
-                      : ""}
-                    {listing.sellerReviewCount} review
-                    {listing.sellerReviewCount === 1 ? "" : "s"}
-                  </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    No reviews yet
-                  </Typography>
+                {!isOwner && (
+                  <Stack spacing={1.25}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="large"
+                      fullWidth
+                      onClick={handleMessageAction}
+                      disabled={isListingUnavailable || isMessageButtonDisabled()}
+                    >
+                      {listing.status === "sold" ? "Sold" : primaryActionText}
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      {primaryActionHelperText}
+                    </Typography>
+                  </Stack>
                 )}
               </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
+                  Description
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.65,
+                    color: "text.primary",
+                    ...(shouldCollapseDescription && !showFullDescription
+                      ? {
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 5,
+                          overflow: "hidden",
+                        }
+                      : {}),
+                  }}
+                >
+                  {descriptionText}
+                </Typography>
+                {shouldCollapseDescription && (
+                  <Button
+                    variant="text"
+                    sx={{ mt: 1, px: 0, alignSelf: "flex-start" }}
+                    onClick={() => setShowFullDescription((prev) => !prev)}
+                  >
+                    {showFullDescription ? "Show less" : "See more"}
+                  </Button>
+                )}
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
+                  Fulfillment
+                </Typography>
+
+                <Stack spacing={1.25}>
+                {listing.localMeetupAvailable && (
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1.5,
+                      bgcolor: "grey.50",
+                    }}
+                  >
+                    <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
+                      Local Meetup
+                    </FulfillmentInfoTitle>
+                    <Typography
+                      variant="body1"
+                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                    >
+                      <LocationOn fontSize="small" />
+                      {listing.meetupLocationLabel || "Meetup area"}
+                    </Typography>
+                    <ApproximateMeetupMap
+                      location={listing.meetupLocation}
+                      label={listing.meetupLocationLabel}
+                    />
+                  </Box>
+                )}
+
+                {listing.competitionMeetupAvailable && (
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1.5,
+                      bgcolor: "grey.50",
+                    }}
+                  >
+                    <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
+                      Competition Meetup
+                    </FulfillmentInfoTitle>
+                    <Typography
+                      variant="body1"
+                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600, mb: meetupCompetitionTags.length > 0 ? 1.25 : 0 }}
+                    >
+                      <Groups fontSize="small" />
+                      Available at selected competitions
+                    </Typography>
+                    {meetupCompetitionTags.length > 0 && (
+                      <Stack spacing={1}>
+                        {visibleCompetitionMeetups.map((competition) => (
+                          <Paper
+                            key={competition.id || competition.name}
+                            variant="outlined"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleViewCompetitionListings(competition)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleViewCompetitionListings(competition);
+                              }
+                            }}
+                            sx={{
+                              p: 1.25,
+                              cursor: "pointer",
+                              borderRadius: 1.5,
+                              bgcolor: "background.paper",
+                              transition:
+                                "background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s",
+                              "&:hover": {
+                                borderColor: "primary.main",
+                                boxShadow: 2,
+                                transform: "translateY(-1px)",
+                              },
+                              "&:focus-visible": {
+                                outline: "2px solid",
+                                outlineColor: "primary.main",
+                                outlineOffset: 2,
+                              },
+                            }}
+                          >
+                            <Stack direction="row" spacing={1.25} alignItems="center">
+                              <Box
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: "50%",
+                                  bgcolor: "primary.50",
+                                  color: "primary.main",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Groups fontSize="small" />
+                              </Box>
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography variant="body2" fontWeight={650} noWrap>
+                                  {competition.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap component="div">
+                                  {[competition.city, competition.country]
+                                    .filter(Boolean)
+                                    .join(", ")}
+                                  {competition.dateRange ? ` • ${competition.dateRange}` : ""}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                          </Paper>
+                        ))}
+                        {meetupCompetitionTags.length > 3 && (
+                          <Button
+                            variant="text"
+                            size="small"
+                            onClick={() =>
+                              setShowAllCompetitionMeetups((prev) => !prev)
+                            }
+                            sx={{ alignSelf: "flex-start", px: 0 }}
+                          >
+                            {showAllCompetitionMeetups
+                              ? "Show fewer competitions"
+                              : `Show ${hiddenCompetitionMeetupCount} more ${
+                                  hiddenCompetitionMeetupCount === 1
+                                    ? "competition"
+                                    : "competitions"
+                                }`}
+                          </Button>
+                        )}
+                      </Stack>
+                    )}
+                  </Box>
+                )}
+
+                {listing.shippingAvailable && (
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1.5,
+                      bgcolor: "grey.50",
+                    }}
+                  >
+                    <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
+                      Shipping & Returns
+                    </FulfillmentInfoTitle>
+                    <Typography
+                      variant="body1"
+                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
+                    >
+                      <LocalShipping fontSize="small" />
+                      {getShippingLabel(listing, formatPrice)}
+                    </Typography>
+                  </Box>
+                )}
+                </Stack>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
+                  Seller
+                </Typography>
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  alignItems="center"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/seller/${listing.userId}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      navigate(`/seller/${listing.userId}`);
+                    }
+                  }}
+                  sx={{
+                    cursor: "pointer",
+                    borderRadius: 1.5,
+                    p: 1,
+                    mx: -1,
+                    transition: "background-color 0.2s",
+                    "&:hover": {
+                      bgcolor: "action.hover",
+                    },
+                    "&:focus-visible": {
+                      outline: "2px solid",
+                      outlineColor: "primary.main",
+                      outlineOffset: 2,
+                    },
+                  }}
+                >
+                  <Avatar
+                    src={listing.sellerAvatarUrl || undefined}
+                    sx={{ width: 56, height: 56 }}
+                  >
+                    {listing.sellerName?.charAt(0)?.toUpperCase() || "S"}
+                  </Avatar>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body1" fontWeight={650} noWrap>
+                      {listing.sellerName}
+                    </Typography>
+                    {listing.sellerReviewCount > 0 ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                      >
+                        <Star fontSize="inherit" />
+                        {listing.sellerRating
+                          ? `${listing.sellerRating.toFixed(1)} · `
+                          : ""}
+                        {listing.sellerReviewCount} review
+                        {listing.sellerReviewCount === 1 ? "" : "s"}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No reviews yet
+                      </Typography>
+                    )}
+                  </Box>
+                </Stack>
+
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+                  Listed on {formatDate(listing.createdAt)}
+                  {listing.updatedAt && (
+                    <> • Updated on {formatDate(listing.updatedAt)}</>
+                  )}
+                </Typography>
+              </Box>
             </Stack>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="body2" color="text.secondary">
-              Listed on {formatDate(listing.createdAt)}
-              {listing.updatedAt && (
-                <> • Updated on {formatDate(listing.updatedAt)}</>
-              )}
-            </Typography>
           </Paper>
         </Grid>
       </Grid>

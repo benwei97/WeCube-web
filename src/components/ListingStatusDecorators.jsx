@@ -3,12 +3,12 @@ import { Box, CardMedia, Typography } from "@mui/material";
 export const LISTING_CARD_GRID_SX = {
   display: "grid",
   gridTemplateColumns: {
-    xs: "1fr",
-    sm: "repeat(2, minmax(0, 1fr))",
-    md: "repeat(3, minmax(0, 1fr))",
-    lg: "repeat(4, minmax(0, 1fr))",
+    xs: "repeat(2, minmax(0, 1fr))",
+    sm: "repeat(3, minmax(0, 1fr))",
+    md: "repeat(4, minmax(0, 1fr))",
+    lg: "repeat(5, minmax(0, 1fr))",
   },
-  gap: 3,
+  gap: { xs: 2, md: 2.5 },
   alignItems: "stretch",
 };
 
@@ -17,13 +17,60 @@ export const LISTING_CARD_SX = {
   flexDirection: "column",
   position: "relative",
   height: "100%",
+  bgcolor: "transparent",
+  boxShadow: "none",
+  border: 0,
+  borderRadius: 2,
+  overflow: "hidden",
+  color: "text.primary",
+  p: { xs: 1, sm: 1.25 },
+  isolation: "isolate",
+  transition:
+    "box-shadow 180ms ease, transform 180ms ease, background-color 180ms ease",
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    borderRadius: 2,
+    pointerEvents: "none",
+    opacity: 0,
+    zIndex: 3,
+    outline: "2px solid rgba(78, 91, 214, 0.45)",
+    outlineOffset: "-2px",
+    boxShadow:
+      "0 18px 38px rgba(31, 53, 99, 0.18), 0 0 0 4px rgba(78, 91, 214, 0.08)",
+    transition: "opacity 180ms ease",
+  },
+  "&:hover": {
+    bgcolor: "rgba(255, 255, 255, 0.92)",
+    boxShadow: "0 14px 34px rgba(31, 53, 99, 0.16)",
+  },
+  "&:hover::after": {
+    opacity: 1,
+  },
+  "& .listing-card-media-frame": {
+    transition: "border-color 180ms ease, box-shadow 180ms ease",
+  },
+  "& .listing-card-media-image": {
+    transition: "transform 220ms ease",
+  },
+  "&:hover .listing-card-media-frame": {
+    borderColor: "transparent",
+  },
+  "&:hover .listing-card-media-image": {
+    transform: "scale(1.035)",
+  },
 };
 
 export const LISTING_CARD_CONTENT_SX = {
   display: "flex",
   flexDirection: "column",
-  gap: 1.5,
+  gap: 0.75,
   flexGrow: 1,
+  px: 0.25,
+  pt: 1,
+  pb: 0.25,
+  "&:last-child": { pb: 0.25 },
 };
 
 export const LISTING_CARD_TITLE_SX = {
@@ -31,8 +78,10 @@ export const LISTING_CARD_TITLE_SX = {
   WebkitBoxOrient: "vertical",
   WebkitLineClamp: 2,
   overflow: "hidden",
-  minHeight: "2.8rem",
-  lineHeight: 1.2,
+  minHeight: "2.35rem",
+  lineHeight: 1.18,
+  fontSize: { xs: "0.92rem", sm: "0.98rem" },
+  fontWeight: 600,
   mb: 0,
 };
 
@@ -130,18 +179,31 @@ export function ListingCardMediaFrame({
     : placeholderSx;
 
   return (
-    <>
+    <Box
+      className="listing-card-media-frame"
+      sx={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: "1 / 1",
+        overflow: "hidden",
+        borderRadius: 1.5,
+        border: "1px solid",
+        borderColor: "divider",
+        bgcolor: "common.white",
+      }}
+    >
       {isSold && <SoldRibbon />}
       {isPending && !isSold && <PendingBadge />}
       {!isPending && topLeftAdornment}
       {imageUrl ? (
         <CardMedia
+          className="listing-card-media-image"
           component="img"
           image={imageUrl}
           alt={alt}
           sx={{
             width: "100%",
-            aspectRatio: "1 / 1",
+            height: "100%",
             ...resolvedImageSx,
           }}
         />
@@ -149,7 +211,7 @@ export function ListingCardMediaFrame({
         <Box
           sx={{
             width: "100%",
-            aspectRatio: "1 / 1",
+            height: "100%",
             ...resolvedPlaceholderSx,
           }}
         >
@@ -158,6 +220,6 @@ export function ListingCardMediaFrame({
           </Typography>
         </Box>
       )}
-    </>
+    </Box>
   );
 }

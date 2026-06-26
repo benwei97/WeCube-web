@@ -27,6 +27,8 @@ function App() {
               display: "flex",
               justifyContent: "center",
               width: "100vw",
+              minHeight: "100vh",
+              bgcolor: "#f5f7fb",
             }}
           >
             <Routes>

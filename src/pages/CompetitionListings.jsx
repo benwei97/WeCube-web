@@ -215,10 +215,8 @@ function CompetitionListings() {
                   sx={{
                     ...LISTING_CARD_SX,
                     textDecoration: "none",
-                    transition: "transform 0.2s, box-shadow 0.2s",
                     "&:hover": {
                       transform: "translateY(-2px)",
-                      boxShadow: 3,
                     },
                   }}
                 >
@@ -243,8 +241,6 @@ function CompetitionListings() {
                   <CardContent
                     sx={{
                       ...LISTING_CARD_CONTENT_SX,
-                      px: 3,
-                      pb: 3,
                       color: "text.primary",
                     }}
                   >
@@ -255,8 +251,8 @@ function CompetitionListings() {
                       <Typography
                         variant="h5"
                         color="primary"
-                        fontWeight="bold"
-                        sx={{ mb: 0, lineHeight: 1.1 }}
+                        fontWeight={700}
+                        sx={{ mb: 0, lineHeight: 1.05, fontSize: { xs: "1.05rem", sm: "1.18rem" } }}
                       >
                         {formatPrice(cube.price)}
                       </Typography>

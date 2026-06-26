@@ -810,10 +810,8 @@ function Browse() {
               sx={{
                 ...LISTING_CARD_SX,
                 cursor: "pointer",
-                transition: "transform 0.2s, box-shadow 0.2s",
                 "&:hover": {
                   transform: "translateY(-2px)",
-                  boxShadow: 3,
                 },
               }}
               onClick={() => handleListingClick(listing.id)}
@@ -839,8 +837,6 @@ function Browse() {
               <CardContent
                 sx={{
                   ...LISTING_CARD_CONTENT_SX,
-                  px: 3,
-                  pb: 3,
                 }}
               >
                 <Box sx={LISTING_CARD_TEXT_STACK_SX}>
@@ -857,8 +853,8 @@ function Browse() {
                   <Typography
                     variant="h5"
                     color="primary"
-                    fontWeight="bold"
-                    sx={{ mb: 0, lineHeight: 1.1 }}
+                    fontWeight={700}
+                    sx={{ mb: 0, lineHeight: 1.05, fontSize: { xs: "1.05rem", sm: "1.18rem" } }}
                   >
                     {formatPrice(listing.price)}
                   </Typography>
