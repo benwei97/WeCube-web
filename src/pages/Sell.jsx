@@ -20,6 +20,8 @@ import {
   Alert,
   Snackbar,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import { Upload, Close, InfoOutlined } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -326,6 +328,18 @@ function Sell() {
         shippingCost: value,
       }));
     }
+  };
+
+  const handleShippingIncludedChange = (_, value) => {
+    if (value === null) {
+      return;
+    }
+
+    setSubmitNotice(null);
+    setFulfillmentData((prev) => ({
+      ...prev,
+      shippingIncluded: value === "yes",
+    }));
   };
 
   const resolveMeetupLocationForSave = async () => {
@@ -839,7 +853,19 @@ function Sell() {
                   />
                 </Box>
                 {fulfillmentData.shippingAvailable && (
-                  <Stack spacing={2} sx={{ mb: 2 }}>
+                  <Stack
+                    spacing={2}
+                    sx={{
+                      mb: 2,
+                      ml: { xs: 0, sm: 2 },
+                      pl: { xs: 1.5, sm: 2 },
+                      py: 1.5,
+                      borderLeft: "3px solid",
+                      borderColor: "divider",
+                      bgcolor: "action.hover",
+                      borderRadius: 1,
+                    }}
+                  >
                     <Box
                       sx={{
                         display: "flex",
@@ -848,18 +874,48 @@ function Sell() {
                       }}
                     >
                       <Box>
-                        <Typography variant="body1">Shipping Included</Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          Is shipping included in the price?
+                        </Typography>
                       </Box>
-                      <Switch
-                        checked={fulfillmentData.shippingIncluded}
-                        onChange={handleFulfillmentChange("shippingIncluded")}
-                      />
+                      <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        value={fulfillmentData.shippingIncluded ? "yes" : "no"}
+                        onChange={handleShippingIncludedChange}
+                        aria-label="Shipping included in price"
+                        sx={{
+                          bgcolor: "background.paper",
+                          borderRadius: 1,
+                          "& .MuiToggleButton-root": {
+                            px: 2,
+                            borderColor: "divider",
+                            color: "text.secondary",
+                            fontWeight: 700,
+                            "&.Mui-selected": {
+                              bgcolor: "primary.main",
+                              color: "primary.contrastText",
+                              borderColor: "primary.main",
+                              "&:hover": {
+                                bgcolor: "primary.dark",
+                              },
+                            },
+                          },
+                        }}
+                      >
+                        <ToggleButton value="yes" aria-label="Shipping included">
+                          Yes
+                        </ToggleButton>
+                        <ToggleButton value="no" aria-label="Shipping not included">
+                          No
+                        </ToggleButton>
+                      </ToggleButtonGroup>
                     </Box>
                     {!fulfillmentData.shippingIncluded && (
                       <TextField
-                        label="Shipping Price (USD)"
+                        label="Estimated Shipping Price (USD)"
                         fullWidth
-                        placeholder="e.g., 8.00"
+                        placeholder="Estimated Shipping Price (USD)"
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
