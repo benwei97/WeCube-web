@@ -578,9 +578,6 @@ function Browse() {
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Browse Cubes
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Discover amazing cubes from the community
-      </Typography>
 
       {/* Search and Filter Bar */}
       <Paper sx={{ p: 2, mb: 3 }}>
