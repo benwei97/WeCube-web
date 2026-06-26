@@ -2,15 +2,15 @@ import {
   Box,
   Typography,
   Card,
+  CardActionArea,
   Chip,
-  Button,
   Autocomplete,
   TextField,
   Skeleton,
   Alert,
   Stack,
 } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Close, KeyboardArrowRight } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
@@ -31,7 +31,6 @@ function Competitions() {
   const [competitionOptions, setCompetitionOptions] = useState([]);
   const [myCompetitionOptions, setMyCompetitionOptions] = useState([]);
   const [competitionSearchInput, setCompetitionSearchInput] = useState("");
-  const [selectedCompetition, setSelectedCompetition] = useState(null);
   const [myCompetitionInput, setMyCompetitionInput] = useState("");
   const [loadingCompetitions, setLoadingCompetitions] = useState(true);
   const [savingCompetition, setSavingCompetition] = useState(false);
@@ -187,23 +186,25 @@ function Competitions() {
     await persistMyCompetitions(nextCompetitions);
   };
 
-  const handleViewCompetitionListings = () => {
-    if (!selectedCompetition?.id) {
+  const handleViewCompetitionListings = (competition) => {
+    if (!competition?.id) {
       return;
     }
 
-    navigate(`/competitions/${selectedCompetition.id}/listings`, {
-      state: { competition: selectedCompetition },
+    navigate(`/competitions/${competition.id}/listings`, {
+      state: { competition },
     });
   };
+
+  const getCompetitionMeta = (competition) =>
+    [competition.city, competition.country, competition.dateRange]
+      .filter(Boolean)
+      .join(" • ");
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Competitions
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Find cubes available at upcoming WCA competitions in the United States
       </Typography>
 
       {error && (
@@ -212,137 +213,194 @@ function Competitions() {
         </Alert>
       )}
 
-      <Card sx={{ mb: 4, p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Select a Competition
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Choose a competition and open its listings page
-        </Typography>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            lg: "minmax(0, 2fr) minmax(300px, 0.8fr)",
+          },
+          gap: 3,
+          alignItems: "start",
+        }}
+      >
+        <Card sx={{ p: 3 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Select a Competition
+          </Typography>
 
-        {loadingCompetitions ? (
-          <Skeleton variant="rectangular" height={56} />
-        ) : (
-          <Stack spacing={2}>
-            <Autocomplete
-              options={competitionOptions}
-              getOptionLabel={(option) => option.displayName}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={selectedCompetition}
-              inputValue={competitionSearchInput}
-              onChange={(_, newValue) => {
-                setSelectedCompetition(newValue);
-              }}
-              onInputChange={(_, value) => handleCompetitionSearch(value, "browse")}
-              ListboxProps={{
-                onScroll: (event) => handleCompetitionListScroll(event, "browse"),
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Search competitions"
-                  placeholder="Search US competitions..."
-                  variant="outlined"
-                  fullWidth
-                />
-              )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props} key={option.id}>
-                  <Box>
-                    <Typography variant="body1">
-                      {option.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {option.city}, {option.country} • {option.dateRange}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              noOptionsText="No US competitions found. Try a different search term."
-            />
-            <Box sx={{ display: "flex", justifyContent: "flex-start" }}>
-              <Button
-                variant="contained"
-                onClick={handleViewCompetitionListings}
-                disabled={!selectedCompetition}
+          {loadingCompetitions ? (
+            <Stack spacing={1.5}>
+              <Skeleton variant="rectangular" height={56} />
+              {[...Array(6)].map((_, index) => (
+                <Skeleton key={index} variant="rectangular" height={74} />
+              ))}
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <TextField
+                label="Search competitions"
+                placeholder="Search US competitions..."
+                value={competitionSearchInput}
+                onChange={(event) =>
+                  handleCompetitionSearch(event.target.value, "browse")
+                }
+                fullWidth
+              />
+
+              <Box
+                onScroll={(event) => handleCompetitionListScroll(event, "browse")}
+                sx={{
+                  height: { xs: 430, md: 560 },
+                  overflowY: "auto",
+                  pr: 1,
+                  mr: -1,
+                }}
               >
-                View Listings
-              </Button>
-            </Box>
-          </Stack>
-        )}
-      </Card>
-
-      <Card sx={{ mb: 4, p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          My Competitions
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Save the competitions you are attending to highlight matching listings across the marketplace.
-        </Typography>
-
-        {!currentUser ? (
-          <Alert severity="info">Sign in to save competitions you are attending.</Alert>
-        ) : (
-          <Stack spacing={2}>
-            <Autocomplete
-              options={myCompetitionOptions}
-              getOptionLabel={(option) => option.displayName}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={null}
-              inputValue={myCompetitionInput}
-              onChange={handleAddMyCompetition}
-              onInputChange={(_, value) => {
-                handleCompetitionSearch(value, "my");
-              }}
-              ListboxProps={{
-                onScroll: (event) => handleCompetitionListScroll(event, "my"),
-              }}
-              loading={loadingCompetitions || savingCompetition}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Add a competition you are attending"
-                  placeholder="Search US competitions..."
-                  variant="outlined"
-                  fullWidth
-                />
-              )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props} key={option.id}>
-                  <Box>
-                    <Typography variant="body1">{option.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {option.city}, {option.country} • {option.dateRange}
+                <Stack spacing={1.25}>
+                  {competitionOptions.length === 0 ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ py: 3, textAlign: "center" }}
+                    >
+                      No US competitions found.
                     </Typography>
-                  </Box>
-                </Box>
-              )}
-            />
+                  ) : (
+                    competitionOptions.map((competition) => (
+                        <Card
+                          key={competition.id}
+                          variant="outlined"
+                          sx={{
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            transition:
+                              "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+                            "&:hover": {
+                              borderColor: "primary.main",
+                              boxShadow: "0 8px 20px rgba(31, 53, 99, 0.08)",
+                              transform: "translateY(-1px)",
+                            },
+                          }}
+                        >
+                          <CardActionArea
+                            onClick={() => handleViewCompetitionListings(competition)}
+                            sx={{ p: 2 }}
+                          >
+                            <Stack
+                              direction="row"
+                              spacing={2}
+                              alignItems="center"
+                              justifyContent="space-between"
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography
+                                  variant="subtitle1"
+                                  fontWeight={700}
+                                  noWrap
+                                >
+                                  {competition.name}
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                  noWrap
+                                >
+                                  {getCompetitionMeta(competition)}
+                                </Typography>
+                              </Box>
+                              <KeyboardArrowRight color="action" />
+                            </Stack>
+                          </CardActionArea>
+                        </Card>
+                      ))
+                  )}
+                </Stack>
+              </Box>
+            </Stack>
+          )}
+        </Card>
 
-            {myCompetitions.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No saved competitions yet.
-              </Typography>
-            ) : (
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                {myCompetitions.map((competition) => (
-                  <Chip
-                    key={competition.id}
-                    label={competition.displayName || competition.name}
-                    onDelete={
-                      savingCompetition
-                        ? undefined
-                        : () => handleRemoveMyCompetition(competition.id)
-                    }
-                    deleteIcon={<Close />}
+        <Card sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            My Competitions
+          </Typography>
+
+          {!currentUser ? (
+            <Alert severity="info">Sign in to save competitions you are attending.</Alert>
+          ) : (
+            <Stack spacing={2}>
+              <Autocomplete
+                options={myCompetitionOptions}
+                getOptionLabel={(option) => option.displayName}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                value={null}
+                inputValue={myCompetitionInput}
+                onChange={handleAddMyCompetition}
+                onInputChange={(_, value) => {
+                  handleCompetitionSearch(value, "my");
+                }}
+                ListboxProps={{
+                  onScroll: (event) => handleCompetitionListScroll(event, "my"),
+                }}
+                loading={loadingCompetitions || savingCompetition}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Add competition"
+                    placeholder="Search US competitions..."
+                    variant="outlined"
+                    fullWidth
                   />
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        )}
-      </Card>
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} key={option.id}>
+                    <Box>
+                      <Typography variant="body1">{option.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {getCompetitionMeta(option)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+              />
+
+              {myCompetitions.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No saved competitions yet.
+                </Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {myCompetitions.map((competition) => (
+                    <Chip
+                      key={competition.id}
+                      label={competition.displayName || competition.name}
+                      onDelete={
+                        savingCompetition
+                          ? undefined
+                          : () => handleRemoveMyCompetition(competition.id)
+                      }
+                      deleteIcon={<Close />}
+                      sx={{
+                        justifyContent: "space-between",
+                        maxWidth: "100%",
+                        height: "auto",
+                        py: 0.75,
+                        "& .MuiChip-label": {
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </Stack>
+          )}
+        </Card>
+      </Box>
 
     </Box>
   );
