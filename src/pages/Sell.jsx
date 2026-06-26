@@ -19,8 +19,9 @@ import {
   Chip,
   Alert,
   Snackbar,
+  Tooltip,
 } from "@mui/material";
-import { Upload, Close } from "@mui/icons-material";
+import { Upload, Close, InfoOutlined } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
@@ -43,6 +44,26 @@ import {
   PUZZLE_TYPE_OPTIONS,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
+
+function InfoTitle({ children, info, variant = "body1", fontWeight }) {
+  return (
+    <Typography
+      variant={variant}
+      fontWeight={fontWeight}
+      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+    >
+      {children}
+      <Tooltip title={info} arrow placement="top">
+        <InfoOutlined
+          tabIndex={0}
+          fontSize="small"
+          color="action"
+          sx={{ cursor: "help" }}
+        />
+      </Tooltip>
+    </Typography>
+  );
+}
 
 function Sell() {
   const COMPETITION_BATCH_SIZE = 50;
@@ -785,15 +806,16 @@ function Sell() {
           sx={{ width: "100%", boxShadow: "0 0 8px rgba(0, 0, 0, 0.1)" }}
         >
           <CardContent sx={{ p: 3 }}>
-            <Typography variant="subtitle1" component="h2" fontWeight="bold">
+            <InfoTitle
+              variant="subtitle1"
+              fontWeight="bold"
+              info="Choose at least one way buyers can receive this item."
+            >
               Fulfillment Methods
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Choose how buyers can receive this item{" "}
-            </Typography>
+            </InfoTitle>
 
             <FormControl
-              sx={{ width: "100%" }}
+              sx={{ width: "100%", mt: 3 }}
               error={hasAttemptedSubmit && (!isDeliveryValid || !isCompetitionValid)}
               required
             >
@@ -807,10 +829,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <Typography variant="body1">Shipping</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Coordinate payment and delivery directly with the buyer
-                    </Typography>
+                    <InfoTitle info="Coordinate payment and delivery directly with the buyer.">
+                      Shipping
+                    </InfoTitle>
                   </Box>
                   <Switch
                     checked={fulfillmentData.shippingAvailable}
@@ -828,9 +849,6 @@ function Sell() {
                     >
                       <Box>
                         <Typography variant="body1">Shipping Included</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          If off, buyers will see an added shipping cost
-                        </Typography>
                       </Box>
                       <Switch
                         checked={fulfillmentData.shippingIncluded}
@@ -848,7 +866,7 @@ function Sell() {
                         helperText={
                           hasAttemptedSubmit && !isShippingCostValid
                             ? "Enter a shipping price greater than $0."
-                            : "Set a shipping price greater than $0 that buyers should expect to pay you directly."
+                            : undefined
                         }
                         slotProps={{
                           htmlInput: {
@@ -869,10 +887,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <Typography variant="body1">Local Meetup</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Coordinate directly in chat and exchange offline
-                    </Typography>
+                    <InfoTitle info="Coordinate the general meetup area in the listing, then confirm the exact time and place in chat.">
+                      Local Meetup
+                    </InfoTitle>
                   </Box>
                   <Switch
                     checked={fulfillmentData.localMeetupAvailable}
@@ -880,18 +897,7 @@ function Sell() {
                   />
                 </Box>
                 {fulfillmentData.localMeetupAvailable && (
-                  <Box sx={{ mt: 2, mb: 2 }}>
-                    <Typography
-                      variant="body2"
-                      color={
-                        hasAttemptedSubmit && !isMeetupLocationValid
-                          ? "error"
-                          : "text.secondary"
-                      }
-                      gutterBottom
-                    >
-                      Enter a general meetup area: *
-                    </Typography>
+                  <Box sx={{ mb: 2 }}>
                     <Autocomplete
                       options={locationOptions}
                       freeSolo
@@ -936,7 +942,7 @@ function Sell() {
                           helperText={
                             hasAttemptedSubmit && !isMeetupLocationValid
                               ? "Enter a general meetup area."
-                              : "Keep this approximate, not an exact address."
+                              : undefined
                           }
                           error={hasAttemptedSubmit && !isMeetupLocationValid}
                           required
@@ -953,10 +959,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <Typography variant="body1">Competition Meetup</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Meet at selected competitions
-                    </Typography>
+                    <InfoTitle info="Select US competitions where this cube can be exchanged in person.">
+                      Competition Meetup
+                    </InfoTitle>
                   </Box>
                   <Switch
                     checked={fulfillmentData.competitionMeetupAvailable}
@@ -969,14 +974,6 @@ function Sell() {
 
               {fulfillmentData.competitionMeetupAvailable && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography
-                    variant="body2"
-                    color={hasAttemptedSubmit && !isCompetitionValid ? "error" : "text.secondary"}
-                    gutterBottom
-                  >
-                    Select competitions where this cube will be available for
-                    meetup: *
-                  </Typography>
                   <Autocomplete
                     multiple
                     options={competitions}
@@ -1011,7 +1008,7 @@ function Sell() {
                         helperText={
                           hasAttemptedSubmit && !isCompetitionValid
                             ? "Select at least one competition."
-                            : ""
+                            : undefined
                         }
                       />
                     )}
