@@ -17,7 +17,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Paper,
   Stack,
   Tab,
   Tabs,
@@ -26,6 +25,7 @@ import {
 import {
   CheckCircle,
   Delete,
+  Edit,
   MoreVert,
   PendingActions,
   RestoreFromTrash,
@@ -68,7 +68,6 @@ const COMPACT_CARD_GRID_SX = {
   },
   gap: 1.5,
 };
-
 function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -620,55 +619,109 @@ function Dashboard() {
         Dashboard
       </Typography>
 
-      <Stack spacing={3}>
-        <Paper sx={{ p: 3 }}>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ md: "center" }}>
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-              <Avatar src={currentUser?.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
-                {userName.charAt(0).toUpperCase()}
-              </Avatar>
-              <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={handleAvatarSelected} />
-              <Button variant="outlined" size="small" onClick={handleAvatarButtonClick} disabled={avatarUploading}>
-                {avatarUploading ? (
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CircularProgress size={14} />
-                    <Box component="span">Uploading...</Box>
-                  </Stack>
-                ) : (
-                  "Add Avatar"
-                )}
-              </Button>
-            </Box>
+      <Box>
+        <Box sx={{ pt: 1, pb: 2 }}>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={3}
+            alignItems={{ md: "flex-start" }}
+          >
+            <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ position: "relative", width: 82, height: 82, flexShrink: 0 }}>
+                <Avatar
+                  src={currentUser?.avatarUrl || undefined}
+                  sx={{
+                    width: 82,
+                    height: 82,
+                    border: "1px solid rgba(148, 163, 184, 0.22)",
+                    boxShadow: "none",
+                  }}
+                >
+                  {userName.charAt(0).toUpperCase()}
+                </Avatar>
+                <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={handleAvatarSelected} />
+                <IconButton
+                  size="small"
+                  aria-label="Edit avatar"
+                  onClick={handleAvatarButtonClick}
+                  disabled={avatarUploading}
+                  sx={{
+                    position: "absolute",
+                    right: -2,
+                    bottom: -2,
+                    bgcolor: "background.paper",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    boxShadow: "0 4px 12px rgba(31, 53, 99, 0.18)",
+                    "&:hover": {
+                      bgcolor: "background.paper",
+                    },
+                  }}
+                >
+                  {avatarUploading ? <CircularProgress size={16} /> : <Edit fontSize="small" />}
+                </IconButton>
+              </Box>
 
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h4" fontWeight="bold">
-                {userName}
-              </Typography>
-              {currentUser?.email && (
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {currentUser.email}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="h4"
+                  fontWeight="bold"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/user/${currentUser.uid}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      navigate(`/user/${currentUser.uid}`);
+                    }
+                  }}
+                  sx={{
+                    lineHeight: 1.15,
+                    cursor: "pointer",
+                    width: "fit-content",
+                    "&:hover": {
+                      color: "primary.main",
+                    },
+                    "&:focus-visible": {
+                      outline: "2px solid",
+                      outlineColor: "primary.main",
+                      outlineOffset: 3,
+                      borderRadius: 1,
+                    },
+                  }}
+                >
+                  {userName}
                 </Typography>
-              )}
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Member since {formatDate(currentUser?.createdAt)}
-              </Typography>
-            </Box>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    flexWrap: "wrap",
+                    mt: 0.75,
+                  }}
+                >
+                  <Star fontSize="inherit" />
+                  {reviewSummary.reviewCount > 0
+                    ? `${reviewSummary.averageRating?.toFixed(1)} · ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
+                    : "No reviews yet"}
+                  <Box component="span">·</Box>
+                  <Box component="span">Member since {formatDate(currentUser?.createdAt)}</Box>
+                </Typography>
+                {currentUser?.email && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                    {currentUser.email}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
 
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <Star fontSize="inherit" />
-                {reviewSummary.reviewCount > 0
-                  ? `${reviewSummary.averageRating?.toFixed(1)} · ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
-                  : "No reviews yet"}
-              </Typography>
-              <Button sx={{ mt: 1 }} variant="outlined" onClick={() => navigate(`/user/${currentUser.uid}`)}>
-                Public Profile
-              </Button>
-            </Box>
           </Stack>
-        </Paper>
+        </Box>
 
-        <Paper sx={{ p: 3 }}>
+        <Box sx={{ py: 2 }}>
           <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
             My Listings
           </Typography>
@@ -702,9 +755,9 @@ function Dashboard() {
               )}
             </>
           )}
-        </Paper>
+        </Box>
 
-        <Paper sx={{ p: 3 }}>
+        <Box sx={{ pt: 2, pb: 1 }}>
           <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
             My Purchases
           </Typography>
@@ -720,9 +773,8 @@ function Dashboard() {
               )}
             </>
           )}
-        </Paper>
-
-      </Stack>
+        </Box>
+      </Box>
 
       <Dialog open={deleteDialog.open} onClose={handleDeleteCancel} maxWidth="xs" fullWidth>
         <DialogTitle>Delete Listing</DialogTitle>

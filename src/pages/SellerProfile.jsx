@@ -21,6 +21,14 @@ import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { getS3PublicUrl } from "../utils/s3";
 
+const SOFT_PAGE_PANEL_SX = {
+  p: 0,
+  bgcolor: "rgba(255, 255, 255, 0.72)",
+  border: "1px solid rgba(148, 163, 184, 0.22)",
+  boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
+  overflow: "hidden",
+};
+
 function SellerProfile() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -134,7 +142,8 @@ function SellerProfile() {
         Back
       </Button>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={SOFT_PAGE_PANEL_SX}>
+      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }}>
           <Avatar src={seller.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
             {sellerName.charAt(0).toUpperCase()}
@@ -169,10 +178,9 @@ function SellerProfile() {
           </Box>
         </Stack>
 
-      </Paper>
+      </Box>
 
-      <Stack spacing={3}>
-        <Paper sx={{ p: 3 }}>
+      <Box sx={{ px: 3, py: 2 }}>
           <Typography variant="h5" gutterBottom fontWeight="bold">
             Active Listings
           </Typography>
@@ -332,9 +340,9 @@ function SellerProfile() {
               )}
             </Box>
           )}
-        </Paper>
+        </Box>
 
-        <Paper sx={{ p: 3 }}>
+        <Box sx={{ px: 3, pt: 2, pb: 3 }}>
           <Typography variant="h5" gutterBottom fontWeight="bold">
             Reviews
           </Typography>
@@ -373,8 +381,8 @@ function SellerProfile() {
               ))}
             </Stack>
           )}
-        </Paper>
-      </Stack>
+        </Box>
+      </Paper>
     </Box>
   );
 }
