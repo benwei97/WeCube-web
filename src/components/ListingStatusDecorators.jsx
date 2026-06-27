@@ -8,7 +8,7 @@ export const LISTING_CARD_GRID_SX = {
     md: "repeat(4, minmax(0, 1fr))",
     lg: "repeat(5, minmax(0, 1fr))",
   },
-  gap: { xs: 2, md: 2.5 },
+  gap: { xs: 1, md: 1.25 },
   alignItems: "stretch",
 };
 
@@ -17,9 +17,9 @@ export const LISTING_CARD_SX = {
   flexDirection: "column",
   position: "relative",
   height: "100%",
-  bgcolor: "transparent",
+  bgcolor: "rgba(248, 250, 252, 0.78)",
   boxShadow: "none",
-  border: 0,
+  border: "1px solid rgba(148, 163, 184, 0.22)",
   borderRadius: 2,
   overflow: "hidden",
   color: "text.primary",
@@ -42,8 +42,8 @@ export const LISTING_CARD_SX = {
     transition: "opacity 180ms ease",
   },
   "&:hover": {
-    bgcolor: "rgba(255, 255, 255, 0.92)",
-    boxShadow: "0 14px 34px rgba(31, 53, 99, 0.16)",
+    bgcolor: "transparent",
+    boxShadow: "0 14px 32px rgba(31, 53, 99, 0.18)",
   },
   "&:hover::after": {
     opacity: 1,

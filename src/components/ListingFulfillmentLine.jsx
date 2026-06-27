@@ -16,6 +16,7 @@ export default function ListingFulfillmentLine({ option }) {
 
   return (
     <Box
+      className="listing-fulfillment-line"
       sx={{
         display: "flex",
         alignItems: "center",
@@ -26,6 +27,7 @@ export default function ListingFulfillmentLine({ option }) {
     >
       {Icon && <Icon fontSize="small" sx={{ flexShrink: 0 }} />}
       <Typography
+        className="listing-fulfillment-text"
         variant="body2"
         sx={{
           fontWeight: 500,
