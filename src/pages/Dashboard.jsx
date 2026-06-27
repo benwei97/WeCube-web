@@ -101,6 +101,10 @@ const DASHBOARD_CARD_META_SX = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
 };
+const EMPTY_STATE_SX = {
+  py: 3,
+  color: "text.secondary",
+};
 function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -732,18 +736,30 @@ function Dashboard() {
             }}
             sx={{ mb: 2 }}
           >
-            <Tab label={`Active (${activeListings.length})`} value="active" />
-            <Tab label={`Pending (${pendingListings.length})`} value="pending" />
-            <Tab label={`Sold (${soldListings.length})`} value="sold" />
+            <Tab label="Active" value="active" />
+            <Tab label="Pending" value="pending" />
+            <Tab label="Sold" value="sold" />
           </Tabs>
           {visibleListings.length === 0 ? (
-            <Alert severity="info">
-              {listingTab === "sold"
-                ? "You do not have any sold listings yet."
-                : listingTab === "pending"
-                  ? "You do not have any pending listings yet."
-                  : "You do not have any active listings yet."}
-            </Alert>
+            <Box sx={EMPTY_STATE_SX}>
+              <Typography variant="body2">
+                {listingTab === "sold"
+                  ? "No sold listings yet."
+                  : listingTab === "pending"
+                    ? "No pending listings."
+                    : "No active listings yet."}
+              </Typography>
+              {listingTab === "active" && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => navigate("/sell")}
+                  sx={{ mt: 0.75, px: 0 }}
+                >
+                  List a cube
+                </Button>
+              )}
+            </Box>
           ) : (
             <>
               <Box sx={COMPACT_CARD_GRID_SX}>{displayedListings.map(renderListingCard)}</Box>
@@ -761,7 +777,9 @@ function Dashboard() {
             My Purchases
           </Typography>
           {purchases.length === 0 ? (
-            <Alert severity="info">You do not have any purchases yet.</Alert>
+            <Box sx={EMPTY_STATE_SX}>
+              <Typography variant="body2">No purchases yet.</Typography>
+            </Box>
           ) : (
             <>
               <Box sx={COMPACT_CARD_GRID_SX}>{displayedPurchases.map(renderPurchaseCard)}</Box>
