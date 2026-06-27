@@ -168,7 +168,6 @@ export function ListingCardMediaFrame({
   alt,
   isSold = false,
   isPending = false,
-  topLeftAdornment = null,
   imageSx = {},
   placeholderSx = {},
   placeholderLabel = "No Image",
@@ -194,7 +193,6 @@ export function ListingCardMediaFrame({
     >
       {isSold && <SoldRibbon />}
       {isPending && !isSold && <PendingBadge />}
-      {!isPending && topLeftAdornment}
       {imageUrl ? (
         <CardMedia
           className="listing-card-media-image"
