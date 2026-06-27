@@ -28,7 +28,7 @@ function App() {
               justifyContent: "center",
               width: "100vw",
               minHeight: "100vh",
-              bgcolor: "#f5f7fb",
+              bgcolor: "#ffffff",
             }}
           >
             <Routes>

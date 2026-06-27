@@ -23,6 +23,12 @@ import {
   getCacheStatus,
 } from "../utils/wcaApi";
 
+const SOFT_PANEL_SX = {
+  bgcolor: "rgba(255, 255, 255, 0.72)",
+  border: "1px solid rgba(148, 163, 184, 0.22)",
+  boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
+};
+
 function Competitions() {
   const COMPETITION_BATCH_SIZE = 50;
   const { currentUser } = useAuth();
@@ -224,7 +230,7 @@ function Competitions() {
           alignItems: "start",
         }}
       >
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: 3, ...SOFT_PANEL_SX }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
             Select a Competition
           </Typography>
@@ -273,7 +279,7 @@ function Competitions() {
                           variant="outlined"
                           sx={{
                             borderColor: "divider",
-                            bgcolor: "background.paper",
+                            bgcolor: "rgba(255, 255, 255, 0.76)",
                             transition:
                               "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
                             "&:hover": {
@@ -321,7 +327,7 @@ function Competitions() {
           )}
         </Card>
 
-        <Card sx={{ p: 3 }}>
+        <Card sx={{ p: 3, ...SOFT_PANEL_SX }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             My Competitions
           </Typography>

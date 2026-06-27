@@ -144,7 +144,16 @@ function Header() {
   };
   return (
     <>
-      <AppBar position="fixed" color="inherit" elevation={1}>
+      <AppBar
+        position="fixed"
+        color="inherit"
+        elevation={0}
+        sx={{
+          bgcolor: "#ffffff",
+          borderBottom: "1px solid rgba(148, 163, 184, 0.22)",
+          boxShadow: "0 1px 10px rgba(31, 53, 99, 0.06)",
+        }}
+      >
         <Toolbar sx={{ px: { xs: 2, md: 10 } }}>
           <Box
             component={Link}

@@ -60,6 +60,11 @@ const DEFAULT_LOCATION_FILTER = {
   includeShippableListings: true,
 };
 const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter_v3";
+const SOFT_PANEL_SX = {
+  bgcolor: "#ffffff",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  boxShadow: "0 2px 10px rgba(31, 53, 99, 0.04)",
+};
 
 function getLocationFilterStorageKey(userId) {
   return `${LOCATION_FILTER_STORAGE_PREFIX}_${userId || "guest"}`;
@@ -580,7 +585,7 @@ function Browse() {
       </Typography>
 
       {/* Search and Filter Bar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 3, ...SOFT_PANEL_SX }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             <TextField
