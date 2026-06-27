@@ -1374,7 +1374,7 @@ function ListingDetail() {
                   </Typography>
                   <Typography
                     variant="h4"
-                    color="primary"
+                    color="text.primary"
                     fontWeight={650}
                     sx={{ lineHeight: 1 }}
                   >

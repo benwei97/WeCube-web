@@ -879,7 +879,7 @@ function Browse() {
 
                   <Typography
                     variant="h5"
-                    color="primary"
+                    color="text.primary"
                     fontWeight={700}
                     sx={{ mb: 0, lineHeight: 1.05, fontSize: { xs: "1.05rem", sm: "1.18rem" } }}
                   >

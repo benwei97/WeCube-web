@@ -317,7 +317,7 @@ function SellerProfile() {
                           >
                             {listing.title}
                           </Typography>
-                          <Typography variant="body2" color="primary" fontWeight="bold">
+                          <Typography variant="body2" color="text.primary" fontWeight="bold">
                               {new Intl.NumberFormat("en-US", {
                                 style: "currency",
                                 currency: "USD",

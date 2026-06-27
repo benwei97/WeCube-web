@@ -439,7 +439,7 @@ function Dashboard() {
                   >
                     {listing.title}
                   </Typography>
-                  <Typography variant="body2" color="primary" fontWeight="bold">
+                  <Typography variant="body2" color="text.primary" fontWeight="bold">
                     {formatPrice(listing.price)}
                   </Typography>
                 </Box>
@@ -578,7 +578,7 @@ function Dashboard() {
               >
                 {listing.title}
               </Typography>
-              <Typography variant="body2" color="primary" fontWeight="bold">
+              <Typography variant="body2" color="text.primary" fontWeight="bold">
                 {formatPrice(listing.price)}
               </Typography>
               <Box sx={{ mt: 0.5 }}>
