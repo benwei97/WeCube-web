@@ -22,16 +22,16 @@ export default function ListingFulfillmentLine({ option }) {
         alignItems: "center",
         gap: 0.75,
         minWidth: 0,
-        color: "text.secondary",
+        color: "rgba(75, 85, 99, 0.82)",
       }}
     >
-      {Icon && <Icon fontSize="small" sx={{ flexShrink: 0 }} />}
+      {Icon && <Icon sx={{ flexShrink: 0, fontSize: 16 }} />}
       <Typography
         className="listing-fulfillment-text"
-        variant="body2"
+        variant="caption"
         sx={{
-          fontWeight: 500,
-          lineHeight: 1.15,
+          fontWeight: 400,
+          lineHeight: 1.2,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",

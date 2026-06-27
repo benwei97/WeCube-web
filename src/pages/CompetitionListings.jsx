@@ -340,7 +340,7 @@ function CompetitionListings() {
                       <Typography
                         variant="h5"
                         color="text.primary"
-                        fontWeight={700}
+                        fontWeight={600}
                         sx={{ mb: 0, lineHeight: 1.05, fontSize: { xs: "1.05rem", sm: "1.18rem" } }}
                       >
                         {formatPrice(cube.price)}

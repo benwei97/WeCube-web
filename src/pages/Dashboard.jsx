@@ -430,7 +430,7 @@ function Dashboard() {
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography
                     variant="subtitle1"
-                    fontWeight={700}
+                    fontWeight={500}
                     sx={{
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -439,7 +439,7 @@ function Dashboard() {
                   >
                     {listing.title}
                   </Typography>
-                  <Typography variant="body2" color="text.primary" fontWeight="bold">
+                  <Typography variant="body2" color="text.primary" fontWeight={600}>
                     {formatPrice(listing.price)}
                   </Typography>
                 </Box>
@@ -569,7 +569,7 @@ function Dashboard() {
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography
                 variant="subtitle1"
-                fontWeight={700}
+                fontWeight={500}
                 sx={{
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -578,7 +578,7 @@ function Dashboard() {
               >
                 {listing.title}
               </Typography>
-              <Typography variant="body2" color="text.primary" fontWeight="bold">
+              <Typography variant="body2" color="text.primary" fontWeight={600}>
                 {formatPrice(listing.price)}
               </Typography>
               <Box sx={{ mt: 0.5 }}>

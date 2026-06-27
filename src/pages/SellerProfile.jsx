@@ -308,7 +308,7 @@ function SellerProfile() {
                         <Box sx={{ minWidth: 0, flex: 1 }}>
                           <Typography
                             variant="subtitle1"
-                            fontWeight={700}
+                            fontWeight={500}
                             sx={{
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -317,7 +317,7 @@ function SellerProfile() {
                           >
                             {listing.title}
                           </Typography>
-                          <Typography variant="body2" color="text.primary" fontWeight="bold">
+                          <Typography variant="body2" color="text.primary" fontWeight={600}>
                               {new Intl.NumberFormat("en-US", {
                                 style: "currency",
                                 currency: "USD",

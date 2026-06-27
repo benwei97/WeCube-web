@@ -81,7 +81,7 @@ export const LISTING_CARD_TITLE_SX = {
   minHeight: "2.35rem",
   lineHeight: 1.18,
   fontSize: { xs: "0.92rem", sm: "0.98rem" },
-  fontWeight: 600,
+  fontWeight: 500,
   mb: 0,
 };
 
