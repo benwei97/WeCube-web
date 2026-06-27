@@ -11,6 +11,7 @@ import {
   Button,
   Stack,
   Grid,
+  Divider,
   IconButton,
   Switch,
   FormGroup,
@@ -599,8 +600,8 @@ function Sell() {
             borderColor: isPhotosInvalid ? "error.main" : undefined,
           }}
         >
-          {" "}
-          <CardContent sx={{ p: 3 }}>
+          <CardContent sx={{ p: 0 }}>
+          <Box sx={{ px: 3, pt: 3, pb: 2 }}>
             <Typography
               variant="subtitle1"
               component="h2"
@@ -700,15 +701,9 @@ function Sell() {
                 Add at least one photo.
               </FormHelperText>
             )}
-          </CardContent>
-        </Card>
+          </Box>
 
-        <Card
-          variant="outlined"
-          sx={SOFT_FORM_CARD_SX}
-        >
-          {" "}
-          <CardContent sx={{ p: 3 }}>
+          <Box sx={{ px: 3, py: 2 }}>
             <Typography
               variant="subtitle1"
               component="h2"
@@ -821,14 +816,9 @@ function Sell() {
               />
 
             </Stack>
-          </CardContent>
-        </Card>
+          </Box>
 
-        <Card
-          variant="outlined"
-          sx={SOFT_FORM_CARD_SX}
-        >
-          <CardContent sx={{ p: 3 }}>
+          <Box sx={{ px: 3, pt: 2, pb: 3 }}>
             <InfoTitle
               variant="subtitle1"
               fontWeight="bold"
@@ -1120,6 +1110,7 @@ function Sell() {
                 </FormHelperText>
               )}
             </FormControl>
+          </Box>
           </CardContent>
         </Card>
 
