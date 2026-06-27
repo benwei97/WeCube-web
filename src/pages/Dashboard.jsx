@@ -68,6 +68,39 @@ const COMPACT_CARD_GRID_SX = {
   },
   gap: 1.5,
 };
+const DASHBOARD_COMPACT_CARD_SX = {
+  cursor: "pointer",
+  minHeight: 96,
+  height: "100%",
+  transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+  "&:hover": {
+    transform: "translateY(-2px)",
+    boxShadow: 2,
+    borderColor: "primary.main",
+  },
+  "&:focus-visible": {
+    outline: "2px solid",
+    outlineColor: "primary.main",
+    outlineOffset: 2,
+  },
+};
+const DASHBOARD_COMPACT_CONTENT_SX = {
+  p: 1.5,
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  gap: 1.25,
+  "&:last-child": { pb: 1.5 },
+};
+const DASHBOARD_CARD_META_SX = {
+  mt: 0.5,
+  minHeight: 18,
+  display: "block",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
 function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -347,29 +380,12 @@ function Dashboard() {
           }
         }}
         sx={{
-          cursor: "pointer",
-          transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
-          "&:hover": {
-            transform: "translateY(-2px)",
-            boxShadow: 2,
-            borderColor: "primary.main",
-          },
-          "&:focus-visible": {
-            outline: "2px solid",
-            outlineColor: "primary.main",
-            outlineOffset: 2,
-          },
+          ...DASHBOARD_COMPACT_CARD_SX,
         }}
         variant="outlined"
       >
         <CardContent
-          sx={{
-            p: 1.5,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.25,
-          }}
+          sx={DASHBOARD_COMPACT_CONTENT_SX}
         >
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
             <Box
@@ -477,7 +493,7 @@ function Dashboard() {
                 <ListingFulfillmentLine option={fulfillmentOption} />
               </Box>
               {(soldDate || pendingDate) && (
-                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" component="div" sx={DASHBOARD_CARD_META_SX}>
                   {soldDate ? `Sold on ${soldDate}` : `Pending since ${pendingDate}`}
                 </Typography>
               )}
@@ -507,28 +523,11 @@ function Dashboard() {
         }}
         variant="outlined"
         sx={{
-          cursor: "pointer",
-          transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
-          "&:hover": {
-            transform: "translateY(-2px)",
-            boxShadow: 2,
-            borderColor: "primary.main",
-          },
-          "&:focus-visible": {
-            outline: "2px solid",
-            outlineColor: "primary.main",
-            outlineOffset: 2,
-          },
+          ...DASHBOARD_COMPACT_CARD_SX,
         }}
       >
         <CardContent
-          sx={{
-            p: 1.5,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.25,
-          }}
+          sx={DASHBOARD_COMPACT_CONTENT_SX}
         >
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
             <Box
@@ -581,7 +580,7 @@ function Dashboard() {
               <Box sx={{ mt: 0.5 }}>
                 <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
               </Box>
-              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" component="div" sx={DASHBOARD_CARD_META_SX}>
                 Purchased on {formatDate(listing.soldAt)}
                 {existingReview
                   ? ` · Reviewed: ${Number(existingReview.rating || 0).toFixed(1)} stars`
@@ -615,7 +614,7 @@ function Dashboard() {
 
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-      <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+      <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 3 }}>
         Dashboard
       </Typography>
 
@@ -664,8 +663,8 @@ function Dashboard() {
 
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  variant="h4"
-                  fontWeight="bold"
+                  variant="h5"
+                  fontWeight={700}
                   role="button"
                   tabIndex={0}
                   onClick={() => navigate(`/user/${currentUser.uid}`)}
