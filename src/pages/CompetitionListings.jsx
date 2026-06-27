@@ -4,11 +4,13 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
+  Paper,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
+import { Event, LocationOn, Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -39,6 +41,7 @@ function CompetitionListings() {
   const [cubes, setCubes] = useState([]);
   const [loadingCompetition, setLoadingCompetition] = useState(!location.state?.competition);
   const [loadingCubes, setLoadingCubes] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState(null);
   const returnTo = location.state?.returnTo;
   useEffect(() => {
@@ -127,6 +130,32 @@ function CompetitionListings() {
       currency: "USD",
     }).format(price);
 
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredCubes = normalizedSearchTerm
+    ? cubes.filter((cube) => {
+        const normalizedListing = {
+          ...cube,
+          ...getNormalizedFulfillmentFields(cube),
+        };
+        const fulfillmentOption = getPrimaryFulfillmentOption(
+          normalizedListing,
+          { competitionId }
+        );
+        const searchableText = [
+          cube.title,
+          cube.description,
+          cube.brand,
+          cube.puzzleType,
+          fulfillmentOption?.label,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchableText.includes(normalizedSearchTerm);
+      })
+    : cubes;
+
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Button
@@ -149,34 +178,83 @@ function CompetitionListings() {
           <Typography variant="body1">Loading competition...</Typography>
         </Stack>
       ) : competition ? (
-        <Card sx={{ mb: 4, p: 3, bgcolor: "primary.50" }}>
-          <Typography variant="h4" gutterBottom color="primary" fontWeight="bold">
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h3"
+            component={competition.website ? "a" : "h1"}
+            href={competition.website || undefined}
+            target={competition.website ? "_blank" : undefined}
+            rel={competition.website ? "noreferrer" : undefined}
+            sx={{
+              mb: 1,
+              display: "inline-block",
+              color: "text.primary",
+              textDecoration: "none",
+              "&:hover": competition.website
+                ? { color: "primary.main", textDecoration: "underline" }
+                : undefined,
+            }}
+            fontWeight="bold"
+          >
             {competition.name}
           </Typography>
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
-            <Chip label={`${competition.city}, ${competition.country}`} />
-            <Chip label={competition.dateRange} />
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={{ xs: 0.75, sm: 2 }}
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ color: "text.secondary" }}
+          >
+            {[competition.city, competition.country].filter(Boolean).length > 0 && (
+              <Typography
+                variant="body2"
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                <LocationOn fontSize="small" />
+                {[competition.city, competition.country].filter(Boolean).join(", ")}
+              </Typography>
+            )}
+            {competition.dateRange && (
+              <Typography
+                variant="body2"
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                <Event fontSize="small" />
+                {competition.dateRange}
+              </Typography>
+            )}
           </Stack>
-          {competition.website && (
-            <Button
+          <Paper
+            sx={{
+              p: 2,
+              mt: 3,
+              bgcolor: "#ffffff",
+              border: "1px solid rgba(148, 163, 184, 0.14)",
+              boxShadow: "0 2px 10px rgba(31, 53, 99, 0.04)",
+            }}
+          >
+            <TextField
+              placeholder="Search cubes..."
               variant="outlined"
-              size="small"
-              href={competition.website}
-              target="_blank"
-            >
-              Competition Website
-            </Button>
-          )}
-        </Card>
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              fullWidth
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <Search sx={{ mr: 1, color: "text.secondary" }} />
+                  ),
+                },
+              }}
+            />
+          </Paper>
+        </Box>
       ) : null}
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          Available Cubes
-        </Typography>
+      <Box sx={{ mb: 2 }}>
         {!loadingCubes && (
           <Typography variant="body2" color="text.secondary">
-            {cubes.length} {cubes.length === 1 ? "listing" : "listings"}
+            {filteredCubes.length} {filteredCubes.length === 1 ? "cube" : "cubes"} found
           </Typography>
         )}
       </Box>
@@ -186,18 +264,20 @@ function CompetitionListings() {
           <CircularProgress size={20} />
           <Typography variant="body1">Loading listings...</Typography>
         </Stack>
-      ) : cubes.length === 0 ? (
-        <Card sx={{ p: 4, textAlign: "center" }}>
-          <Typography variant="h6" gutterBottom>
-            No cubes available yet
+      ) : filteredCubes.length === 0 ? (
+        <Box sx={{ py: 8, textAlign: "center" }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            {cubes.length === 0 ? "No cubes available yet" : "No cubes found"}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Be the first to list a cube for this competition.
+            {cubes.length === 0
+              ? "Be the first to list a cube for this competition."
+              : "Try a different search term."}
           </Typography>
-        </Card>
+        </Box>
       ) : (
         <Box sx={LISTING_CARD_GRID_SX}>
-          {cubes.map((cube) => {
+          {filteredCubes.map((cube) => {
             const normalizedListing = {
               ...cube,
               ...getNormalizedFulfillmentFields(cube),
