@@ -65,6 +65,28 @@ const SOFT_PANEL_SX = {
   border: "1px solid rgba(148, 163, 184, 0.14)",
   boxShadow: "0 2px 10px rgba(31, 53, 99, 0.04)",
 };
+const LOCATION_FILTER_BUTTON_SX = {
+  whiteSpace: "nowrap",
+  maxWidth: { xs: 160, sm: 280 },
+  color: "text.primary",
+  borderColor: "rgba(148, 163, 184, 0.22)",
+  "&:hover": {
+    borderColor: "primary.main",
+    bgcolor: "rgba(100, 108, 255, 0.04)",
+  },
+  "&.MuiButton-contained": {
+    color: "text.primary",
+    border: "1px solid",
+    borderColor: "primary.main",
+    bgcolor: "rgba(100, 108, 255, 0.08)",
+    boxShadow: "none",
+    "&:hover": {
+      borderColor: "primary.main",
+      bgcolor: "rgba(100, 108, 255, 0.12)",
+      boxShadow: "none",
+    },
+  },
+};
 
 function getLocationFilterStorageKey(userId) {
   return `${LOCATION_FILTER_STORAGE_PREFIX}_${userId || "guest"}`;
@@ -606,7 +628,7 @@ function Browse() {
               variant={hasLocationFilter ? "contained" : "outlined"}
               startIcon={<LocationOn />}
               onClick={handleOpenLocationFilter}
-              sx={{ whiteSpace: "nowrap", maxWidth: { xs: 160, sm: 280 } }}
+              sx={LOCATION_FILTER_BUTTON_SX}
             >
               <Box
                 component="span"

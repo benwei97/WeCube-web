@@ -86,6 +86,15 @@ import {
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
 
+const BACK_BUTTON_SX = {
+  color: "text.primary",
+  borderColor: "rgba(148, 163, 184, 0.22)",
+  "&:hover": {
+    borderColor: "primary.main",
+    bgcolor: "rgba(100, 108, 255, 0.04)",
+  },
+};
+
 function FulfillmentInfoTitle({ children, info }) {
   return (
     <Typography
@@ -1054,7 +1063,7 @@ function ListingDetail() {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
         <Typography variant="h4">Listing not found</Typography>
-        <Button onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+        <Button onClick={() => navigate(-1)} variant="outlined" sx={{ mt: 2, ...BACK_BUTTON_SX }}>
           Back
         </Button>
       </Box>
@@ -1118,6 +1127,7 @@ function ListingDetail() {
         <Button
           onClick={() => (cameFromPublish ? navigate("/") : navigate(-1))}
           variant="outlined"
+          sx={BACK_BUTTON_SX}
         >
           {cameFromPublish ? "← Home" : "← Back"}
         </Button>

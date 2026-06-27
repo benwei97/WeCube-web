@@ -33,6 +33,15 @@ import { getCompetitionById } from "../utils/wcaApi";
 import { getS3PublicUrl } from "../utils/s3";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
+const BACK_BUTTON_SX = {
+  color: "text.primary",
+  borderColor: "rgba(148, 163, 184, 0.22)",
+  "&:hover": {
+    borderColor: "primary.main",
+    bgcolor: "rgba(100, 108, 255, 0.04)",
+  },
+};
+
 function CompetitionListings() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -161,7 +170,7 @@ function CompetitionListings() {
       <Button
         onClick={() => navigate(returnTo || "/competitions")}
         variant="outlined"
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, ...BACK_BUTTON_SX }}
       >
         ← {returnTo ? "Back to Listing" : "Back"}
       </Button>

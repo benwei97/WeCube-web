@@ -29,6 +29,15 @@ const SOFT_PAGE_PANEL_SX = {
   overflow: "hidden",
 };
 
+const BACK_BUTTON_SX = {
+  color: "text.primary",
+  borderColor: "rgba(148, 163, 184, 0.22)",
+  "&:hover": {
+    borderColor: "primary.main",
+    bgcolor: "rgba(100, 108, 255, 0.04)",
+  },
+};
+
 function SellerProfile() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -124,7 +133,7 @@ function SellerProfile() {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
         <Typography variant="h4">Profile not found</Typography>
-        <Button onClick={() => navigate(-1)} sx={{ mt: 2 }} variant="outlined">
+        <Button onClick={() => navigate(-1)} sx={{ mt: 2, ...BACK_BUTTON_SX }} variant="outlined">
           Back
         </Button>
       </Box>
@@ -137,7 +146,7 @@ function SellerProfile() {
         onClick={() => navigate(-1)}
         variant="outlined"
         startIcon={<ArrowBack />}
-        sx={{ mb: 3 }}
+        sx={{ mb: 3, ...BACK_BUTTON_SX }}
       >
         Back
       </Button>
