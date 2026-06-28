@@ -919,20 +919,20 @@ function ListingDetail() {
 
       await updateDoc(doc(db, "listings", id), updates);
       let reviewPromptSent = false;
-      if (selectedBuyer) {
-        try {
-          await closeListingConversationsForSold(
-            id,
-            listing.userId,
-            sellerFirstName,
-            listing.title,
-            saleEventId,
-            selectedBuyer.conversationId
-          );
+      try {
+        await closeListingConversationsForSold(
+          id,
+          listing.userId,
+          sellerFirstName,
+          listing.title,
+          saleEventId,
+          selectedBuyer?.conversationId || null
+        );
+        if (selectedBuyer) {
           reviewPromptSent = true;
-        } catch (promptError) {
-          console.error("Error sending sold review prompt:", promptError);
         }
+      } catch (promptError) {
+        console.error("Error sending sold conversation updates:", promptError);
       }
       setListing((prev) => ({
         ...prev,

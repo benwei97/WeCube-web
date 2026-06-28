@@ -1055,16 +1055,18 @@ function Messages() {
                         sx={{
                           display: "flex",
                           justifyContent: "center",
-                          my: 1.5,
+                          my: 2,
                         }}
                       >
                         <Box
                           sx={{
                             px: 1.5,
-                            py: 0.75,
+                            py: 0.5,
                             borderRadius: 999,
-                            bgcolor: "grey.100",
+                            bgcolor: "background.default",
                             color: "text.secondary",
+                            border: "1px solid",
+                            borderColor: "divider",
                             display: "inline-flex",
                             alignItems: "center",
                             maxWidth: "85%",
@@ -1072,7 +1074,7 @@ function Messages() {
                         >
                           <Typography
                             variant="caption"
-                            sx={{ fontWeight: 500, textAlign: "center" }}
+                            sx={{ fontWeight: 600, textAlign: "center" }}
                           >
                             {message.text}
                           </Typography>

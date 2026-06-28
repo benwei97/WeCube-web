@@ -287,11 +287,9 @@ export async function closeListingConversationsForSold(
   soldConversationId = null
 ) {
   try {
-    if (!soldConversationId) {
-      return;
-    }
-
-    const soldMessage = `${sellerFirstName || "Seller"} marked ${listingTitle} as sold. Rate your experience?`;
+    const sellerName = sellerFirstName || "Seller";
+    const soldNoticeMessage = `${sellerName} marked "${listingTitle}" as sold.`;
+    const reviewPromptMessage = `${sellerName} marked "${listingTitle}" as sold. Rate your experience?`;
     const conversationsQuery = query(
       collection(db, "conversations"),
       where("listingId", "==", listingId),
@@ -303,11 +301,9 @@ export async function closeListingConversationsForSold(
     for (const conversationDoc of snapshot.docs) {
       const conversationRef = doc(db, "conversations", conversationDoc.id);
       const conversation = conversationDoc.data();
+      const isSoldBuyerConversation = conversationDoc.id === soldConversationId;
 
-      if (
-        conversation.status === "rejected" ||
-        conversationDoc.id !== soldConversationId
-      ) {
+      if (conversation.status === "rejected") {
         continue;
       }
 
@@ -316,6 +312,26 @@ export async function closeListingConversationsForSold(
           status: "approved",
           updatedAt: serverTimestamp(),
         });
+      }
+
+      if (!isSoldBuyerConversation) {
+        await addDoc(collection(db, "messages"), {
+          conversationId: conversationDoc.id,
+          senderId: sellerId,
+          text: soldNoticeMessage,
+          type: "system",
+          createdAt: serverTimestamp(),
+        });
+
+        await updateDoc(conversationRef, {
+          lastMessage: soldNoticeMessage,
+          lastMessageType: "system",
+          lastMessageReviewPrompt: false,
+          lastMessageAt: serverTimestamp(),
+          lastMessageSenderId: sellerId,
+          updatedAt: serverTimestamp(),
+        });
+        continue;
       }
 
       let buyerName = "Buyer";
@@ -336,12 +352,12 @@ export async function closeListingConversationsForSold(
       await addDoc(collection(db, "messages"), {
         conversationId: conversationDoc.id,
         senderId: sellerId,
-        text: soldMessage,
+        text: reviewPromptMessage,
         type: "system",
         reviewPrompt: true,
         saleEventId,
         listingTitle,
-        sellerName: sellerFirstName || "Seller",
+        sellerName,
         buyerName,
         reviewResponses: {},
         createdAt: serverTimestamp(),
@@ -352,7 +368,7 @@ export async function closeListingConversationsForSold(
         lastMessageType: "system",
         lastMessageReviewPrompt: true,
         lastMessageListingTitle: listingTitle,
-        lastMessageSellerName: sellerFirstName || "Seller",
+        lastMessageSellerName: sellerName,
         lastMessageBuyerName: buyerName,
         lastMessageAt: serverTimestamp(),
         lastMessageSenderId: sellerId,
