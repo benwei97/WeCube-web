@@ -21,7 +21,7 @@ import { db } from "../../firebase";
  *   listingId: string,
  *   sellerId: string,
  *   buyerId: string,
- *   status: 'approved' | 'rejected',
+ *   status: 'pending' | 'approved' | 'rejected',
  *   createdAt: timestamp,
  *   updatedAt: timestamp,
  *   lastMessage: string,

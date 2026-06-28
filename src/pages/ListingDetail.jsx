@@ -740,7 +740,7 @@ function ListingDetail() {
       console.error("Error sending message:", error);
       setMessageSnackbar({
         severity: "error",
-        message: error.message || "Failed to send message.",
+        message: "Unable to send your message right now. Please try again.",
       });
     } finally {
       setSendingMessage(false);
