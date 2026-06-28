@@ -1110,8 +1110,8 @@ function ListingDetail() {
         display: { lg: "flex" },
         flexDirection: { lg: "column" },
         mx: "auto",
-        px: { xs: 2, md: 3 },
-        py: { xs: 3, lg: 2 },
+        px: { xs: 1.5, md: 2.5 },
+        py: { xs: 2, lg: 1.5 },
         mt: { xs: 1, lg: 0 },
       }}
     >
@@ -1120,7 +1120,7 @@ function ListingDetail() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: { xs: 3, lg: 2 },
+          mb: { xs: 2, lg: 1.25 },
           flexShrink: 0,
         }}
       >
@@ -1198,7 +1198,7 @@ function ListingDetail() {
 
       <Grid
         container
-        spacing={3.5}
+        spacing={{ xs: 2, lg: 2.5 }}
         alignItems="stretch"
         sx={{
           flex: { lg: 1 },
@@ -1211,7 +1211,7 @@ function ListingDetail() {
           <Paper
             variant="outlined"
             sx={{
-              p: { xs: 1, md: 1.5 },
+              p: { xs: 0.75, md: 1 },
               position: { lg: "sticky" },
               top: { lg: 24 },
               height: { lg: "100%" },
@@ -1223,7 +1223,7 @@ function ListingDetail() {
             }}
           >
             {activePhoto ? (
-              <Stack spacing={1.5} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
+              <Stack spacing={1} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
                 <Box
                   sx={{
                     position: "relative",
@@ -1356,103 +1356,85 @@ function ListingDetail() {
           <Paper
             variant="outlined"
             sx={{
-              p: { xs: 2.25, md: 3 },
+              p: { xs: 1.75, md: 2.25 },
               borderColor: "divider",
               boxShadow: "0 10px 28px rgba(31, 53, 99, 0.07)",
             }}
           >
-            <Stack spacing={2.75}>
+            <Stack spacing={1.6}>
               <Box>
-                <Box>
-                  <Typography
-                    variant="h4"
-                    component="h1"
-                    fontWeight={650}
-                    sx={{ lineHeight: 1.14, mb: 1 }}
-                  >
-                    {listing.title}
-                  </Typography>
-                  <Typography
-                    variant="h4"
-                    color="text.primary"
-                    fontWeight={650}
-                    sx={{ lineHeight: 1 }}
-                  >
-                    {formatPrice(listing.price)}
-                  </Typography>
-                </Box>
-
-                <Stack
-                  spacing={1}
-                  sx={{
-                    mt: 2,
-                    p: 1.5,
-                    borderRadius: 1.5,
-                    bgcolor: "grey.50",
-                    border: 1,
-                    borderColor: "divider",
-                  }}
+                <Typography
+                  variant="h4"
+                  component="h1"
+                  fontWeight={600}
+                  sx={{ lineHeight: 1.12, mb: 0.5 }}
                 >
-                  <Stack direction="row" justifyContent="space-between" spacing={2}>
-                    <Typography variant="body2" color="text.secondary">
-                      Condition
-                    </Typography>
-                    <Typography variant="body2" fontWeight={600} textAlign="right">
-                      {getConditionLabel(listing.condition)}
-                    </Typography>
-                  </Stack>
-                  {listing.brand && (
-                    <Stack direction="row" justifyContent="space-between" spacing={2}>
-                      <Typography variant="body2" color="text.secondary">
-                        Brand
-                      </Typography>
-                      <Typography variant="body2" fontWeight={600} textAlign="right">
-                        {listing.brand}
-                      </Typography>
-                    </Stack>
-                  )}
-                  {listedLocationLabel && (
-                    <Stack direction="row" justifyContent="space-between" spacing={2}>
-                      <Typography variant="body2" color="text.secondary">
-                        Listed in
-                      </Typography>
-                      <Typography variant="body2" fontWeight={600} textAlign="right">
-                        {listedLocationLabel}
-                      </Typography>
-                    </Stack>
-                  )}
-                </Stack>
-
-                {!isOwner && (
-                  <Stack spacing={1.25}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="large"
-                      fullWidth
-                      onClick={handleMessageAction}
-                      disabled={isListingUnavailable || isMessageButtonDisabled()}
-                    >
-                      {listing.status === "sold" ? "Sold" : primaryActionText}
-                    </Button>
-                    <Typography variant="body2" color="text.secondary">
-                      {primaryActionHelperText}
-                    </Typography>
-                  </Stack>
-                )}
+                  {listing.title}
+                </Typography>
+                <Typography
+                  variant="h4"
+                  color="text.primary"
+                  fontWeight={600}
+                  sx={{ lineHeight: 1 }}
+                >
+                  {formatPrice(listing.price)}
+                </Typography>
               </Box>
 
-              <Divider />
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  columnGap: 2,
+                  rowGap: 0.7,
+                  py: 0.5,
+                }}
+              >
+                {[
+                  ["Condition", getConditionLabel(listing.condition)],
+                  listing.brand ? ["Brand", listing.brand] : null,
+                  listedLocationLabel ? ["Listed in", listedLocationLabel] : null,
+                ]
+                  .filter(Boolean)
+                  .map(([label, value]) => (
+                    <Box key={label} sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {label}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={500} noWrap>
+                        {value}
+                      </Typography>
+                    </Box>
+                  ))}
+              </Box>
 
-              <Box>
-                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
+              {!isOwner && (
+                <Stack spacing={0.75}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    fullWidth
+                    onClick={handleMessageAction}
+                    disabled={isListingUnavailable || isMessageButtonDisabled()}
+                  >
+                    {listing.status === "sold" ? "Sold" : primaryActionText}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    {primaryActionHelperText}
+                  </Typography>
+                </Stack>
+              )}
+
+              <Box sx={{ pt: 1.2, borderTop: 1, borderColor: "divider" }}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.6 }}>
                   Description
                 </Typography>
                 <Typography
-                  variant="body1"
+                  variant="body2"
                   sx={{
                     whiteSpace: "pre-wrap",
-                    lineHeight: 1.65,
+                    lineHeight: 1.5,
                     color: "text.primary",
                     ...(shouldCollapseDescription && !showFullDescription
                       ? {
@@ -1469,7 +1451,8 @@ function ListingDetail() {
                 {shouldCollapseDescription && (
                   <Button
                     variant="text"
-                    sx={{ mt: 1, px: 0, alignSelf: "flex-start" }}
+                    size="small"
+                    sx={{ mt: 0.5, px: 0, alignSelf: "flex-start" }}
                     onClick={() => setShowFullDescription((prev) => !prev)}
                   >
                     {showFullDescription ? "Show less" : "See more"}
@@ -1477,113 +1460,75 @@ function ListingDetail() {
                 )}
               </Box>
 
-              <Divider />
-
-              <Box>
-                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
+              <Box sx={{ pt: 1.2, borderTop: 1, borderColor: "divider" }}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.75 }}>
                   Fulfillment
                 </Typography>
 
-                <Stack spacing={1.25}>
-                {listing.localMeetupAvailable && (
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: "divider",
-                      borderRadius: 1.5,
-                      bgcolor: "grey.50",
-                    }}
-                  >
-                    <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
-                      Local Meetup
-                    </FulfillmentInfoTitle>
-                    <Typography
-                      variant="body1"
-                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                    >
-                      <LocationOn fontSize="small" />
-                      {listing.meetupLocationLabel || "Meetup area"}
-                    </Typography>
-                    <ApproximateMeetupMap
-                      location={listing.meetupLocation}
-                      label={listing.meetupLocationLabel}
-                    />
-                  </Box>
-                )}
+                <Stack spacing={0.9}>
+                  {listing.localMeetupAvailable && (
+                    <Box>
+                      <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
+                        Local Meetup
+                      </FulfillmentInfoTitle>
+                      <Typography
+                        variant="body2"
+                        sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500, mb: 0.75 }}
+                      >
+                        <LocationOn fontSize="small" />
+                        {listing.meetupLocationLabel || "Meetup area"}
+                      </Typography>
+                      <ApproximateMeetupMap
+                        location={listing.meetupLocation}
+                        label={listing.meetupLocationLabel}
+                      />
+                    </Box>
+                  )}
 
-                {listing.competitionMeetupAvailable && (
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: "divider",
-                      borderRadius: 1.5,
-                      bgcolor: "grey.50",
-                    }}
-                  >
-                    <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
-                      Competition Meetup
-                    </FulfillmentInfoTitle>
-                    <Typography
-                      variant="body1"
-                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600, mb: meetupCompetitionTags.length > 0 ? 1.25 : 0 }}
-                    >
-                      <Groups fontSize="small" />
-                      Available at selected competitions
-                    </Typography>
-                    {meetupCompetitionTags.length > 0 && (
-                      <Stack spacing={1}>
-                        {visibleCompetitionMeetups.map((competition) => (
-                          <Paper
-                            key={competition.id || competition.name}
-                            variant="outlined"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleViewCompetitionListings(competition)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                handleViewCompetitionListings(competition);
-                              }
-                            }}
-                            sx={{
-                              p: 1.25,
-                              cursor: "pointer",
-                              borderRadius: 1.5,
-                              bgcolor: "background.paper",
-                              transition:
-                                "background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s",
-                              "&:hover": {
-                                borderColor: "primary.main",
-                                boxShadow: 2,
-                                transform: "translateY(-1px)",
-                              },
-                              "&:focus-visible": {
-                                outline: "2px solid",
-                                outlineColor: "primary.main",
-                                outlineOffset: 2,
-                              },
-                            }}
-                          >
-                            <Stack direction="row" spacing={1.25} alignItems="center">
-                              <Box
-                                sx={{
-                                  width: 36,
-                                  height: 36,
-                                  borderRadius: "50%",
-                                  bgcolor: "primary.50",
+                  {listing.competitionMeetupAvailable && (
+                    <Box>
+                      <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
+                        Competition Meetup
+                      </FulfillmentInfoTitle>
+                      {meetupCompetitionTags.length > 0 ? (
+                        <Stack spacing={0.4}>
+                          {visibleCompetitionMeetups.map((competition) => (
+                            <Box
+                              key={competition.id || competition.name}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => handleViewCompetitionListings(competition)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  handleViewCompetitionListings(competition);
+                                }
+                              }}
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.9,
+                                minWidth: 0,
+                                py: 0.55,
+                                px: 0.6,
+                                mx: -0.6,
+                                borderRadius: 1,
+                                cursor: "pointer",
+                                transition: "background-color 0.2s, color 0.2s",
+                                "&:hover": {
+                                  bgcolor: "action.hover",
                                   color: "primary.main",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <Groups fontSize="small" />
-                              </Box>
+                                },
+                                "&:focus-visible": {
+                                  outline: "2px solid",
+                                  outlineColor: "primary.main",
+                                  outlineOffset: 2,
+                                },
+                              }}
+                            >
+                              <Groups sx={{ fontSize: 18, color: "text.primary", flexShrink: 0 }} />
                               <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Typography variant="body2" fontWeight={650} noWrap>
+                                <Typography variant="body2" fontWeight={500} noWrap>
                                   {competition.name}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" noWrap component="div">
@@ -1593,66 +1538,63 @@ function ListingDetail() {
                                   {competition.dateRange ? ` • ${competition.dateRange}` : ""}
                                 </Typography>
                               </Box>
-                            </Stack>
-                          </Paper>
-                        ))}
-                        {meetupCompetitionTags.length > 3 && (
-                          <Button
-                            variant="text"
-                            size="small"
-                            onClick={() =>
-                              setShowAllCompetitionMeetups((prev) => !prev)
-                            }
-                            sx={{ alignSelf: "flex-start", px: 0 }}
-                          >
-                            {showAllCompetitionMeetups
-                              ? "Show fewer competitions"
-                              : `Show ${hiddenCompetitionMeetupCount} more ${
-                                  hiddenCompetitionMeetupCount === 1
-                                    ? "competition"
-                                    : "competitions"
-                                }`}
-                          </Button>
-                        )}
-                      </Stack>
-                    )}
-                  </Box>
-                )}
+                            </Box>
+                          ))}
+                          {meetupCompetitionTags.length > 3 && (
+                            <Button
+                              variant="text"
+                              size="small"
+                              onClick={() =>
+                                setShowAllCompetitionMeetups((prev) => !prev)
+                              }
+                              sx={{ alignSelf: "flex-start", px: 0 }}
+                            >
+                              {showAllCompetitionMeetups
+                                ? "Show fewer competitions"
+                                : `Show ${hiddenCompetitionMeetupCount} more ${
+                                    hiddenCompetitionMeetupCount === 1
+                                      ? "competition"
+                                      : "competitions"
+                                  }`}
+                            </Button>
+                          )}
+                        </Stack>
+                      ) : (
+                        <Typography
+                          variant="body2"
+                          sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
+                        >
+                          <Groups fontSize="small" />
+                          Available at selected competitions
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
 
-                {listing.shippingAvailable && (
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      border: 1,
-                      borderColor: "divider",
-                      borderRadius: 1.5,
-                      bgcolor: "grey.50",
-                    }}
-                  >
-                    <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
-                      Shipping & Returns
-                    </FulfillmentInfoTitle>
-                    <Typography
-                      variant="body1"
-                      sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 600 }}
-                    >
-                      <LocalShipping fontSize="small" />
-                      {getShippingLabel(listing, formatPrice)}
-                    </Typography>
-                  </Box>
-                )}
+                  {listing.shippingAvailable && (
+                    <Box>
+                      <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
+                        Shipping & Returns
+                      </FulfillmentInfoTitle>
+                      <Typography
+                        variant="body2"
+                        sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
+                      >
+                        <LocalShipping fontSize="small" />
+                        {getShippingLabel(listing, formatPrice)}
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </Box>
 
-              <Divider />
-
-              <Box>
-                <Typography variant="h6" fontWeight={650} sx={{ mb: 1.25 }}>
-                  Seller
+              <Box sx={{ pt: 1.2, borderTop: 1, borderColor: "divider" }}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.6 }}>
+                  Seller Information
                 </Typography>
                 <Stack
                   direction="row"
-                  spacing={2}
+                  spacing={1.25}
                   alignItems="center"
                   role="button"
                   tabIndex={0}
@@ -1666,8 +1608,8 @@ function ListingDetail() {
                   sx={{
                     cursor: "pointer",
                     borderRadius: 1.5,
-                    p: 1,
-                    mx: -1,
+                    p: 0.6,
+                    mx: -0.6,
                     transition: "background-color 0.2s",
                     "&:hover": {
                       bgcolor: "action.hover",
@@ -1681,17 +1623,17 @@ function ListingDetail() {
                 >
                   <Avatar
                     src={listing.sellerAvatarUrl || undefined}
-                    sx={{ width: 56, height: 56 }}
+                    sx={{ width: 44, height: 44 }}
                   >
                     {listing.sellerName?.charAt(0)?.toUpperCase() || "S"}
                   </Avatar>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body1" fontWeight={650} noWrap>
+                    <Typography variant="body2" fontWeight={600} noWrap>
                       {listing.sellerName}
                     </Typography>
                     {listing.sellerReviewCount > 0 ? (
                       <Typography
-                        variant="body2"
+                        variant="caption"
                         color="text.secondary"
                         sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
                       >
@@ -1703,14 +1645,14 @@ function ListingDetail() {
                         {listing.sellerReviewCount === 1 ? "" : "s"}
                       </Typography>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary">
                         No reviews yet
                       </Typography>
                     )}
                   </Box>
                 </Stack>
 
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.7 }}>
                   Listed on {formatDate(listing.createdAt)}
                   {listing.updatedAt && (
                     <> • Updated on {formatDate(listing.updatedAt)}</>
