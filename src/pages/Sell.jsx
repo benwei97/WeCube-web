@@ -487,7 +487,10 @@ function Sell() {
 
       handleClearListing();
       navigate(`/listing/${docRef.id}`, {
-        state: { fromPublish: true },
+        state: {
+          fromPublish: true,
+          publishSuccess: true,
+        },
       });
     } catch (error) {
       console.error("Error saving listing:", error);

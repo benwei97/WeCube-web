@@ -247,6 +247,21 @@ function ListingDetail() {
   }, [id, editMode]);
 
   useEffect(() => {
+    if (!location.state?.publishSuccess) {
+      return;
+    }
+
+    setMessageSnackbar({
+      severity: "success",
+      message: "Your listing has been posted.",
+    });
+    navigate(location.pathname, {
+      replace: true,
+      state: { fromPublish: Boolean(location.state?.fromPublish) },
+    });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
     // Check for existing conversation when user and listing are loaded
     if (currentUser && listing && currentUser.uid !== listing.userId) {
       checkExistingConversation();
