@@ -1,32 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  Alert,
   Avatar,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
-  Divider,
-  Paper,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Stack,
   Typography,
 } from "@mui/material";
-import { ArrowBack, Star } from "@mui/icons-material";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { ArrowBack, Close, Star } from "@mui/icons-material";
+import { collection, doc, getDoc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getPrimaryFulfillmentOption } from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { getS3PublicUrl } from "../utils/s3";
 
-const SOFT_PAGE_PANEL_SX = {
-  p: 0,
-  bgcolor: "rgba(255, 255, 255, 0.72)",
-  border: "1px solid rgba(148, 163, 184, 0.22)",
-  boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
-  overflow: "hidden",
+const SECTION_SX = {
+  py: 2.25,
+};
+
+const COMPACT_CARD_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: {
+    xs: "1fr",
+    sm: "repeat(2, minmax(0, 1fr))",
+    lg: "repeat(3, minmax(0, 1fr))",
+  },
+  gap: 1.5,
+};
+
+const COMPACT_CARD_SX = {
+  minHeight: 96,
+  height: "100%",
+  borderColor: "rgba(148, 163, 184, 0.22)",
+  bgcolor: "rgba(248, 250, 252, 0.78)",
+  boxShadow: "none",
 };
 
 const BACK_BUTTON_SX = {
@@ -43,7 +58,9 @@ function SellerProfile() {
   const navigate = useNavigate();
   const [seller, setSeller] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [reviewerProfiles, setReviewerProfiles] = useState({});
   const [sellerListings, setSellerListings] = useState([]);
+  const [selectedReview, setSelectedReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllActiveListings, setShowAllActiveListings] = useState(false);
 
@@ -87,6 +104,46 @@ function SellerProfile() {
     };
   }, [userId]);
 
+  useEffect(() => {
+    const reviewerIds = [
+      ...new Set(reviews.map((review) => review.reviewerId).filter(Boolean)),
+    ];
+
+    if (reviewerIds.length === 0) {
+      setReviewerProfiles({});
+      return;
+    }
+
+    let active = true;
+
+    const loadReviewerProfiles = async () => {
+      const profileEntries = await Promise.all(
+        reviewerIds.map(async (reviewerId) => {
+          try {
+            const reviewerDoc = await getDoc(doc(db, "users", reviewerId));
+            return [
+              reviewerId,
+              reviewerDoc.exists() ? reviewerDoc.data() : null,
+            ];
+          } catch (error) {
+            console.error("Error loading reviewer profile:", error);
+            return [reviewerId, null];
+          }
+        })
+      );
+
+      if (active) {
+        setReviewerProfiles(Object.fromEntries(profileEntries));
+      }
+    };
+
+    loadReviewerProfiles();
+
+    return () => {
+      active = false;
+    };
+  }, [reviews]);
+
   const sellerName =
     `${seller?.firstName || ""} ${seller?.lastName || ""}`.trim() || "Seller";
 
@@ -100,10 +157,6 @@ function SellerProfile() {
   const visibleActiveListings = showAllActiveListings
     ? activeListings
     : activeListings.slice(0, 6);
-  const soldListings = useMemo(
-    () => sellerListings.filter((listing) => listing.status === "sold"),
-    [sellerListings]
-  );
   const reviewSummary = useMemo(() => {
     const reviewCount = reviews.length;
     const averageRating =
@@ -113,12 +166,37 @@ function SellerProfile() {
         : null;
     return { reviewCount, averageRating };
   }, [reviews]);
+  const listingsById = useMemo(
+    () =>
+      Object.fromEntries(
+        sellerListings.map((listing) => [listing.id, listing])
+      ),
+    [sellerListings]
+  );
 
   const formatDate = (dateValue) => {
     if (!dateValue) return null;
     const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
     if (Number.isNaN(date.getTime())) return null;
     return date.toLocaleDateString();
+  };
+
+  const getReviewDisplayData = (review) => {
+    const reviewedListing = listingsById[review.listingId];
+    const listingPhotoS3Key =
+      review.listingPhotoS3Key || reviewedListing?.photos?.[0]?.s3Key;
+    const reviewerProfile = reviewerProfiles[review.reviewerId];
+    const reviewerName = review.reviewerName || "Buyer";
+
+    return {
+      listingPhotoUrl: listingPhotoS3Key
+        ? getS3PublicUrl(listingPhotoS3Key)
+        : null,
+      reviewerAvatarUrl:
+        reviewerProfile?.avatarUrl || reviewerProfile?.photoURL || null,
+      reviewerName,
+      reviewDate: formatDate(review.updatedAt || review.createdAt),
+    };
   };
 
   if (loading) {
@@ -151,8 +229,12 @@ function SellerProfile() {
         Back
       </Button>
 
-      <Paper sx={SOFT_PAGE_PANEL_SX}>
-      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+      <Box
+        sx={{
+          pt: 1,
+          pb: 2,
+        }}
+      >
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }}>
           <Avatar src={seller.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
             {sellerName.charAt(0).toUpperCase()}
@@ -189,24 +271,16 @@ function SellerProfile() {
 
       </Box>
 
-      <Box sx={{ px: 3, py: 2 }}>
+      <Box sx={SECTION_SX}>
           <Typography variant="h5" gutterBottom fontWeight="bold">
             Active Listings
           </Typography>
           {activeListings.length === 0 ? (
-            <Alert severity="info">This user does not have any active listings right now.</Alert>
+            <Typography variant="body2" color="text.secondary">
+              No active listings yet.
+            </Typography>
           ) : (
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "repeat(2, minmax(0, 1fr))",
-                  lg: "repeat(3, minmax(0, 1fr))",
-                },
-                gap: 1.5,
-              }}
-            >
+            <Box sx={COMPACT_CARD_GRID_SX}>
               {visibleActiveListings.map((listing) => {
                 const fulfillmentOption = getPrimaryFulfillmentOption(listing);
                 const thumbnailUrl = listing.photos?.[0]?.s3Key
@@ -226,6 +300,7 @@ function SellerProfile() {
                       }
                     }}
                     sx={{
+                      ...COMPACT_CARD_SX,
                       cursor: "pointer",
                       transition:
                         "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
@@ -351,47 +426,270 @@ function SellerProfile() {
           )}
         </Box>
 
-        <Box sx={{ px: 3, pt: 2, pb: 3 }}>
+        <Box
+          sx={{
+            ...SECTION_SX,
+            pt: 2,
+          }}
+        >
           <Typography variant="h5" gutterBottom fontWeight="bold">
             Reviews
           </Typography>
           {reviews.length === 0 ? (
-            <Alert severity="info">No reviews yet.</Alert>
+            <Typography variant="body2" color="text.secondary">
+              No reviews yet.
+            </Typography>
           ) : (
-            <Stack spacing={2}>
-              {reviews.map((review, index) => (
-                <Box key={review.id}>
-                  <Stack direction="row" justifyContent="space-between" spacing={2}>
-                    <Box>
-                      <Typography variant="body1" fontWeight={600}>
-                        {review.reviewerName || "Buyer"}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-                      >
-                        <Star fontSize="inherit" />
-                        {Number(review.rating || 0).toFixed(1)}
-                        {review.listingTitle ? ` • ${review.listingTitle}` : ""}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(review.updatedAt || review.createdAt)}
-                    </Typography>
-                  </Stack>
-                  {review.comment && (
-                    <Typography variant="body1" sx={{ mt: 1 }}>
-                      {review.comment}
-                    </Typography>
-                  )}
-                  {index < reviews.length - 1 && <Divider sx={{ mt: 2 }} />}
-                </Box>
-              ))}
-            </Stack>
+            <Box sx={COMPACT_CARD_GRID_SX}>
+              {reviews.map((review) => {
+                const {
+                  listingPhotoUrl,
+                  reviewerAvatarUrl,
+                  reviewerName,
+                  reviewDate,
+                } = getReviewDisplayData(review);
+                const shouldShowFullReviewAction =
+                  (review.comment || "").trim().length > 120;
+
+                return (
+                  <Card key={review.id} variant="outlined" sx={COMPACT_CARD_SX}>
+                    <CardContent
+                      sx={{
+                        p: 1.5,
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        gap: 0.85,
+                        "&:last-child": { pb: 1.5 },
+                      }}
+                    >
+                      <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Box
+                          sx={{
+                            position: "relative",
+                            width: 56,
+                            height: 56,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Avatar
+                            src={listingPhotoUrl || undefined}
+                            variant="rounded"
+                            sx={{
+                              width: 56,
+                              height: 56,
+                              bgcolor: "grey.100",
+                              borderRadius: 1,
+                            }}
+                          />
+                          <Avatar
+                            src={reviewerAvatarUrl || undefined}
+                            sx={{
+                              position: "absolute",
+                              right: -4,
+                              bottom: -4,
+                              width: 24,
+                              height: 24,
+                              border: "2px solid",
+                              borderColor: "background.paper",
+                              bgcolor: "primary.main",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {reviewerName.charAt(0).toUpperCase()}
+                          </Avatar>
+                        </Box>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography
+                            variant="subtitle1"
+                            fontWeight={500}
+                            sx={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {reviewerName}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Star fontSize="inherit" />
+                            {Number(review.rating || 0).toFixed(1)}
+                            {review.listingTitle && (
+                              <>
+                                <Box component="span">•</Box>
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    minWidth: 0,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {review.listingTitle}
+                                </Box>
+                              </>
+                            )}
+                            {reviewDate && (
+                              <>
+                                <Box component="span">•</Box>
+                                <Box component="span">{reviewDate}</Box>
+                              </>
+                            )}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      {review.comment && (
+                        <Typography
+                          variant="body2"
+                          color="text.primary"
+                          sx={{
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 2,
+                            overflow: "hidden",
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {review.comment}
+                        </Typography>
+                      )}
+                      {shouldShowFullReviewAction && (
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => setSelectedReview(review)}
+                          sx={{ alignSelf: "flex-start", px: 0, mt: -0.4 }}
+                        >
+                          See more
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
           )}
         </Box>
-      </Paper>
+        <Dialog
+          open={Boolean(selectedReview)}
+          onClose={() => setSelectedReview(null)}
+          maxWidth="sm"
+          fullWidth
+        >
+          {selectedReview && (() => {
+            const {
+              listingPhotoUrl,
+              reviewerAvatarUrl,
+              reviewerName,
+              reviewDate,
+            } = getReviewDisplayData(selectedReview);
+
+            return (
+              <>
+                <DialogTitle sx={{ pr: 6 }}>
+                  Review
+                  <IconButton
+                    aria-label="Close review"
+                    onClick={() => setSelectedReview(null)}
+                    sx={{ position: "absolute", right: 8, top: 8 }}
+                  >
+                    <Close />
+                  </IconButton>
+                </DialogTitle>
+                <DialogContent>
+                  <Stack spacing={2}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Box
+                        sx={{
+                          position: "relative",
+                          width: 64,
+                          height: 64,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Avatar
+                          src={listingPhotoUrl || undefined}
+                          variant="rounded"
+                          sx={{
+                            width: 64,
+                            height: 64,
+                            bgcolor: "grey.100",
+                            borderRadius: 1,
+                          }}
+                        />
+                        <Avatar
+                          src={reviewerAvatarUrl || undefined}
+                          sx={{
+                            position: "absolute",
+                            right: -4,
+                            bottom: -4,
+                            width: 28,
+                            height: 28,
+                            border: "2px solid",
+                            borderColor: "background.paper",
+                            bgcolor: "primary.main",
+                            fontSize: "0.78rem",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {reviewerName.charAt(0).toUpperCase()}
+                        </Avatar>
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {reviewerName}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 0.5,
+                          }}
+                        >
+                          <Star fontSize="inherit" />
+                          {Number(selectedReview.rating || 0).toFixed(1)}
+                          {selectedReview.listingTitle && (
+                            <>
+                              <Box component="span">•</Box>
+                              <Box component="span">{selectedReview.listingTitle}</Box>
+                            </>
+                          )}
+                          {reviewDate && (
+                            <>
+                              <Box component="span">•</Box>
+                              <Box component="span">{reviewDate}</Box>
+                            </>
+                          )}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Typography
+                      variant="body1"
+                      sx={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}
+                    >
+                      {selectedReview.comment || "No written review."}
+                    </Typography>
+                  </Stack>
+                </DialogContent>
+              </>
+            );
+          })()}
+        </Dialog>
     </Box>
   );
 }

@@ -82,12 +82,14 @@ export async function submitTransactionReview({
   const reviewRef = doc(db, "reviews", reviewId);
   const existingReview = await getDoc(reviewRef);
   const now = new Date();
+  const listingPhotoS3Key = listing.photos?.[0]?.s3Key || "";
 
   await setDoc(
     reviewRef,
     {
       listingId: listing.id,
       listingTitle: listing.title,
+      listingPhotoS3Key,
       sellerId: listing.userId,
       buyerId: listing.buyerId || null,
       reviewerId: reviewer.uid,
@@ -144,12 +146,14 @@ export async function submitConversationReview({
   const reviewRef = doc(db, "reviews", reviewId);
   const existingReview = await getDoc(reviewRef);
   const now = new Date();
+  const listingPhotoS3Key = listing.photos?.[0]?.s3Key || "";
 
   await setDoc(
     reviewRef,
     {
       listingId: listing.id,
       listingTitle: listing.title,
+      listingPhotoS3Key,
       conversationId: conversation.id,
       saleEventId: saleEventId || null,
       sellerId: conversation.sellerId,
