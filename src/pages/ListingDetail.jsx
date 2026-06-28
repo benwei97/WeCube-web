@@ -1456,7 +1456,7 @@ function ListingDetail() {
 
               <Box sx={{ pt: 1.2, borderTop: 1, borderColor: "divider" }}>
                 <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.75 }}>
-                  Fulfillment
+                  Fulfillment Options
                 </Typography>
 
                 <Stack spacing={0.9}>
