@@ -180,6 +180,7 @@ function Header() {
               color="inherit"
               component={Link}
               to="/messages"
+              aria-label="Messages"
               sx={{ position: "relative" }}
             >
               <Badge
@@ -200,6 +201,7 @@ function Header() {
             <IconButton
               color="inherit"
               onClick={handleMenuOpen}
+              aria-label="Account"
               sx={{
                 display: "flex",
                 alignItems: "center",

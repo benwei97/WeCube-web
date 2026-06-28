@@ -43,6 +43,14 @@ Lint:
 npm run lint
 ```
 
+Run the repeatable browser QA suite:
+
+```sh
+npm run qa
+```
+
+For QA setup and test-account notes, see [docs/qa.md](docs/qa.md).
+
 Known lint note: full lint currently reports a Fast Refresh rule issue in `src/components/ListingStatusDecorators.jsx` because that file exports style constants/functions in addition to components. Several pages also have existing hook dependency warnings.
 
 ## Environment Variables
@@ -179,17 +187,16 @@ Messaging utilities live in `src/utils/messaging.js`.
 
 Current behavior:
 
-- Buyers send message requests before a conversation is approved
-- Sellers approve/reject pending requests
-- Listing detail message request success/failure uses in-app snackbar
+- Buyers send messages directly to sellers
+- Listing detail message success/failure uses in-app snackbar
 - Pending listings disable contact and show `Pending`
 - Sold listing conversations remain open so users can keep chatting
-- When a seller marks a listing sold, only the selected buyer/seller conversation receives a `Rate your experience` review prompt message
+- When a seller marks a listing sold, every buyer chat for that listing receives a sold notice
+- When a seller marks a listing sold in app, the selected buyer/seller conversation receives a `Rate your experience` review prompt message
 
 Sale review prompts:
 
-- The selected buyer conversation is approved before the sold review prompt is posted
-- Other conversations for the listing are left open and do not receive review prompts
+- Other conversations for the listing receive a sold notice but do not receive review prompts
 - The prompt appears as an unread inbox notification for both buyer and seller
 - Opening the conversation marks that review prompt notification as read
 - The prompt appears in chat as a card with a single `Rate` button
