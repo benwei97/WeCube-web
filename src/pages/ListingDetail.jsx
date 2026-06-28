@@ -2231,7 +2231,6 @@ function ListingDetail() {
           </Collapse>
           <TextField
             autoFocus
-            label="Your message"
             fullWidth
             multiline
             rows={4}
