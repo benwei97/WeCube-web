@@ -33,6 +33,43 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
   const isLogin = mode === "login";
 
+  const getAuthErrorMessage = (authError, attemptedLogin) => {
+    const code = authError?.code || "";
+
+    if (attemptedLogin) {
+      if (
+        [
+          "auth/invalid-credential",
+          "auth/user-not-found",
+          "auth/wrong-password",
+          "auth/invalid-email",
+        ].includes(code)
+      ) {
+        return "Invalid login credentials. Please check your email and password.";
+      }
+
+      if (code === "auth/too-many-requests") {
+        return "Too many login attempts. Please wait a moment and try again.";
+      }
+
+      return "Unable to log in right now. Please try again.";
+    }
+
+    if (code === "auth/email-already-in-use") {
+      return "An account with this email already exists. Please log in instead.";
+    }
+
+    if (code === "auth/weak-password") {
+      return "Please choose a stronger password.";
+    }
+
+    if (code === "auth/invalid-email") {
+      return "Please enter a valid email address.";
+    }
+
+    return "Unable to create your account right now. Please try again.";
+  };
+
   // Reset form when modal opens/closes or mode changes
   const resetForm = () => {
     setFirstName("");
@@ -76,15 +113,11 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         if (result.profileCreated) {
           setSuccess("Account created successfully. Please sign in.");
         } else {
-          setSuccess(
-            "Account created successfully. Please sign in. Some profile features are temporarily unavailable until the database permissions are fixed."
-          );
+          setSuccess("Account created successfully. Please sign in.");
         }
       }
     } catch (error) {
-      setError(
-        `Failed to ${isLogin ? "log in" : "create account"}: ${error.message}`
-      );
+      setError(getAuthErrorMessage(error, isLogin));
     }
 
     setLoading(false);
