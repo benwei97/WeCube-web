@@ -133,6 +133,7 @@ function ListingDetail() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
   const [buyerOptions, setBuyerOptions] = useState([]);
+  const [soldMethodChoice, setSoldMethodChoice] = useState("in_app");
   const [selectedBuyerConversationId, setSelectedBuyerConversationId] =
     useState("");
   const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
@@ -763,6 +764,7 @@ function ListingDetail() {
     closeOwnerMenu();
     setShowMarkSoldDialog(true);
     setLoadingBuyerOptions(true);
+    setSoldMethodChoice("in_app");
     setSelectedBuyerConversationId("");
 
     try {
@@ -786,6 +788,8 @@ function ListingDetail() {
   const closeMarkSoldDialog = () => {
     if (statusActionLoading) return;
     setShowMarkSoldDialog(false);
+    setSoldMethodChoice("in_app");
+    setSelectedBuyerConversationId("");
   };
 
   useEffect(() => {
@@ -881,15 +885,18 @@ function ListingDetail() {
 
   const handleConfirmMarkSold = async () => {
     try {
+      const soldInApp = soldMethodChoice === "in_app";
       const selectedBuyer =
-        buyerOptions.find(
-          (option) => option.conversationId === selectedBuyerConversationId
-        ) || null;
+        soldInApp
+          ? buyerOptions.find(
+              (option) => option.conversationId === selectedBuyerConversationId
+            ) || null
+          : null;
 
-      if (buyerOptions.length > 0 && !selectedBuyer) {
+      if (soldInApp && !selectedBuyer) {
         setMessageSnackbar({
           severity: "error",
-          message: "Select the buyer who completed the sale.",
+          message: "Select the buyer who completed the sale, or choose sold off app.",
         });
         return;
       }
@@ -904,7 +911,7 @@ function ListingDetail() {
         soldAt: now,
         archivedAt: null,
         updatedAt: now,
-        soldMethod: selectedBuyer ? "buyer_selected" : "seller_marked_sold",
+        soldMethod: soldInApp ? "buyer_selected" : "sold_off_app",
         saleEventId,
         buyerId: selectedBuyer?.buyerId || null,
         soldConversationId: selectedBuyer?.conversationId || null,
@@ -938,7 +945,7 @@ function ListingDetail() {
           ? reviewPromptSent
             ? "Listing marked as sold. A review request was sent in that chat."
             : "Listing marked as sold, but the review request could not be sent."
-          : "Listing marked as sold.",
+          : "Listing marked as sold off app.",
       });
     } catch (error) {
       console.error("Error marking listing as sold:", error);
@@ -1679,111 +1686,152 @@ function ListingDetail() {
         <DialogTitle>Mark Listing as Sold</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Select the buyer who completed the sale. Only that chat will
-              receive the review request, and messages will stay open.
-            </Typography>
-
-            {loadingBuyerOptions ? (
-              <Typography variant="body2" color="text.secondary">
-                Loading buyer conversations...
-              </Typography>
-            ) : buyerOptions.length > 0 ? (
-              <Stack spacing={1}>
-                {buyerOptions.map((buyer) => {
-                  const isSelected =
-                    selectedBuyerConversationId === buyer.conversationId;
-                  return (
-                    <Card
-                      key={buyer.conversationId}
-                      variant="outlined"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() =>
-                        setSelectedBuyerConversationId(buyer.conversationId)
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              {[
+                {
+                  value: "in_app",
+                  label: "Sold in app",
+                },
+                {
+                  value: "off_app",
+                  label: "Sold off app",
+                },
+              ].map((option) => {
+                const isSelected = soldMethodChoice === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={isSelected ? "contained" : "outlined"}
+                    onClick={() => {
+                      setSoldMethodChoice(option.value);
+                      if (option.value === "off_app") {
+                        setSelectedBuyerConversationId("");
                       }
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedBuyerConversationId(buyer.conversationId);
-                        }
-                      }}
+                    }}
+                    sx={{
+                      flex: 1,
+                      justifyContent: "center",
+                      color: isSelected ? "common.white" : "text.primary",
+                      borderColor: isSelected
+                        ? "primary.main"
+                        : "rgba(148, 163, 184, 0.28)",
+                      boxShadow: "none",
+                      "&:hover": {
+                        borderColor: "primary.main",
+                        boxShadow: "none",
+                      },
+                    }}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </Stack>
+
+            {soldMethodChoice === "in_app" && (
+              <>
+                {loadingBuyerOptions ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Loading buyer conversations...
+                  </Typography>
+                ) : buyerOptions.length > 0 ? (
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Choose who bought the puzzle.
+                    </Typography>
+                    <Box
                       sx={{
-                        cursor: "pointer",
-                        borderColor: isSelected ? "primary.main" : "divider",
-                        bgcolor: isSelected ? "action.selected" : "background.paper",
+                        maxHeight: 260,
+                        overflowY: "auto",
+                        pr: 0.5,
                       }}
                     >
-                      <CardContent
-                        sx={{
-                          py: 1.25,
-                          px: 1.5,
-                          "&:last-child": { pb: 1.25 },
-                        }}
-                      >
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Radio
-                            checked={isSelected}
-                            value={buyer.conversationId}
-                            inputProps={{
-                              "aria-label": `Select ${buyer.buyerName}`,
-                            }}
-                            sx={{ p: 0.5 }}
-                          />
-                          <Avatar
-                            src={buyer.buyerAvatarUrl || undefined}
-                            alt={buyer.buyerName}
-                            sx={{ width: 40, height: 40 }}
-                          >
-                            {buyer.buyerName.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              alignItems="center"
-                              sx={{ minWidth: 0 }}
+                      <Stack spacing={0.75}>
+                        {buyerOptions.map((buyer) => {
+                          const isSelected =
+                            selectedBuyerConversationId === buyer.conversationId;
+                          return (
+                            <Card
+                              key={buyer.conversationId}
+                              variant="outlined"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() =>
+                                setSelectedBuyerConversationId(buyer.conversationId)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setSelectedBuyerConversationId(
+                                    buyer.conversationId
+                                  );
+                                }
+                              }}
+                              sx={{
+                                cursor: "pointer",
+                                borderColor: isSelected ? "primary.main" : "divider",
+                                bgcolor: isSelected
+                                  ? "action.selected"
+                                  : "background.paper",
+                              }}
                             >
-                              <Typography
-                                variant="subtitle2"
-                                noWrap
-                                sx={{ minWidth: 0 }}
+                              <CardContent
+                                sx={{
+                                  py: 1,
+                                  px: 1.25,
+                                  "&:last-child": { pb: 1 },
+                                }}
                               >
-                                {buyer.buyerName}
-                              </Typography>
-                            </Stack>
-                            {buyer.buyerEmail && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                noWrap
-                                component="div"
-                              >
-                                {buyer.buyerEmail}
-                              </Typography>
-                            )}
-                            {buyer.lastMessage && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                noWrap
-                                component="div"
-                              >
-                                {buyer.lastMessage}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            ) : (
-              <Alert severity="info">
-                No buyer conversations were found. You can still mark the
-                listing as sold, but no review request will be sent.
-              </Alert>
+                                <Stack direction="row" spacing={1.25} alignItems="center">
+                                  <Radio
+                                    checked={isSelected}
+                                    value={buyer.conversationId}
+                                    inputProps={{
+                                      "aria-label": `Select ${buyer.buyerName}`,
+                                    }}
+                                    sx={{ p: 0.25 }}
+                                  />
+                                  <Avatar
+                                    src={buyer.buyerAvatarUrl || undefined}
+                                    alt={buyer.buyerName}
+                                    sx={{ width: 38, height: 38 }}
+                                  >
+                                    {buyer.buyerName.charAt(0).toUpperCase()}
+                                  </Avatar>
+                                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography
+                                      variant="subtitle2"
+                                      noWrap
+                                      sx={{ minWidth: 0 }}
+                                    >
+                                      {buyer.buyerName}
+                                    </Typography>
+                                    {buyer.buyerEmail && (
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        noWrap
+                                        component="div"
+                                      >
+                                        {buyer.buyerEmail}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </Stack>
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Alert severity="info">
+                    No buyer chats were found. Choose sold off app if this sale
+                    happened outside WeCube.
+                  </Alert>
+                )}
+              </>
             )}
           </Stack>
         </DialogContent>
@@ -1795,7 +1843,11 @@ function ListingDetail() {
             onClick={handleConfirmMarkSold}
             variant="contained"
             color="primary"
-            disabled={statusActionLoading || loadingBuyerOptions}
+            disabled={
+              statusActionLoading ||
+              (soldMethodChoice === "in_app" &&
+                (loadingBuyerOptions || !selectedBuyerConversationId))
+            }
           >
             Mark as Sold
           </Button>
