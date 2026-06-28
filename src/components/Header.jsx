@@ -20,9 +20,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { AuthModal } from "./AuthModal";
 import {
   countUnreadConversations,
-  getPendingRequests,
   getUserConversations,
-  subscribeToPendingRequests,
   subscribeToUserConversations,
 } from "../utils/messaging";
 import logo from "../assets/wecube-logo.png";
@@ -35,7 +33,6 @@ function Header() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [unreadConversationCount, setUnreadConversationCount] = useState(0);
-  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,31 +65,18 @@ function Header() {
         }
       );
 
-      const unsubscribePending = subscribeToPendingRequests(
-        currentUser.uid,
-        (pendingRequests) => {
-          setPendingRequestCount(pendingRequests.length);
-        }
-      );
-
       return () => {
         unsubscribeConversations();
-        unsubscribePending();
       };
     } else {
       setUnreadConversationCount(0);
-      setPendingRequestCount(0);
     }
   }, [currentUser, activeConversationId]);
 
   const loadMessageNotificationCount = async () => {
     try {
-      const [pendingRequests, conversations] = await Promise.all([
-        getPendingRequests(currentUser.uid),
-        getUserConversations(currentUser.uid),
-      ]);
+      const conversations = await getUserConversations(currentUser.uid);
 
-      setPendingRequestCount(pendingRequests.length);
       setUnreadConversationCount(
         getVisibleUnreadCount(conversations, currentUser.uid)
       );
@@ -199,7 +183,7 @@ function Header() {
               sx={{ position: "relative" }}
             >
               <Badge
-                badgeContent={pendingRequestCount + unreadConversationCount}
+                badgeContent={unreadConversationCount}
                 color="error"
                 overlap="circular"
                 sx={{

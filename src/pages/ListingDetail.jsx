@@ -53,7 +53,7 @@ import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestor
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  createConversationRequest,
+  createConversation,
   getExistingConversation,
   getListingBuyerOptions,
   closeListingConversationsForSold,
@@ -703,7 +703,7 @@ function ListingDetail() {
     setMessageNotice(null);
     setSendingMessage(true);
     try {
-      await createConversationRequest(
+      const conversationId = await createConversation(
         id,
         listing.userId,
         currentUser.uid,
@@ -714,18 +714,18 @@ function ListingDetail() {
       setMessageText("");
       setMessageNotice(null);
 
-      // Refresh conversation status
       await checkExistingConversation();
+      navigate(`/messages/${conversationId}`);
 
       setMessageSnackbar({
         severity: "success",
-        message: "Message request sent. The seller will need to approve it before you can chat.",
+        message: "Message sent.",
       });
     } catch (error) {
-      console.error("Error sending message request:", error);
+      console.error("Error sending message:", error);
       setMessageSnackbar({
         severity: "error",
-        message: error.message || "Failed to send message request.",
+        message: error.message || "Failed to send message.",
       });
     } finally {
       setSendingMessage(false);
@@ -979,19 +979,18 @@ function ListingDetail() {
     if (!existingConversation) return "Message";
 
     switch (existingConversation.status) {
-      case "pending":
-        return "Request Pending";
       case "approved":
+      case "pending":
         return "Continue Chat";
       case "rejected":
-        return "Request Declined";
+        return "Message Unavailable";
       default:
         return "Message";
     }
   };
 
   const isMessageButtonDisabled = () => {
-    return existingConversation?.status === "pending" || existingConversation?.status === "rejected";
+    return existingConversation?.status === "rejected";
   };
 
   const formatPrice = (price) => {
@@ -1076,17 +1075,18 @@ function ListingDetail() {
     listing.meetupLocation,
     listing.meetupLocationLabel || listing.location
   );
-  const hasApprovedConversation = existingConversation?.status === "approved";
+  const hasOpenConversation =
+    existingConversation && existingConversation.status !== "rejected";
   const cameFromPublish = Boolean(location.state?.fromPublish);
   const isListingUnavailable =
     listing.status === "sold" || listing.status === "archived";
   const primaryActionText =
     listing.status === "archived"
       ? "Pending"
-      : hasApprovedConversation
+      : hasOpenConversation
         ? "Continue Chat"
         : "Send Message";
-  const handleMessageAction = hasApprovedConversation
+  const handleMessageAction = hasOpenConversation
     ? () => navigate(`/messages/${existingConversation.id}`)
     : openMessageDialog;
   const handleOwnerPrimaryAction = listing.status === "sold"
@@ -1736,14 +1736,6 @@ function ListingDetail() {
                               >
                                 {buyer.buyerName}
                               </Typography>
-                              {buyer.status === "pending" && (
-                                <Chip
-                                  label="Pending chat"
-                                  size="small"
-                                  variant="outlined"
-                                  color="default"
-                                />
-                              )}
                             </Stack>
                             {buyer.buyerEmail && (
                               <Typography
@@ -2219,16 +2211,13 @@ function ListingDetail() {
               alignItems: "center",
             }}
           >
-            Send Message Request
+            Message {listing.sellerName || "Seller"}
             <Button onClick={handleMessageDialogClose} disabled={sendingMessage}>
               <Close />
             </Button>
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Send a message to inquire about this listing. The seller will need to approve your request before you can chat.
-          </Typography>
           <Collapse in={Boolean(messageNotice)}>
             {messageNotice && (
               <Alert
@@ -2251,7 +2240,7 @@ function ListingDetail() {
               setMessageNotice(null);
               setMessageText(e.target.value);
             }}
-            placeholder="Hi, I'm interested in this cube. Is it still available?"
+            placeholder="Please type your message to the seller"
             sx={{ mt: 1 }}
           />
         </DialogContent>
@@ -2264,7 +2253,7 @@ function ListingDetail() {
             variant="contained"
             disabled={sendingMessage || !messageText.trim()}
           >
-            {sendingMessage ? "Sending..." : "Send Request"}
+            {sendingMessage ? "Sending..." : "Send Message"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -7,7 +7,6 @@ import {
   ListItemText,
   ListItemAvatar,
   Avatar,
-  Chip,
   Button,
   TextField,
   InputAdornment,
@@ -20,22 +19,18 @@ import {
   DialogContent,
   DialogTitle,
   Alert,
-  Tabs,
-  Tab,
 } from "@mui/material";
-import { Send, Check, Close, Person, Star } from "@mui/icons-material";
+import { Send, Person, Star } from "@mui/icons-material";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
   getUserConversations,
   subscribeToUserConversations,
-  subscribeToPendingRequests,
   subscribeToMessages,
   addMessage,
   markConversationAsRead,
   isConversationUnread,
-  updateConversationStatus,
 } from "../utils/messaging";
 import { submitTransactionReview } from "../utils/reviews";
 import { doc, getDoc } from "firebase/firestore";
@@ -173,10 +168,8 @@ function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState([]);
   const [listingDetails, setListingDetails] = useState({});
   const [userDetails, setUserDetails] = useState({});
-  const [activeTab, setActiveTab] = useState(0); // 0 = Messages, 1 = Pending Requests
   const [reviewDialog, setReviewDialog] = useState({
     open: false,
     message: null,
@@ -260,20 +253,8 @@ function Messages() {
       }
     );
 
-    const unsubscribePending = subscribeToPendingRequests(
-      currentUserId,
-      (pending) => {
-        setPendingRequests(pending);
-        if (pending.length > 0) {
-          loadListingDetails(pending);
-          loadUserDetails(pending);
-        }
-      }
-    );
-
     return () => {
       unsubscribeConversations();
-      unsubscribePending();
     };
   }, [currentUserId, navigate]);
 
@@ -287,7 +268,7 @@ function Messages() {
       if (conversation) {
         setSelectedConversation(conversation);
         if (
-          conversation.status === "approved" &&
+          conversation.status !== "rejected" &&
           isConversationUnread(conversation, currentUserId)
         ) {
           markConversationReadLocally(conversation);
@@ -543,40 +524,10 @@ function Messages() {
     }
   };
 
-  const handleApproveRequest = async (conversation) => {
-    if (!currentUserId) return;
-
-    try {
-      await updateConversationStatus(
-        conversation.id,
-        "approved",
-        currentUserId
-      );
-    } catch (error) {
-      console.error("Error approving request:", error);
-      alert("Failed to approve request");
-    }
-  };
-
-  const handleRejectRequest = async (conversation) => {
-    if (!currentUserId) return;
-
-    try {
-      await updateConversationStatus(
-        conversation.id,
-        "rejected",
-        currentUserId
-      );
-    } catch (error) {
-      console.error("Error rejecting request:", error);
-      alert("Failed to reject request");
-    }
-  };
-
   const selectConversation = (conversation) => {
     if (
       currentUserId &&
-      conversation.status === "approved" &&
+      conversation.status !== "rejected" &&
       isConversationUnread(conversation, currentUserId)
     ) {
       markConversationReadLocally(conversation);
@@ -586,10 +537,6 @@ function Messages() {
     }
 
     navigate(`/messages/${conversation.id}`);
-  };
-
-  const handleTabChange = (_, newValue) => {
-    setActiveTab(newValue);
   };
 
   const formatTime = (timestamp) => {
@@ -823,273 +770,124 @@ function Messages() {
       </Typography>
 
       <Box sx={{ display: "flex", height: "calc(100% - 80px)", gap: 2 }}>
-        {/* Left Panel with Tabs */}
+        {/* Left Panel */}
         <Paper sx={{ width: 400, display: "flex", flexDirection: "column" }}>
-          {/* Tab Header */}
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              variant="fullWidth"
-            >
-              <Tab label="Messages" />
-              <Tab
-                label={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    Pending Requests
-                    {pendingRequests.length > 0 && (
-                      <Chip
-                        label={pendingRequests.length}
-                        color="error"
-                        size="small"
-                        sx={{
-                          height: 20,
-                          minWidth: 20,
-                          "& .MuiChip-label": {
-                            fontSize: "0.75rem",
-                            px: 0.5,
-                          },
-                        }}
-                      />
+          <List sx={{ flex: 1, overflow: "auto" }}>
+            {conversations.map((conversation) => (
+              <ListItem
+                key={conversation.id}
+                component="button"
+                selected={selectedConversation?.id === conversation.id}
+                onClick={() => selectConversation(conversation)}
+                sx={{
+                  "&.Mui-selected": {
+                    bgcolor: "primary.50",
+                  },
+                  cursor: "pointer",
+                  width: "100%",
+                  border: "none",
+                  background: "none",
+                  textAlign: "left",
+                  "&:hover": {
+                    bgcolor: "action.hover",
+                  },
+                }}
+              >
+                <ListItemAvatar>
+                  <ConversationIdentityThumb
+                    listingPhotoUrl={getListingPhotoUrl(conversation.listingId)}
+                    userAvatarUrl={getUserAvatarUrl(
+                      getConversationCounterpartId(conversation)
                     )}
-                  </Box>
-                }
-              />
-            </Tabs>
-          </Box>
-
-          {/* Tab Content */}
-          {activeTab === 0 ? (
-            /* Messages Tab */
-            <List sx={{ flex: 1, overflow: "auto" }}>
-              {conversations.map((conversation) => (
-                <ListItem
-                  key={conversation.id}
-                  component="button"
-                  selected={selectedConversation?.id === conversation.id}
-                  onClick={() => selectConversation(conversation)}
-                  sx={{
-                    "&.Mui-selected": {
-                      bgcolor: "primary.50",
-                    },
-                    cursor: "pointer",
-                    width: "100%",
-                    border: "none",
-                    background: "none",
-                    textAlign: "left",
-                    "&:hover": {
-                      bgcolor: "action.hover",
-                    },
-                  }}
-                >
-                  <ListItemAvatar>
-                    <ConversationIdentityThumb
-                      listingPhotoUrl={getListingPhotoUrl(conversation.listingId)}
-                      userAvatarUrl={getUserAvatarUrl(
-                        getConversationCounterpartId(conversation)
-                      )}
-                      userName={getConversationCounterpartName(conversation)}
-                      onListingClick={() =>
-                        navigate(`/listing/${conversation.listingId}`)
-                      }
-                      onUserClick={() =>
-                        navigate(`/user/${getConversationCounterpartId(conversation)}`)
-                      }
-                    />
-                  </ListItemAvatar>
-                  <ListItemText
-                    sx={{ minWidth: 0 }}
-                    primary={
-                      <Typography
-                        variant="body1"
-                        fontWeight={isUnreadConversation(conversation) ? "bold" : "medium"}
-                        noWrap
-                      >
-                        {getConversationCounterpartName(conversation)}
-                      </Typography>
+                    userName={getConversationCounterpartName(conversation)}
+                    onListingClick={() =>
+                      navigate(`/listing/${conversation.listingId}`)
                     }
-                    secondary={
-                      <Box sx={{ minWidth: 0 }}>
+                    onUserClick={() =>
+                      navigate(`/user/${getConversationCounterpartId(conversation)}`)
+                    }
+                  />
+                </ListItemAvatar>
+                <ListItemText
+                  sx={{ minWidth: 0 }}
+                  primary={
+                    <Typography
+                      variant="body1"
+                      fontWeight={isUnreadConversation(conversation) ? "bold" : "medium"}
+                      noWrap
+                    >
+                      {getConversationCounterpartName(conversation)}
+                    </Typography>
+                  }
+                  secondary={
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        sx={{ display: "block" }}
+                      >
+                        {getListingTitle(conversation.listingId)}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        fontWeight={isUnreadConversation(conversation) ? "medium" : "regular"}
+                      >
+                        {formatLastMessagePreview(conversation)}
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <ListItemText
+                  sx={{
+                    flex: "0 0 72px",
+                    ml: 1,
+                    alignSelf: "flex-start",
+                  }}
+                  primary={
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      {isUnreadConversation(conversation) && (
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: "error.main",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      {conversation.lastMessageAt && (
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          noWrap
-                          sx={{ display: "block" }}
+                          sx={{ whiteSpace: "nowrap" }}
                         >
-                          {getListingTitle(conversation.listingId)}
+                          {formatTime(conversation.lastMessageAt)}
                         </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          noWrap
-                          fontWeight={isUnreadConversation(conversation) ? "medium" : "regular"}
-                        >
-                          {formatLastMessagePreview(conversation)}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                  <ListItemText
-                    sx={{
-                      flex: "0 0 72px",
-                      ml: 1,
-                      alignSelf: "flex-start",
-                    }}
-                    primary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          alignItems: "center",
-                          gap: 1,
-                        }}
-                      >
-                        {isUnreadConversation(conversation) && (
-                          <Box
-                            sx={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              bgcolor: "error.main",
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        {conversation.lastMessageAt && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ whiteSpace: "nowrap" }}
-                          >
-                            {formatTime(conversation.lastMessageAt)}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              ))}
-              {conversations.length === 0 && (
-                <Box sx={{ p: 3, textAlign: "center" }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No conversations yet
-                  </Typography>
-                </Box>
-              )}
-            </List>
-          ) : (
-            /* Pending Requests Tab */
-            <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
-              {pendingRequests.length === 0 ? (
-                <Box sx={{ textAlign: "center", py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No pending requests
-                  </Typography>
-                </Box>
-              ) : (
-                <Stack spacing={1.25}>
-                  {pendingRequests.map((request) => (
-                    <Card
-                      key={request.id}
-                      variant="outlined"
-                      sx={{
-                        bgcolor: "background.paper",
-                        borderColor: "primary.100",
-                      }}
-                    >
-                      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                          <ConversationIdentityThumb
-                            listingPhotoUrl={getListingPhotoUrl(request.listingId)}
-                            userAvatarUrl={getUserAvatarUrl(request.buyerId)}
-                            userName={getUserDisplayName(request.buyerId, "Buyer")}
-                            size={46}
-                            avatarSize={22}
-                            onListingClick={() =>
-                              navigate(`/listing/${request.listingId}`)
-                            }
-                            onUserClick={() => navigate(`/user/${request.buyerId}`)}
-                          />
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "flex-start",
-                                justifyContent: "space-between",
-                                gap: 1,
-                              }}
-                            >
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography
-                                  variant="body2"
-                                  fontWeight={700}
-                                  noWrap
-                                >
-                                  {getUserDisplayName(request.buyerId, "Buyer")}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  noWrap
-                                  sx={{ display: "block" }}
-                                >
-                                  {getListingTitle(request.listingId)}
-                                </Typography>
-                              </Box>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{
-                                  whiteSpace: "nowrap",
-                                  flex: "0 0 auto",
-                                  pt: 0.25,
-                                }}
-                              >
-                                {formatTime(request.createdAt)}
-                              </Typography>
-                            </Box>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                              sx={{
-                                mt: 0.75,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                          >
-                            {request.initialMessage}
-                          </Typography>
-                            <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
-                              <Button
-                                variant="contained"
-                                color="success"
-                                size="small"
-                                startIcon={<Check />}
-                                onClick={() => handleApproveRequest(request)}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                color="error"
-                                size="small"
-                                startIcon={<Close />}
-                                onClick={() => handleRejectRequest(request)}
-                              >
-                                Decline
-                              </Button>
-                            </Stack>
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          )}
+                      )}
+                    </Box>
+                  }
+                />
+              </ListItem>
+            ))}
+            {conversations.length === 0 && (
+              <Box sx={{ p: 3, textAlign: "center" }}>
+                <Typography variant="body2" color="text.secondary">
+                  No conversations yet
+                </Typography>
+              </Box>
+            )}
+          </List>
         </Paper>
 
         {/* Chat Area */}
@@ -1135,34 +933,12 @@ function Messages() {
                     {selectedConversation.userRole === "seller"
                         ? "Buyer inquiry"
                         : "Your inquiry"}
-                    {selectedConversation.status !== "approved" && (
-                      <Chip
-                        label={`Status: ${selectedConversation.status}`}
-                        size="small"
-                        sx={{ ml: 1 }}
-                        color={
-                          selectedConversation.status === "pending"
-                              ? "primary"
-                              : "error"
-                        }
-                      />
-                    )}
                   </Typography>
                 </Box>
               </Box>
 
               {/* Messages */}
                 <Box ref={messagesScrollRef} sx={{ flex: 1, overflow: "auto", p: 2 }}>
-                {selectedConversation.status !== "approved" && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    {selectedConversation.status === "pending"
-                      ? selectedConversation.userRole === "seller"
-                        ? "This buyer wants to message you about your listing. Approve to start chatting."
-                        : "Your message request is pending approval from the seller."
-                      : "This conversation request was declined."}
-                  </Alert>
-                )}
-
                 {getTranscriptItems().map((item, index, transcriptItems) => {
                   if (item.type === "timeDivider") {
                     return (
@@ -1379,7 +1155,7 @@ function Messages() {
               </Box>
 
               {/* Message Input */}
-              {selectedConversation.status === "approved" && (
+              {selectedConversation.status !== "rejected" && (
                 <Box
                   sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
                 >

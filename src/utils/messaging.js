@@ -5,7 +5,6 @@ import {
   getDocs,
   getDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
@@ -22,7 +21,7 @@ import { db } from "../../firebase";
  *   listingId: string,
  *   sellerId: string,
  *   buyerId: string,
- *   status: 'pending' | 'approved' | 'rejected',
+ *   status: 'approved' | 'rejected',
  *   createdAt: timestamp,
  *   updatedAt: timestamp,
  *   lastMessage: string,
@@ -43,9 +42,9 @@ import { db } from "../../firebase";
  */
 
 /**
- * Create a new conversation request
+ * Create a new conversation
  */
-export async function createConversationRequest(
+export async function createConversation(
   listingId,
   sellerId,
   buyerId,
@@ -66,7 +65,7 @@ export async function createConversationRequest(
       listingId,
       sellerId,
       buyerId,
-      status: "pending",
+      status: "approved",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastMessage: initialMessage,
@@ -86,10 +85,10 @@ export async function createConversationRequest(
       createdAt: serverTimestamp(),
     });
 
-    console.log("Conversation request created:", conversationRef.id);
+    console.log("Conversation created:", conversationRef.id);
     return conversationRef.id;
   } catch (error) {
-    console.error("Error creating conversation request:", error);
+    console.error("Error creating conversation:", error);
     throw error;
   }
 }
@@ -178,7 +177,7 @@ export async function getListingBuyerOptions(listingId, sellerId) {
 }
 
 /**
- * Get conversations for a user (both as buyer and seller) - excludes pending requests
+ * Get conversations for a user (both as buyer and seller)
  */
 export async function getUserConversations(userId) {
   try {
@@ -212,8 +211,9 @@ export async function getUserConversations(userId) {
       })),
     ];
 
-    // Filter out pending conversations (only show approved/rejected)
-    const conversations = allConversations.filter(conv => conv.status !== "pending");
+    const conversations = allConversations.filter(
+      (conv) => conv.status !== "rejected"
+    );
 
     // Sort by last message time
     conversations.sort((a, b) => {
@@ -222,57 +222,10 @@ export async function getUserConversations(userId) {
       return bTime - aTime;
     });
 
-    console.log("User conversations (excluding pending):", conversations);
+    console.log("User conversations:", conversations);
     return conversations;
   } catch (error) {
     console.error("Error getting user conversations:", error);
-    throw error;
-  }
-}
-
-/**
- * Approve or reject a conversation request
- */
-export async function updateConversationStatus(
-  conversationId,
-  status,
-  sellerId
-) {
-  try {
-    const conversationRef = doc(db, "conversations", conversationId);
-
-    // Verify the seller owns this conversation
-    const conversationDoc = await getDoc(conversationRef);
-    if (
-      !conversationDoc.exists() ||
-      conversationDoc.data().sellerId !== sellerId
-    ) {
-      throw new Error("Unauthorized to update this conversation");
-    }
-
-    if (status === "approved") {
-      // Update to approved status
-      await updateDoc(conversationRef, {
-        status,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Add system message about approval
-      await addMessage(
-        conversationId,
-        sellerId,
-        "Conversation approved. You can now message freely!",
-        "system"
-      );
-
-      console.log(`Conversation ${conversationId} approved`);
-    } else if (status === "rejected") {
-      // Delete the conversation completely for rejections
-      await deleteDoc(conversationRef);
-      console.log(`Conversation ${conversationId} deleted (rejected)`);
-    }
-  } catch (error) {
-    console.error("Error updating conversation status:", error);
     throw error;
   }
 }
@@ -287,7 +240,7 @@ export async function addMessage(
   type = "message"
 ) {
   try {
-    // Verify conversation exists and is approved (unless it's a system message)
+    // Verify conversation exists and is not rejected (unless it's a system message)
     const conversationRef = doc(db, "conversations", conversationId);
     const conversationDoc = await getDoc(conversationRef);
 
@@ -296,8 +249,8 @@ export async function addMessage(
     }
 
     const conversation = conversationDoc.data();
-    if (type === "message" && conversation.status !== "approved") {
-      throw new Error("Conversation must be approved before sending messages");
+    if (type === "message" && conversation.status === "rejected") {
+      throw new Error("Conversation is no longer available");
     }
 
     // Add message
@@ -501,7 +454,7 @@ export async function markConversationAsRead(conversationId, userId) {
  * Return true when the latest approved-chat message has not been read by the user
  */
 export function isConversationUnread(conversation, userId) {
-  if (!conversation || conversation.status !== "approved") {
+  if (!conversation || conversation.status === "rejected") {
     return false;
   }
 
@@ -607,7 +560,7 @@ export function subscribeToUserConversations(userId, callback) {
         userRole: "seller",
       })),
     ]
-      .filter((conversation) => conversation.status !== "pending")
+      .filter((conversation) => conversation.status !== "rejected")
       .sort((a, b) => {
         const aTime = a.lastMessageAt?.toMillis?.() || 0;
         const bTime = b.lastMessageAt?.toMillis?.() || 0;
@@ -637,82 +590,4 @@ export function subscribeToUserConversations(userId, callback) {
     unsubscribeBuyer();
     unsubscribeSeller();
   };
-}
-
-/**
- * Listen to pending conversation requests for a seller
- */
-export function subscribeToPendingRequests(sellerId, callback) {
-  const pendingQuery = query(
-    collection(db, "conversations"),
-    where("sellerId", "==", sellerId),
-    where("status", "==", "pending")
-  );
-
-  return onSnapshot(pendingQuery, (snapshot) => {
-    const pendingRequests = snapshot.docs
-      .map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      .sort((a, b) => {
-        const aTime = a.createdAt?.toMillis?.() || 0;
-        const bTime = b.createdAt?.toMillis?.() || 0;
-        return bTime - aTime;
-      });
-
-    callback(pendingRequests);
-  });
-}
-
-/**
- * Get pending conversation requests for a seller
- */
-export async function getPendingRequests(sellerId) {
-  try {
-    console.log("Getting pending requests for sellerId:", sellerId);
-
-    // Try the ideal query first. This may require a composite Firestore index.
-    const pendingQuery = query(
-      collection(db, "conversations"),
-      where("sellerId", "==", sellerId),
-      where("status", "==", "pending"),
-      orderBy("createdAt", "desc")
-    );
-
-    try {
-      const snapshot = await getDocs(pendingQuery);
-      const results = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      console.log("Pending requests found (with orderBy):", results);
-      return results;
-    } catch (indexError) {
-      console.warn("Index not found, trying without orderBy:", indexError);
-
-      const fallbackQuery = query(
-        collection(db, "conversations"),
-        where("sellerId", "==", sellerId),
-        where("status", "==", "pending")
-      );
-      const fallbackSnapshot = await getDocs(fallbackQuery);
-      const fallbackResults = fallbackSnapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() || 0;
-          const bTime = b.createdAt?.toMillis?.() || 0;
-          return bTime - aTime;
-        });
-
-      console.log("Pending requests found (fallback query):", fallbackResults);
-      return fallbackResults;
-    }
-  } catch (error) {
-    console.error("Error getting pending requests:", error);
-    throw error;
-  }
 }
