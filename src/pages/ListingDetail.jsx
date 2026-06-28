@@ -74,7 +74,7 @@ import {
   formatListedLocationLabel,
   getListingCompetitionPayload,
   getNormalizedFulfillmentFields,
-  getShippingLabel,
+  getShippingPriceFromListing,
   normalizeConditionValue,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
@@ -1012,6 +1012,17 @@ function ListingDetail() {
     }).format(price);
   };
 
+  const formatShippingDetail = (listingData) => {
+    if (listingData.shippingIncluded) {
+      return "Free shipping";
+    }
+
+    const shippingPrice = getShippingPriceFromListing(listingData);
+    return shippingPrice > 0
+      ? `+${formatPrice(shippingPrice)} shipping fee`
+      : "Free shipping";
+  };
+
   const formatDate = (date) => {
     if (!date) return "N/A";
     const dateObj = date.toDate ? date.toDate() : new Date(date);
@@ -1574,14 +1585,14 @@ function ListingDetail() {
                   {listing.shippingAvailable && (
                     <Box>
                       <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
-                        Shipping & Returns
+                        Ships to You
                       </FulfillmentInfoTitle>
                       <Typography
                         variant="body2"
                         sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
                       >
                         <LocalShipping fontSize="small" />
-                        {getShippingLabel(listing, formatPrice)}
+                        {formatShippingDetail(listing)}
                       </Typography>
                     </Box>
                   )}
