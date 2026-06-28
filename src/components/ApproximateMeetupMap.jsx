@@ -285,13 +285,9 @@ export default function ApproximateMeetupMap({
           />
         )}
       </Box>
-      <Box sx={{ px: 1.5, py: 1.25 }}>
-        <Typography variant="body2" fontWeight={600}>
-          Approximate meetup area
-        </Typography>
+      <Box sx={{ px: 1.5, py: 1 }}>
         <Typography variant="caption" color="text.secondary">
-          The map is interactive but intentionally approximate. Confirm the
-          exact meeting spot in chat.
+          Location is approximate
         </Typography>
       </Box>
     </Paper>

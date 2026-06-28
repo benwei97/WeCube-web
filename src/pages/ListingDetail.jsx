@@ -28,7 +28,6 @@ import {
   Alert,
   Collapse,
   Snackbar,
-  Tooltip,
   Menu,
   Radio,
 } from "@mui/material";
@@ -47,7 +46,6 @@ import {
   Restore,
   Save,
   Star,
-  InfoOutlined,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -95,27 +93,18 @@ const BACK_BUTTON_SX = {
   },
 };
 
-function FulfillmentInfoTitle({ children, info }) {
+function FulfillmentInfoTitle({ children }) {
   return (
     <Typography
       variant="subtitle2"
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 0.75,
-        mb: 0.75,
-        fontWeight: 650,
+        mb: 0.55,
+        fontWeight: 600,
       }}
     >
       {children}
-      <Tooltip title={info} arrow placement="top">
-        <InfoOutlined
-          tabIndex={0}
-          fontSize="small"
-          color="action"
-          sx={{ cursor: "help" }}
-        />
-      </Tooltip>
     </Typography>
   );
 }
@@ -1097,9 +1086,6 @@ function ListingDetail() {
       : hasApprovedConversation
         ? "Continue Chat"
         : "Send Message";
-  const primaryActionHelperText = listing.shippingAvailable
-    ? "Shipping is arranged directly with the seller. Message them to confirm payment, shipping cost, and tracking."
-    : "Message the seller to coordinate pickup.";
   const handleMessageAction = hasApprovedConversation
     ? () => navigate(`/messages/${existingConversation.id}`)
     : openMessageDialog;
@@ -1420,7 +1406,7 @@ function ListingDetail() {
               </Box>
 
               {!isOwner && (
-                <Stack spacing={0.75}>
+                <Stack>
                   <Button
                     variant="contained"
                     color="primary"
@@ -1431,9 +1417,6 @@ function ListingDetail() {
                   >
                     {listing.status === "sold" ? "Sold" : primaryActionText}
                   </Button>
-                  <Typography variant="caption" color="text.secondary">
-                    {primaryActionHelperText}
-                  </Typography>
                 </Stack>
               )}
 
@@ -1479,7 +1462,7 @@ function ListingDetail() {
                 <Stack spacing={0.9}>
                   {listing.localMeetupAvailable && (
                     <Box>
-                      <FulfillmentInfoTitle info="Coordinate the exact meeting spot and time with the seller in chat.">
+                      <FulfillmentInfoTitle>
                         Local Meetup
                       </FulfillmentInfoTitle>
                       <Typography
@@ -1498,7 +1481,7 @@ function ListingDetail() {
 
                   {listing.competitionMeetupAvailable && (
                     <Box>
-                      <FulfillmentInfoTitle info="Message the seller to coordinate where and when to meet at the competition.">
+                      <FulfillmentInfoTitle>
                         Competition Meetup
                       </FulfillmentInfoTitle>
                       {meetupCompetitionTags.length > 0 ? (
@@ -1584,7 +1567,7 @@ function ListingDetail() {
 
                   {listing.shippingAvailable && (
                     <Box>
-                      <FulfillmentInfoTitle info="Shipping and payment are arranged directly with the seller. Use tracked shipping and buyer-protected payment methods. No returns for this item.">
+                      <FulfillmentInfoTitle>
                         Ships to You
                       </FulfillmentInfoTitle>
                       <Typography
@@ -1665,9 +1648,6 @@ function ListingDetail() {
 
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.7 }}>
                   Listed on {formatDate(listing.createdAt)}
-                  {listing.updatedAt && (
-                    <> • Updated on {formatDate(listing.updatedAt)}</>
-                  )}
                 </Typography>
               </Box>
             </Stack>
