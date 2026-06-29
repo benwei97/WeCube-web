@@ -1033,6 +1033,21 @@ function ListingDetail() {
       : "Free shipping";
   };
 
+  const formatShippingPriceNote = (listingData) => {
+    if (!listingData?.shippingAvailable) {
+      return null;
+    }
+
+    if (listingData.shippingIncluded) {
+      return "Free shipping";
+    }
+
+    const shippingPrice = getShippingPriceFromListing(listingData);
+    return shippingPrice > 0
+      ? `+ ${formatPrice(shippingPrice)} shipping`
+      : "Free shipping";
+  };
+
   const formatDate = (date) => {
     if (!date) return "N/A";
     const dateObj = date.toDate ? date.toDate() : new Date(date);
@@ -1398,6 +1413,15 @@ function ListingDetail() {
                 >
                   {formatPrice(listing.price)}
                 </Typography>
+                {formatShippingPriceNote(listing) && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 0.5, fontWeight: 500 }}
+                  >
+                    {formatShippingPriceNote(listing)}
+                  </Typography>
+                )}
               </Box>
 
               <Box
