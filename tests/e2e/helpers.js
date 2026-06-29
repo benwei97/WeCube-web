@@ -13,12 +13,31 @@ export async function login(page, account) {
   await page.getByLabel("Password").fill(account.password);
   await page.getByRole("button", { name: /^log in$/i }).click();
   await expect(page.getByRole("button", { name: /^log in$/i })).toBeHidden();
+
+  const accountButton = page.getByRole("button", { name: /account/i });
+  const dashboardMenuItem = page.getByRole("menuitem", { name: /dashboard/i });
+  const deadline = Date.now() + 15_000;
+
+  while (Date.now() < deadline) {
+    await accountButton.click();
+
+    if (await dashboardMenuItem.isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
+      return;
+    }
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error("Timed out waiting for signed-in account menu.");
 }
 
 export async function attachSampleImage(page) {
   const png1x1Base64 =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
-  const input = page.locator('input[type="file"]').first();
+  const input = page.locator("#photo-upload");
+  await input.waitFor({ state: "attached" });
   await input.setInputFiles({
     name: "sample-cube.png",
     mimeType: "image/png",

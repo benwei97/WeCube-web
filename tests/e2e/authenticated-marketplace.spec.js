@@ -15,7 +15,9 @@ test.describe("authenticated marketplace flows", () => {
     await expect(page.getByRole("heading", { name: /list your cube/i })).toBeVisible();
 
     await page.getByRole("button", { name: /publish listing/i }).click();
-    await expect(page.getByText(/fill in all required fields|select at least one fulfillment/i)).toBeVisible();
+    await expect(
+      page.getByText("Please select at least one fulfillment method before publishing.")
+    ).toBeVisible();
   });
 
   test("seller can create a shippable listing", async ({ page }) => {
@@ -33,8 +35,8 @@ test.describe("authenticated marketplace flows", () => {
     await page.getByLabel("Condition").click();
     await page.getByRole("option").first().click();
     await page.getByLabel("Description").fill("Automated QA listing. Safe to delete.");
-    await page.getByText("Shipping", { exact: true }).click();
-    await page.getByRole("button", { name: /yes/i }).click();
+    await page.getByRole("checkbox", { name: "Shipping" }).click();
+    await page.getByRole("button", { name: "Shipping included" }).click();
     await page.getByRole("button", { name: /publish listing/i }).click();
 
     await expect(page).toHaveURL(/\/listing\//, { timeout: 30_000 });

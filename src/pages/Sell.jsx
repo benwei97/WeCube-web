@@ -852,6 +852,7 @@ function Sell() {
                   <Switch
                     checked={fulfillmentData.shippingAvailable}
                     onChange={handleFulfillmentChange("shippingAvailable")}
+                    slotProps={{ input: { "aria-label": "Shipping" } }}
                   />
                 </Box>
                 {fulfillmentData.shippingAvailable && (
@@ -952,6 +953,7 @@ function Sell() {
                   <Switch
                     checked={fulfillmentData.localMeetupAvailable}
                     onChange={handleFulfillmentChange("localMeetupAvailable")}
+                    slotProps={{ input: { "aria-label": "Local Meetup" } }}
                   />
                 </Box>
                 {fulfillmentData.localMeetupAvailable && (
@@ -1026,6 +1028,7 @@ function Sell() {
                     onChange={handleFulfillmentChange(
                       "competitionMeetupAvailable"
                     )}
+                    slotProps={{ input: { "aria-label": "Competition Meetup" } }}
                   />
                 </Box>
               </FormGroup>

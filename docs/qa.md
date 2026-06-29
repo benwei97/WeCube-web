@@ -41,6 +41,31 @@ E2E_BUYER_PASSWORD=
 
 Use throwaway Firebase test accounts. Do not use real user accounts.
 
+Playwright loads these values from the project `.env` file through `playwright.config.js`, so they do not need to be exported manually in the terminal.
+
+## S3 CORS For Local QA
+
+The authenticated publish-listing test uploads a sample image from the browser. The S3 bucket must allow local browser uploads from the Vite dev server origin.
+
+In the AWS S3 bucket permissions, configure CORS with the local origins:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Add the production domain to `AllowedOrigins` before production launch.
+
 ## Current Coverage
 
 - Public page smoke checks
