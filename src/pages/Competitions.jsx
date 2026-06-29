@@ -249,6 +249,7 @@ function Competitions() {
                 sx={{
                   height: { xs: 430, md: 560 },
                   overflowY: "auto",
+                  pt: 0.5,
                   pr: 1,
                   mr: -1,
                 }}
