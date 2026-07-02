@@ -119,6 +119,11 @@ function Dashboard() {
   const [showAllPurchases, setShowAllPurchases] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState({});
   const [deleteDialog, setDeleteDialog] = useState({ open: false, listing: null });
+  const [statusConfirmDialog, setStatusConfirmDialog] = useState({
+    open: false,
+    listing: null,
+    status: null,
+  });
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionMenu, setActionMenu] = useState({ anchorEl: null, listing: null });
 
@@ -287,6 +292,27 @@ function Dashboard() {
   };
 
   const closeActionMenu = () => setActionMenu({ anchorEl: null, listing: null });
+
+  const openStatusConfirmDialog = (listing, status) => {
+    closeActionMenu();
+    setStatusConfirmDialog({ open: true, listing, status });
+  };
+
+  const closeStatusConfirmDialog = () => {
+    const listingId = statusConfirmDialog.listing?.id;
+    if (listingId && statusActionLoading[listingId]) return;
+    setStatusConfirmDialog({ open: false, listing: null, status: null });
+  };
+
+  const handleConfirmStatusUpdate = async () => {
+    if (!statusConfirmDialog.listing || !statusConfirmDialog.status) return;
+
+    await handleStatusUpdate(
+      statusConfirmDialog.listing,
+      statusConfirmDialog.status
+    );
+    setStatusConfirmDialog({ open: false, listing: null, status: null });
+  };
 
   const handleStatusUpdate = async (listing, status) => {
     closeActionMenu();
@@ -484,13 +510,19 @@ function Dashboard() {
                   </MenuItem>
                 )}
                 {listing.status !== "archived" && (
-                  <MenuItem onClick={() => handleStatusUpdate(listing, "archived")}>
+                  <MenuItem
+                    onClick={() =>
+                      openStatusConfirmDialog(listing, "archived")
+                    }
+                  >
                     <PendingActions fontSize="small" sx={{ mr: 1.25 }} />
                     Mark Pending
                   </MenuItem>
                 )}
                 {(listing.status === "archived" || listing.status === "sold") && (
-                  <MenuItem onClick={() => handleStatusUpdate(listing, "active")}>
+                  <MenuItem
+                    onClick={() => openStatusConfirmDialog(listing, "active")}
+                  >
                     <RestoreFromTrash fontSize="small" sx={{ mr: 1.25 }} />
                     Mark Available
                   </MenuItem>
@@ -801,6 +833,49 @@ function Dashboard() {
           )}
         </Box>
       </Box>
+
+      <Dialog
+        open={statusConfirmDialog.open}
+        onClose={closeStatusConfirmDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {statusConfirmDialog.status === "active"
+            ? "Mark as Available?"
+            : "Mark as Pending?"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {statusConfirmDialog.status === "active"
+              ? `This will make "${statusConfirmDialog.listing?.title || "this listing"}" available again and notify existing buyer chats.`
+              : `This will mark "${statusConfirmDialog.listing?.title || "this listing"}" as pending and prevent new buyers from messaging about it.`}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeStatusConfirmDialog}
+            color="inherit"
+            disabled={Boolean(
+              statusActionLoading[statusConfirmDialog.listing?.id]
+            )}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmStatusUpdate}
+            variant="contained"
+            color="primary"
+            disabled={Boolean(
+              statusActionLoading[statusConfirmDialog.listing?.id]
+            )}
+          >
+            {statusConfirmDialog.status === "active"
+              ? "Mark as Available"
+              : "Mark as Pending"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={deleteDialog.open} onClose={handleDeleteCancel} maxWidth="xs" fullWidth>
         <DialogTitle>Delete Listing</DialogTitle>

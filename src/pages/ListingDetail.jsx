@@ -130,6 +130,10 @@ function ListingDetail() {
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [ownerMenuAnchorEl, setOwnerMenuAnchorEl] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [statusConfirmDialog, setStatusConfirmDialog] = useState({
+    open: false,
+    status: null,
+  });
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showMarkSoldDialog, setShowMarkSoldDialog] = useState(false);
   const [buyerOptions, setBuyerOptions] = useState([]);
@@ -891,6 +895,23 @@ function ListingDetail() {
     }
   };
 
+  const openStatusConfirmDialog = (status) => {
+    closeOwnerMenu();
+    setStatusConfirmDialog({ open: true, status });
+  };
+
+  const closeStatusConfirmDialog = () => {
+    if (statusActionLoading) return;
+    setStatusConfirmDialog({ open: false, status: null });
+  };
+
+  const handleConfirmStatusUpdate = async () => {
+    if (!statusConfirmDialog.status) return;
+
+    await handleListingStatusUpdate(statusConfirmDialog.status);
+    setStatusConfirmDialog({ open: false, status: null });
+  };
+
   const handleConfirmMarkSold = async () => {
     try {
       const soldInApp = soldMethodChoice === "in_app";
@@ -1135,7 +1156,7 @@ function ListingDetail() {
     ? () => navigate(`/messages/${existingConversation.id}`)
     : openMessageDialog;
   const handleOwnerPrimaryAction = listing.status === "sold"
-    ? () => handleListingStatusUpdate("active")
+    ? () => openStatusConfirmDialog("active")
     : openMarkSoldDialog;
   const ownerPrimaryActionText = listing.status === "sold"
     ? "Mark as Available"
@@ -1218,12 +1239,12 @@ function ListingDetail() {
                 Edit Listing
               </MenuItem>
               {listing.status === "archived" ? (
-                <MenuItem onClick={() => handleListingStatusUpdate("active")}>
+                <MenuItem onClick={() => openStatusConfirmDialog("active")}>
                   <Restore fontSize="small" sx={{ mr: 1.25 }} />
                   Mark as Available
                 </MenuItem>
               ) : listing.status === "active" || !listing.status ? (
-                <MenuItem onClick={() => handleListingStatusUpdate("archived")}>
+                <MenuItem onClick={() => openStatusConfirmDialog("archived")}>
                   <PendingActions fontSize="small" sx={{ mr: 1.25 }} />
                   Mark as Pending
                 </MenuItem>
@@ -1882,6 +1903,45 @@ function ListingDetail() {
             }
           >
             Mark as Sold
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={statusConfirmDialog.open}
+        onClose={closeStatusConfirmDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {statusConfirmDialog.status === "active"
+            ? "Mark as Available?"
+            : "Mark as Pending?"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {statusConfirmDialog.status === "active"
+              ? `This will make "${listing.title}" available again and notify existing buyer chats.`
+              : `This will mark "${listing.title}" as pending and prevent new buyers from messaging about it.`}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeStatusConfirmDialog}
+            color="inherit"
+            disabled={statusActionLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmStatusUpdate}
+            variant="contained"
+            color="primary"
+            disabled={statusActionLoading}
+          >
+            {statusConfirmDialog.status === "active"
+              ? "Mark as Available"
+              : "Mark as Pending"}
           </Button>
         </DialogActions>
       </Dialog>
