@@ -168,11 +168,11 @@ function CompetitionListings() {
   return (
     <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
       <Button
-        onClick={() => navigate(returnTo || "/competitions")}
+        onClick={() => (returnTo ? navigate(-1) : navigate("/competitions"))}
         variant="outlined"
         sx={{ mb: 3, ...BACK_BUTTON_SX }}
       >
-        ← {returnTo ? "Back to Listing" : "Back"}
+        ← Back
       </Button>
 
       {error && (
