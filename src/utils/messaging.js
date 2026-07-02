@@ -349,6 +349,43 @@ export async function closeListingConversationsForSold(
         console.error("Error fetching buyer profile for review prompt:", error);
       }
 
+      const [buyerReviewDoc, sellerReviewDoc] = await Promise.all([
+        getDoc(doc(db, "reviews", `${listingId}_${conversation.buyerId}`)),
+        getDoc(doc(db, "reviews", `${listingId}_${sellerId}`)),
+      ]);
+      const reviewResponses = {};
+
+      if (buyerReviewDoc.exists()) {
+        reviewResponses[conversation.buyerId] = "reviewed";
+      }
+
+      if (sellerReviewDoc.exists()) {
+        reviewResponses[sellerId] = "reviewed";
+      }
+
+      if (buyerReviewDoc.exists() && sellerReviewDoc.exists()) {
+        await addDoc(collection(db, "messages"), {
+          conversationId: conversationDoc.id,
+          senderId: sellerId,
+          text: soldNoticeMessage,
+          type: "system",
+          createdAt: serverTimestamp(),
+        });
+
+        await updateDoc(conversationRef, {
+          lastMessage: soldNoticeMessage,
+          lastMessageType: "system",
+          lastMessageReviewPrompt: false,
+          lastMessageAt: serverTimestamp(),
+          lastMessageSenderId: sellerId,
+          activeSaleEventId: null,
+          closedAt: null,
+          closedReason: null,
+          updatedAt: serverTimestamp(),
+        });
+        continue;
+      }
+
       await addDoc(collection(db, "messages"), {
         conversationId: conversationDoc.id,
         senderId: sellerId,
@@ -359,7 +396,7 @@ export async function closeListingConversationsForSold(
         listingTitle,
         sellerName,
         buyerName,
-        reviewResponses: {},
+        reviewResponses,
         createdAt: serverTimestamp(),
       });
 
@@ -392,26 +429,28 @@ export async function cancelListingReviewPrompts(listingId, sellerId) {
       where("sellerId", "==", sellerId)
     );
     const snapshot = await getDocs(conversationsQuery);
+    const availableAgainMessage =
+      "The seller marked this listing as available again.";
 
     for (const conversationDoc of snapshot.docs) {
       const conversationRef = doc(db, "conversations", conversationDoc.id);
       const conversation = conversationDoc.data();
 
-      if (!conversation.activeSaleEventId) {
+      if (conversation.status === "rejected") {
         continue;
       }
 
       await addDoc(collection(db, "messages"), {
         conversationId: conversationDoc.id,
         senderId: sellerId,
-        text: "The seller marked this listing as available again. The review request was closed.",
+        text: availableAgainMessage,
         type: "system",
         createdAt: serverTimestamp(),
       });
 
       await updateDoc(conversationRef, {
         activeSaleEventId: null,
-        lastMessage: "The review request was closed.",
+        lastMessage: availableAgainMessage,
         lastMessageType: "system",
         lastMessageReviewPrompt: false,
         lastMessageAt: serverTimestamp(),

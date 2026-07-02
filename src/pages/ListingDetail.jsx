@@ -59,7 +59,7 @@ import {
   closeListingConversationsForSold,
   cancelListingReviewPrompts,
 } from "../utils/messaging";
-import { deleteTransactionReviews, subscribeToSellerReviews } from "../utils/reviews";
+import { subscribeToSellerReviews } from "../utils/reviews";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import {
   fetchLocationSuggestionOptions,
@@ -844,6 +844,7 @@ function ListingDetail() {
         updates.soldMethod = null;
         updates.buyerId = null;
         updates.soldConversationId = null;
+        updates.saleEventId = null;
       }
 
       if (status === "active") {
@@ -852,12 +853,12 @@ function ListingDetail() {
         updates.soldMethod = null;
         updates.buyerId = null;
         updates.soldConversationId = null;
+        updates.saleEventId = null;
       }
 
       await updateDoc(docRef, updates);
       if (listing.status === "sold" && status !== "sold") {
         await cancelListingReviewPrompts(id, listing.userId);
-        await deleteTransactionReviews(id);
       }
       setListing((prev) => ({
         ...prev,

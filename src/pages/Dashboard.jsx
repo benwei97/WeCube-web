@@ -43,7 +43,6 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  deleteTransactionReviews,
   subscribeToReceivedReviews,
   subscribeToUserReviews,
 } from "../utils/reviews";
@@ -303,6 +302,7 @@ function Dashboard() {
         updates.soldMethod = null;
         updates.buyerId = null;
         updates.soldConversationId = null;
+        updates.saleEventId = null;
       }
 
       if (status === "active") {
@@ -311,12 +311,12 @@ function Dashboard() {
         updates.soldMethod = null;
         updates.buyerId = null;
         updates.soldConversationId = null;
+        updates.saleEventId = null;
       }
 
       await updateDoc(doc(db, "listings", listing.id), updates);
       if (listing.status === "sold" && status !== "sold") {
         await cancelListingReviewPrompts(listing.id, listing.userId);
-        await deleteTransactionReviews(listing.id);
       }
     } catch (error) {
       console.error(`Error updating listing ${listing.id} to ${status}:`, error);

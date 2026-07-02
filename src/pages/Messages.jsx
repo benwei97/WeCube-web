@@ -214,6 +214,8 @@ function Messages() {
   const messagesUnsubscribeRef = useRef(null);
   const previousMessageCountRef = useRef(0);
   const previousConversationIdRef = useRef(null);
+  const previousNewestMessageIdRef = useRef(null);
+  const userNearBottomRef = useRef(true);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -295,35 +297,47 @@ function Messages() {
   }, [conversationId, conversations, currentUserId]);
 
   useEffect(() => {
-    const scrollElement = messagesScrollRef.current;
     const currentConversationId = selectedConversation?.id || null;
     const conversationChanged =
       previousConversationIdRef.current !== currentConversationId;
-    const previousMessageCount = previousMessageCountRef.current;
     const newestMessage = messages[messages.length - 1];
+    const newestMessageId = newestMessage?.id || null;
+    const newestMessageChanged =
+      newestMessageId &&
+      newestMessageId !== previousNewestMessageIdRef.current;
     const newestMessageIsMine = newestMessage?.senderId === currentUserId;
-    const isNearBottom = scrollElement
-      ? scrollElement.scrollHeight -
-          scrollElement.scrollTop -
-          scrollElement.clientHeight <
-        120
-      : true;
 
-    if (
-      conversationChanged ||
-      messages.length <= previousMessageCount ||
-      isNearBottom ||
-      newestMessageIsMine
-    ) {
+    if (conversationChanged) {
+      userNearBottomRef.current = true;
       scrollToBottom(conversationChanged ? "auto" : "smooth");
+    } else if (
+      newestMessageChanged &&
+      (userNearBottomRef.current || newestMessageIsMine)
+    ) {
+      scrollToBottom("smooth");
     }
 
     previousMessageCountRef.current = messages.length;
     previousConversationIdRef.current = currentConversationId;
+    previousNewestMessageIdRef.current = newestMessageId;
   }, [messages, selectedConversation?.id, currentUserId]);
 
   const scrollToBottom = (behavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const handleMessagesScroll = () => {
+    const scrollElement = messagesScrollRef.current;
+    if (!scrollElement) {
+      userNearBottomRef.current = true;
+      return;
+    }
+
+    userNearBottomRef.current =
+      scrollElement.scrollHeight -
+        scrollElement.scrollTop -
+        scrollElement.clientHeight <
+      120;
   };
 
   const getReadFieldForConversation = (conversation) => {
@@ -938,7 +952,11 @@ function Messages() {
               </Box>
 
               {/* Messages */}
-                <Box ref={messagesScrollRef} sx={{ flex: 1, overflow: "auto", p: 2 }}>
+                <Box
+                  ref={messagesScrollRef}
+                  onScroll={handleMessagesScroll}
+                  sx={{ flex: 1, overflow: "auto", p: 2 }}
+                >
                 {getTranscriptItems().map((item, index, transcriptItems) => {
                   if (item.type === "timeDivider") {
                     return (
@@ -987,6 +1005,14 @@ function Messages() {
                     const isPromptClosed =
                       selectedConversation.activeSaleEventId !==
                         message.saleEventId || response;
+
+                    if (
+                      !response &&
+                      selectedConversation.activeSaleEventId !==
+                        message.saleEventId
+                    ) {
+                      return null;
+                    }
 
                     return (
                       <Box
