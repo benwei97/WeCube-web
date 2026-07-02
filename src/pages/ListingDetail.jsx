@@ -858,7 +858,14 @@ function ListingDetail() {
 
       await updateDoc(docRef, updates);
       if (listing.status === "sold" && status !== "sold") {
-        await cancelListingReviewPrompts(id, listing.userId);
+        const sellerFirstName =
+          listing?.sellerName?.trim()?.split(/\s+/)?.[0] || "Seller";
+        await cancelListingReviewPrompts(
+          id,
+          listing.userId,
+          sellerFirstName,
+          listing.title
+        );
       }
       setListing((prev) => ({
         ...prev,

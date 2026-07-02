@@ -316,7 +316,16 @@ function Dashboard() {
 
       await updateDoc(doc(db, "listings", listing.id), updates);
       if (listing.status === "sold" && status !== "sold") {
-        await cancelListingReviewPrompts(listing.id, listing.userId);
+        const sellerFirstName =
+          currentUser?.firstName ||
+          currentUser?.displayName?.trim()?.split(/\s+/)?.[0] ||
+          "Seller";
+        await cancelListingReviewPrompts(
+          listing.id,
+          listing.userId,
+          sellerFirstName,
+          listing.title
+        );
       }
     } catch (error) {
       console.error(`Error updating listing ${listing.id} to ${status}:`, error);

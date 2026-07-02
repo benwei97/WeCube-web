@@ -421,7 +421,12 @@ export async function closeListingConversationsForSold(
   }
 }
 
-export async function cancelListingReviewPrompts(listingId, sellerId) {
+export async function cancelListingReviewPrompts(
+  listingId,
+  sellerId,
+  sellerFirstName = "Seller",
+  listingTitle = "this listing"
+) {
   try {
     const conversationsQuery = query(
       collection(db, "conversations"),
@@ -429,8 +434,8 @@ export async function cancelListingReviewPrompts(listingId, sellerId) {
       where("sellerId", "==", sellerId)
     );
     const snapshot = await getDocs(conversationsQuery);
-    const availableAgainMessage =
-      "The seller marked this listing as available again.";
+    const sellerName = sellerFirstName || "Seller";
+    const availableAgainMessage = `${sellerName} marked "${listingTitle}" as available.`;
 
     for (const conversationDoc of snapshot.docs) {
       const conversationRef = doc(db, "conversations", conversationDoc.id);
