@@ -623,12 +623,13 @@ function Sell() {
                   <Box
                     sx={{
                       position: "relative",
-                      width: "100%",
-                      height: 120,
+                      width: 120,
+                      aspectRatio: "1 / 1",
                       borderRadius: 1,
                       overflow: "hidden",
                       border: "1px solid",
                       borderColor: "grey.300",
+                      bgcolor: "grey.50",
                     }}
                   >
                     <img
@@ -637,7 +638,8 @@ function Sell() {
                       style={{
                         width: "100%",
                         height: "100%",
-                        objectFit: "cover",
+                        objectFit: "contain",
+                        display: "block",
                       }}
                     />
                     <IconButton
