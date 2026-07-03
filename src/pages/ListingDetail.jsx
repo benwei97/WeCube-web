@@ -160,7 +160,6 @@ function ListingDetail() {
     description: "",
     condition: "",
     puzzleType: "",
-    brand: "",
     meetupLocationLabel: "",
     meetupLocation: null,
     shippingAvailable: false,
@@ -219,7 +218,6 @@ function ListingDetail() {
             description: listingData.description || "",
             condition: normalizeConditionValue(listingData.condition),
             puzzleType: listingData.puzzleType || "",
-            brand: listingData.brand || "",
             meetupLocationLabel: fulfillmentFields.meetupLocationLabel,
             meetupLocation: listingData.meetupLocation || null,
             shippingAvailable: fulfillmentFields.shippingAvailable,
@@ -616,22 +614,13 @@ function ListingDetail() {
         description: editData.description,
         condition: editData.condition,
         puzzleType: editData.puzzleType,
-        brand: editData.brand.trim(),
-        location: editData.meetupLocationLabel.trim(),
         meetupLocationLabel: editData.meetupLocationLabel.trim(),
         meetupLocation:
           editData.localMeetupAvailable && resolvedMeetupLocation
             ? resolvedMeetupLocation
             : null,
-        deliveryOptions: {
-          shipping: editData.shippingAvailable,
-          meetup:
-            editData.localMeetupAvailable ||
-            editData.competitionMeetupAvailable,
-        },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingProfile: "",
         shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
@@ -651,22 +640,13 @@ function ListingDetail() {
         description: editData.description,
         condition: editData.condition,
         puzzleType: editData.puzzleType,
-        brand: editData.brand.trim(),
-        location: editData.meetupLocationLabel.trim(),
         meetupLocationLabel: editData.meetupLocationLabel.trim(),
         meetupLocation:
           editData.localMeetupAvailable && resolvedMeetupLocation
             ? resolvedMeetupLocation
             : null,
-        deliveryOptions: {
-          shipping: editData.shippingAvailable,
-          meetup:
-            editData.localMeetupAvailable ||
-            editData.competitionMeetupAvailable,
-        },
         shippingAvailable: editData.shippingAvailable,
         shippingIncluded: editData.shippingIncluded,
-        shippingProfile: "",
         shippingCost,
         localMeetupAvailable: editData.localMeetupAvailable,
         competitionMeetupAvailable: editData.competitionMeetupAvailable,
@@ -1464,7 +1444,6 @@ function ListingDetail() {
               >
                 {[
                   ["Condition", getConditionLabel(listing.condition)],
-                  listing.brand ? ["Brand", listing.brand] : null,
                   listedLocationLabel ? ["Listed in", listedLocationLabel] : null,
                 ]
                   .filter(Boolean)
@@ -2075,13 +2054,6 @@ function ListingDetail() {
                 </FormControl>
               </Grid>
             </Grid>
-
-            <TextField
-              label="Brand"
-              fullWidth
-              value={editData.brand}
-              onChange={handleInputChange("brand")}
-            />
 
             <TextField
               label="Description"

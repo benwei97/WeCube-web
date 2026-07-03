@@ -447,22 +447,14 @@ function Sell() {
         description: listingData.description,
         condition: listingData.condition,
         puzzleType: listingData.puzzleType,
-        location: fulfillmentData.meetupLocationLabel.trim(),
         meetupLocationLabel: fulfillmentData.meetupLocationLabel.trim(),
         meetupLocation:
           fulfillmentData.localMeetupAvailable && resolvedMeetupLocation
             ? resolvedMeetupLocation
             : null,
         photos: photosForStorage,
-        deliveryOptions: {
-          shipping: fulfillmentData.shippingAvailable,
-          meetup:
-            fulfillmentData.localMeetupAvailable ||
-            fulfillmentData.competitionMeetupAvailable,
-        },
         shippingAvailable: fulfillmentData.shippingAvailable,
         shippingIncluded: fulfillmentData.shippingIncluded,
-        shippingProfile: "",
         shippingCost,
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
@@ -476,7 +468,6 @@ function Sell() {
         status: "active", // New listings start as active
         createdAt: new Date(),
         soldAt: null,
-        soldTo: null,
         userId: currentUser.uid,
         listingId, // Store our custom ID for reference
       };

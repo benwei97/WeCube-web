@@ -95,7 +95,7 @@ function CompetitionListings() {
         const listingsRef = collection(db, "listings");
         const listingsQuery = query(
           listingsRef,
-          where("deliveryOptions.meetup", "==", true)
+          where("competitionMeetupAvailable", "==", true)
         );
 
         const querySnapshot = await getDocs(listingsQuery);
@@ -107,8 +107,10 @@ function CompetitionListings() {
         const cubesForCompetition = allListings.filter(
           (listing) =>
             isSoldListingPubliclyVisible(listing) &&
-            listing.competitions &&
-            listing.competitions.some((comp) => comp.id === competitionId)
+            (
+              listing.meetupCompetitionTags?.some((comp) => comp.id === competitionId) ||
+              listing.competitions?.some((comp) => comp.id === competitionId)
+            )
         );
 
         if (active) {
@@ -153,7 +155,6 @@ function CompetitionListings() {
         const searchableText = [
           cube.title,
           cube.description,
-          cube.brand,
           cube.puzzleType,
           fulfillmentOption?.label,
         ]

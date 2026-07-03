@@ -43,8 +43,10 @@ service cloud.firestore {
       return value is string && value.size() > 0 && value.size() <= maxLength;
     }
 
-    function isOptionalString(value, maxLength) {
-      return value == null || (value is string && value.size() <= maxLength);
+    function isOptionalStringField(data, field, maxLength) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is string && data[field].size() <= maxLength);
     }
 
     function isValidCondition(condition) {
@@ -78,9 +80,7 @@ service cloud.firestore {
         && isNonEmptyString(data.description, 2000)
         && isValidCondition(data.condition)
         && isValidPuzzleType(data.puzzleType)
-        && isOptionalString(data.brand, 60)
-        && isOptionalString(data.location, 160)
-        && isOptionalString(data.meetupLocationLabel, 160)
+        && isOptionalStringField(data, "meetupLocationLabel", 160)
         && data.photos is list
         && data.photos.size() >= 1
         && data.photos.size() <= 5
@@ -105,14 +105,11 @@ service cloud.firestore {
         "description",
         "condition",
         "puzzleType",
-        "location",
         "meetupLocationLabel",
         "meetupLocation",
         "photos",
-        "deliveryOptions",
         "shippingAvailable",
         "shippingIncluded",
-        "shippingProfile",
         "shippingCost",
         "localMeetupAvailable",
         "competitionMeetupAvailable",
@@ -121,7 +118,6 @@ service cloud.firestore {
         "status",
         "createdAt",
         "soldAt",
-        "soldTo",
         "userId",
         "listingId"
       ])
@@ -129,8 +125,7 @@ service cloud.firestore {
       && data.userId == request.auth.uid
       && isNonEmptyString(data.listingId, 120)
       && data.status == "active"
-      && data.soldAt == null
-      && data.soldTo == null;
+      && data.soldAt == null;
     }
 
     function validOwnerListingUpdate() {
@@ -146,14 +141,10 @@ service cloud.firestore {
           "description",
           "condition",
           "puzzleType",
-          "brand",
-          "location",
           "meetupLocationLabel",
           "meetupLocation",
-          "deliveryOptions",
           "shippingAvailable",
           "shippingIncluded",
-          "shippingProfile",
           "shippingCost",
           "localMeetupAvailable",
           "competitionMeetupAvailable",
@@ -208,8 +199,8 @@ service cloud.firestore {
           "avatarS3Key",
           "attendingCompetitions"
         ])
-        && isOptionalString(request.resource.data.avatarUrl, 500)
-        && isOptionalString(request.resource.data.avatarS3Key, 512);
+        && isOptionalStringField(request.resource.data, "avatarUrl", 500)
+        && isOptionalStringField(request.resource.data, "avatarS3Key", 512);
     }
 
     function validConversationCreate(data) {
@@ -340,7 +331,7 @@ service cloud.firestore {
         && data.rating is number
         && data.rating >= 1
         && data.rating <= 5
-        && isOptionalString(data.comment, 1000);
+        && isOptionalStringField(data, "comment", 1000);
     }
 
     function validReviewUpdate() {
@@ -359,7 +350,7 @@ service cloud.firestore {
         && request.resource.data.rating is number
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
-        && isOptionalString(request.resource.data.comment, 1000);
+        && isOptionalStringField(request.resource.data, "comment", 1000);
     }
 
     match /users/{userId} {
