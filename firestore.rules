@@ -1,0 +1,401 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function listingPath(listingId) {
+      return /databases/$(database)/documents/listings/$(listingId);
+    }
+
+    function listingExists(listingId) {
+      return exists(listingPath(listingId));
+    }
+
+    function listingData(listingId) {
+      return get(listingPath(listingId)).data;
+    }
+
+    function conversationPath(conversationId) {
+      return /databases/$(database)/documents/conversations/$(conversationId);
+    }
+
+    function conversationExists(conversationId) {
+      return exists(conversationPath(conversationId));
+    }
+
+    function conversationData(conversationId) {
+      return get(conversationPath(conversationId)).data;
+    }
+
+    function isConversationParticipantByData(data) {
+      return signedIn() &&
+        (data.buyerId == request.auth.uid || data.sellerId == request.auth.uid);
+    }
+
+    function isNonEmptyString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function isOptionalString(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function isValidCondition(condition) {
+      return condition in ["new", "like-new", "used"];
+    }
+
+    function isValidPuzzleType(puzzleType) {
+      return puzzleType in [
+        "2x2",
+        "3x3",
+        "4x4",
+        "5x5",
+        "6x6",
+        "7x7",
+        "Pyraminx",
+        "Skewb",
+        "Megaminx",
+        "Square-1",
+        "Clock",
+        "Accessories",
+        "Bundles",
+        "Other"
+      ];
+    }
+
+    function validListingCore(data) {
+      return isNonEmptyString(data.title, 80)
+        && data.price is number
+        && data.price > 0
+        && data.price <= 10000
+        && isNonEmptyString(data.description, 2000)
+        && isValidCondition(data.condition)
+        && isValidPuzzleType(data.puzzleType)
+        && isOptionalString(data.brand, 60)
+        && isOptionalString(data.location, 160)
+        && isOptionalString(data.meetupLocationLabel, 160)
+        && data.photos is list
+        && data.photos.size() >= 1
+        && data.photos.size() <= 5
+        && data.shippingAvailable is bool
+        && data.shippingIncluded is bool
+        && data.localMeetupAvailable is bool
+        && data.competitionMeetupAvailable is bool
+        && data.shippingCost is number
+        && data.shippingCost >= 0
+        && data.shippingCost <= 500
+        && (
+          data.shippingAvailable ||
+          data.localMeetupAvailable ||
+          data.competitionMeetupAvailable
+        );
+    }
+
+    function validListingCreate(data) {
+      return data.keys().hasOnly([
+        "title",
+        "price",
+        "description",
+        "condition",
+        "puzzleType",
+        "location",
+        "meetupLocationLabel",
+        "meetupLocation",
+        "photos",
+        "deliveryOptions",
+        "shippingAvailable",
+        "shippingIncluded",
+        "shippingProfile",
+        "shippingCost",
+        "localMeetupAvailable",
+        "competitionMeetupAvailable",
+        "competitions",
+        "meetupCompetitionTags",
+        "status",
+        "createdAt",
+        "soldAt",
+        "soldTo",
+        "userId",
+        "listingId"
+      ])
+      && validListingCore(data)
+      && data.userId == request.auth.uid
+      && isNonEmptyString(data.listingId, 120)
+      && data.status == "active"
+      && data.soldAt == null
+      && data.soldTo == null;
+    }
+
+    function validOwnerListingUpdate() {
+      let data = request.resource.data;
+      return signedIn()
+        && resource.data.userId == request.auth.uid
+        && data.userId == resource.data.userId
+        && data.listingId == resource.data.listingId
+        && data.createdAt == resource.data.createdAt
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          "title",
+          "price",
+          "description",
+          "condition",
+          "puzzleType",
+          "brand",
+          "location",
+          "meetupLocationLabel",
+          "meetupLocation",
+          "deliveryOptions",
+          "shippingAvailable",
+          "shippingIncluded",
+          "shippingProfile",
+          "shippingCost",
+          "localMeetupAvailable",
+          "competitionMeetupAvailable",
+          "competitions",
+          "meetupCompetitionTags",
+          "status",
+          "soldAt",
+          "archivedAt",
+          "updatedAt",
+          "soldMethod",
+          "buyerId",
+          "soldConversationId",
+          "saleEventId"
+        ])
+        && validListingCore(data)
+        && data.status in ["active", "archived", "sold"];
+    }
+
+    function validBuyerSoldUpdate() {
+      let data = request.resource.data;
+      return signedIn()
+        && resource.data.status == "active"
+        && data.userId == resource.data.userId
+        && data.listingId == resource.data.listingId
+        && data.createdAt == resource.data.createdAt
+        && data.status == "sold"
+        && data.buyerId == request.auth.uid
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "soldAt",
+          "updatedAt",
+          "soldMethod",
+          "buyerId",
+          "soldConversationId",
+          "saleEventId",
+          "archivedAt"
+        ]);
+    }
+
+    function validUserProfileCreate(data, userId) {
+      return data.keys().hasOnly(["email", "firstName", "lastName", "createdAt"])
+        && data.email is string
+        && isNonEmptyString(data.firstName, 50)
+        && isNonEmptyString(data.lastName, 50)
+        && isSelf(userId);
+    }
+
+    function validUserProfileUpdate(userId) {
+      return isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "avatarUrl",
+          "avatarS3Key",
+          "attendingCompetitions"
+        ])
+        && isOptionalString(request.resource.data.avatarUrl, 500)
+        && isOptionalString(request.resource.data.avatarS3Key, 512);
+    }
+
+    function validConversationCreate(data) {
+      return signedIn()
+        && data.keys().hasOnly([
+          "listingId",
+          "sellerId",
+          "buyerId",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "lastMessage",
+          "lastMessageType",
+          "lastMessageAt",
+          "lastMessageSenderId",
+          "initialMessage",
+          "buyerLastReadAt",
+          "sellerLastReadAt"
+        ])
+        && data.buyerId == request.auth.uid
+        && data.sellerId is string
+        && data.buyerId is string
+        && data.listingId is string
+        && data.sellerId != request.auth.uid
+        && data.status == "approved"
+        && data.lastMessageType == "message"
+        && data.lastMessageSenderId == request.auth.uid
+        && isNonEmptyString(data.lastMessage, 2000)
+        && data.initialMessage == data.lastMessage
+        && listingExists(data.listingId)
+        && listingData(data.listingId).status == "active"
+        && listingData(data.listingId).userId == data.sellerId;
+    }
+
+    function validConversationUpdate() {
+      let data = request.resource.data;
+      return isConversationParticipantByData(resource.data)
+        && data.sellerId == resource.data.sellerId
+        && data.buyerId == resource.data.buyerId
+        && data.listingId == resource.data.listingId
+        && data.status == resource.data.status
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          "lastMessage",
+          "lastMessageType",
+          "lastMessageAt",
+          "lastMessageSenderId",
+          "updatedAt",
+          "buyerLastReadAt",
+          "sellerLastReadAt",
+          "lastMessageReviewPrompt",
+          "lastMessageListingTitle",
+          "lastMessageSellerName",
+          "lastMessageBuyerName",
+          "activeSaleEventId",
+          "closedAt",
+          "closedReason"
+        ])
+        && (
+          !("lastMessage" in data) ||
+          (data.lastMessage is string && data.lastMessage.size() <= 2000)
+        )
+        && (
+          !("lastMessageType" in data) ||
+          data.lastMessageType in ["message", "system"]
+        );
+    }
+
+    function validMessageCreate(data) {
+      return signedIn()
+        && data.conversationId is string
+        && conversationExists(data.conversationId)
+        && conversationData(data.conversationId).status == "approved"
+        && isConversationParticipantByData(conversationData(data.conversationId))
+        && data.senderId == request.auth.uid
+        && data.text is string
+        && data.text.size() > 0
+        && data.text.size() <= 2000
+        && data.type in ["message", "system"]
+        && (
+          data.type == "message" ||
+          request.auth.uid == conversationData(data.conversationId).sellerId
+        )
+        && data.keys().hasOnly([
+          "conversationId",
+          "senderId",
+          "text",
+          "type",
+          "createdAt",
+          "reviewPrompt",
+          "saleEventId",
+          "listingTitle",
+          "sellerName",
+          "buyerName",
+          "reviewResponses"
+        ]);
+    }
+
+    function validReviewCreate(data) {
+      let listing = listingData(data.listingId);
+      let isBuyer = listing.buyerId == request.auth.uid;
+      let isSeller = listing.userId == request.auth.uid && listing.buyerId is string;
+      return signedIn()
+        && data.keys().hasOnly([
+          "listingId",
+          "listingTitle",
+          "listingPhotoS3Key",
+          "sellerId",
+          "buyerId",
+          "reviewerId",
+          "reviewerName",
+          "reviewerRole",
+          "recipientId",
+          "recipientName",
+          "recipientRole",
+          "rating",
+          "comment",
+          "createdAt",
+          "updatedAt"
+        ])
+        && data.reviewerId == request.auth.uid
+        && data.listingId is string
+        && listingExists(data.listingId)
+        && listing.status == "sold"
+        && data.sellerId == listing.userId
+        && data.buyerId == listing.buyerId
+        && ((isBuyer && data.recipientId == listing.userId) ||
+            (isSeller && data.recipientId == listing.buyerId))
+        && data.rating is number
+        && data.rating >= 1
+        && data.rating <= 5
+        && isOptionalString(data.comment, 1000);
+    }
+
+    function validReviewUpdate() {
+      return signedIn()
+        && resource.data.reviewerId == request.auth.uid
+        && request.resource.data.reviewerId == resource.data.reviewerId
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.recipientId == resource.data.recipientId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "rating",
+          "comment",
+          "updatedAt"
+        ])
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && isOptionalString(request.resource.data.comment, 1000);
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if validUserProfileCreate(request.resource.data, userId);
+      allow update: if validUserProfileUpdate(userId);
+      allow delete: if false;
+    }
+
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if signedIn() && validListingCreate(request.resource.data);
+      allow update: if validOwnerListingUpdate() || validBuyerSoldUpdate();
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isConversationParticipantByData(resource.data);
+      allow create: if validConversationCreate(request.resource.data);
+      allow update: if validConversationUpdate();
+      allow delete: if false;
+    }
+
+    match /messages/{messageId} {
+      allow read: if signedIn()
+        && conversationExists(resource.data.conversationId)
+        && isConversationParticipantByData(conversationData(resource.data.conversationId));
+      allow create: if validMessageCreate(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if validReviewCreate(request.resource.data);
+      allow update: if validReviewUpdate();
+      allow delete: if signedIn() && resource.data.reviewerId == request.auth.uid;
+    }
+  }
+}
