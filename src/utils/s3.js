@@ -1,21 +1,58 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../firebase";
 
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: import.meta.env.VITE_AWS_REGION,
-  credentials: {
-    accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
-    secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
-  },
-});
+const createSignedS3Upload = httpsCallable(functions, "createSignedS3Upload");
+const deleteS3Objects = httpsCallable(functions, "deleteS3Objects");
 
-// Debug logging
-console.log('S3 Config:', {
-  region: import.meta.env.VITE_AWS_REGION,
-  bucketName: import.meta.env.VITE_S3_BUCKET_NAME,
-  hasAccessKey: !!import.meta.env.VITE_AWS_ACCESS_KEY_ID,
-  hasSecretKey: !!import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
-});
+const SUPPORTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+function getFileExtension(file) {
+  const fromName = file.name?.split(".").pop()?.toLowerCase();
+  if (fromName && /^[a-z0-9]+$/.test(fromName)) {
+    return fromName === "jpg" ? "jpeg" : fromName;
+  }
+
+  return file.type?.split("/")[1] || "png";
+}
+
+function assertImageFile(file) {
+  if (!file) {
+    throw new Error("Select an image to upload.");
+  }
+
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+    throw new Error("Upload a JPG, PNG, or WebP image.");
+  }
+}
+
+async function uploadWithSignedUrl(file, uploadRequest) {
+  assertImageFile(file);
+
+  const { data } = await createSignedS3Upload(uploadRequest);
+  const { uploadUrl, s3Key } = data || {};
+
+  if (!uploadUrl || !s3Key) {
+    throw new Error("Failed to prepare image upload.");
+  }
+
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Image upload failed with status ${response.status}.`);
+  }
+
+  return s3Key;
+}
 
 /**
  * Upload a file to S3 bucket
@@ -24,51 +61,17 @@ console.log('S3 Config:', {
  * @returns {Promise<string>} The S3 key (path) of the uploaded file
  */
 export async function uploadImageToS3(file, listingId) {
-  // Generate unique filename with timestamp
-  const timestamp = Date.now();
-  const fileExtension = file.name.split('.').pop();
-  const fileName = `${timestamp}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-
-  // Organize files by listing only
-  const s3Key = `listings/${listingId}/${fileName}`;
-
-  // Convert File to ArrayBuffer for browser compatibility
-  const fileBuffer = await file.arrayBuffer();
-
-  const uploadParams = {
-    Bucket: import.meta.env.VITE_S3_BUCKET_NAME,
-    Key: s3Key,
-    Body: new Uint8Array(fileBuffer),
-    ContentType: file.type,
-    // ACL removed - bucket configured to not allow ACLs
-    Metadata: {
-      'original-name': file.name,
-      'listing-id': listingId,
-    },
-  };
-
   try {
-    console.log('Uploading file:', {
+    return await uploadWithSignedUrl(file, {
+      uploadType: "listing",
+      listingId,
       fileName: file.name,
+      contentType: file.type,
+      fileExtension: getFileExtension(file),
       fileSize: file.size,
-      fileType: file.type,
-      s3Key,
-      bucket: import.meta.env.VITE_S3_BUCKET_NAME
     });
-
-    const command = new PutObjectCommand(uploadParams);
-    const result = await s3Client.send(command);
-
-    console.log(`File uploaded successfully: ${s3Key}`, result);
-    return s3Key;
   } catch (error) {
-    console.error('Detailed S3 upload error:', {
-      error,
-      errorMessage: error.message,
-      errorCode: error.Code,
-      errorName: error.name,
-      uploadParams
-    });
+    console.error("S3 listing image upload error:", error);
     throw new Error(`Failed to upload ${file.name}: ${error.message}`);
   }
 }
@@ -89,38 +92,22 @@ export function getS3PublicUrl(s3Key) {
 }
 
 export async function uploadAvatarToS3(file, userId) {
-  const timestamp = Date.now();
-  const fileExtension = file.name.split('.').pop();
-  const fileName = `${timestamp}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-  const s3Key = `avatars/${userId}/${fileName}`;
-  const fileBuffer = await file.arrayBuffer();
-
-  const uploadParams = {
-    Bucket: import.meta.env.VITE_S3_BUCKET_NAME,
-    Key: s3Key,
-    Body: new Uint8Array(fileBuffer),
-    ContentType: file.type,
-    Metadata: {
-      'original-name': file.name,
-      'user-id': userId,
-    },
-  };
-
   try {
-    const command = new PutObjectCommand(uploadParams);
-    await s3Client.send(command);
+    const s3Key = await uploadWithSignedUrl(file, {
+      uploadType: "avatar",
+      userId,
+      fileName: file.name,
+      contentType: file.type,
+      fileExtension: getFileExtension(file),
+      fileSize: file.size,
+    });
+
     return {
       s3Key,
       url: getS3PublicUrl(s3Key),
     };
   } catch (error) {
-    console.error('Detailed S3 avatar upload error:', {
-      error,
-      errorMessage: error.message,
-      errorCode: error.Code,
-      errorName: error.name,
-      uploadParams,
-    });
+    console.error("S3 avatar upload error:", error);
     throw new Error(`Failed to upload avatar: ${error.message}`);
   }
 }
@@ -149,24 +136,12 @@ export async function uploadMultipleImages(files, listingId) {
  * @returns {Promise<void>}
  */
 export async function deleteImageFromS3(s3Key) {
-  const deleteParams = {
-    Bucket: import.meta.env.VITE_S3_BUCKET_NAME,
-    Key: s3Key,
-  };
+  if (!s3Key) return;
 
   try {
-    console.log('Deleting file from S3:', s3Key);
-
-    const command = new DeleteObjectCommand(deleteParams);
-    await s3Client.send(command);
-
-    console.log(`File deleted successfully: ${s3Key}`);
+    await deleteS3Objects({ s3Keys: [s3Key] });
   } catch (error) {
-    console.error('Detailed S3 delete error:', {
-      error,
-      errorMessage: error.message,
-      s3Key
-    });
+    console.error("S3 delete error:", error);
     throw new Error(`Failed to delete ${s3Key}: ${error.message}`);
   }
 }
@@ -177,13 +152,13 @@ export async function deleteImageFromS3(s3Key) {
  * @returns {Promise<void>}
  */
 export async function deleteMultipleImages(s3Keys) {
-  const deletePromises = s3Keys.map(s3Key => deleteImageFromS3(s3Key));
+  const filteredKeys = (s3Keys || []).filter(Boolean);
+  if (filteredKeys.length === 0) return;
 
   try {
-    await Promise.all(deletePromises);
-    console.log(`Successfully deleted ${s3Keys.length} files from S3`);
+    await deleteS3Objects({ s3Keys: filteredKeys });
   } catch (error) {
-    console.error('Error deleting multiple files from S3:', error);
+    console.error("Error deleting multiple files from S3:", error);
     throw error;
   }
 }

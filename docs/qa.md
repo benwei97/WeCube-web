@@ -45,7 +45,7 @@ Playwright loads these values from the project `.env` file through `playwright.c
 
 ## S3 CORS For Local QA
 
-The authenticated publish-listing test uploads a sample image from the browser. The S3 bucket must allow local browser uploads from the Vite dev server origin.
+The authenticated publish-listing test uploads a sample image through a short-lived signed S3 URL. The S3 bucket must allow local browser uploads from the Vite dev server origin.
 
 In the AWS S3 bucket permissions, configure CORS with the local origins:
 
@@ -53,7 +53,7 @@ In the AWS S3 bucket permissions, configure CORS with the local origins:
 [
   {
     "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedOrigins": [
       "http://localhost:5173",
       "http://127.0.0.1:5173"

@@ -65,14 +65,13 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_MEASUREMENT_ID=
+VITE_FIREBASE_FUNCTIONS_REGION=
 ```
 
 AWS/S3:
 
 ```sh
 VITE_AWS_REGION=
-VITE_AWS_ACCESS_KEY_ID=
-VITE_AWS_SECRET_ACCESS_KEY=
 VITE_S3_BUCKET_NAME=
 VITE_S3_PUBLIC_BASE_URL=
 ```
@@ -85,7 +84,16 @@ VITE_MAPBOX_ACCESS_TOKEN=
 
 For AWS account migration notes, see [docs/aws-migration.md](docs/aws-migration.md).
 
-Important: the current S3 implementation uses `VITE_AWS_*` variables in the browser bundle. That works for development but exposes credentials to users. A safer future design is a backend that returns short-lived presigned upload/delete URLs.
+S3 uploads and deletes use Firebase Cloud Functions for short-lived signed URLs and server-side deletion. Do not put AWS access keys in `VITE_` variables because `VITE_` values are exposed to the browser.
+
+Cloud Functions runtime environment:
+
+```sh
+AWS_REGION=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+S3_BUCKET_NAME=
+```
 
 ## Main Routes
 
