@@ -166,14 +166,6 @@ function SellerProfile() {
         : null;
     return { reviewCount, averageRating };
   }, [reviews]);
-  const listingsById = useMemo(
-    () =>
-      Object.fromEntries(
-        sellerListings.map((listing) => [listing.id, listing])
-      ),
-    [sellerListings]
-  );
-
   const formatDate = (dateValue) => {
     if (!dateValue) return null;
     const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
@@ -182,16 +174,10 @@ function SellerProfile() {
   };
 
   const getReviewDisplayData = (review) => {
-    const reviewedListing = listingsById[review.listingId];
-    const listingPhotoS3Key =
-      review.listingPhotoS3Key || reviewedListing?.photos?.[0]?.s3Key;
     const reviewerProfile = reviewerProfiles[review.reviewerId];
     const reviewerName = review.reviewerName || "Buyer";
 
     return {
-      listingPhotoUrl: listingPhotoS3Key
-        ? getS3PublicUrl(listingPhotoS3Key)
-        : null,
       reviewerAvatarUrl:
         reviewerProfile?.avatarUrl || reviewerProfile?.photoURL || null,
       reviewerName,
@@ -443,7 +429,6 @@ function SellerProfile() {
             <Box sx={COMPACT_CARD_GRID_SX}>
               {reviews.map((review) => {
                 const {
-                  listingPhotoUrl,
                   reviewerAvatarUrl,
                   reviewerName,
                   reviewDate,
@@ -464,43 +449,20 @@ function SellerProfile() {
                         "&:last-child": { pb: 1.5 },
                       }}
                     >
-                      <Stack direction="row" spacing={1.25} alignItems="center">
-                        <Box
-                          sx={{
-                            position: "relative",
-                            width: 56,
-                            height: 56,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Avatar
-                            src={listingPhotoUrl || undefined}
-                            variant="rounded"
-                            sx={{
-                              width: 56,
-                              height: 56,
-                              bgcolor: "grey.100",
-                              borderRadius: 1,
-                            }}
-                          />
-                          <Avatar
-                            src={reviewerAvatarUrl || undefined}
-                            sx={{
-                              position: "absolute",
-                              right: -4,
-                              bottom: -4,
-                              width: 24,
-                              height: 24,
-                              border: "2px solid",
-                              borderColor: "background.paper",
-                              bgcolor: "primary.main",
-                              fontSize: "0.72rem",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {reviewerName.charAt(0).toUpperCase()}
-                          </Avatar>
-                        </Box>
+	                      <Stack direction="row" spacing={1.25} alignItems="center">
+	                        <Avatar
+	                          src={reviewerAvatarUrl || undefined}
+	                          sx={{
+	                            width: 56,
+	                            height: 56,
+	                            bgcolor: "primary.main",
+	                            fontSize: "1.1rem",
+	                            fontWeight: 700,
+	                            flexShrink: 0,
+	                          }}
+	                        >
+	                          {reviewerName.charAt(0).toUpperCase()}
+	                        </Avatar>
                         <Box sx={{ minWidth: 0, flex: 1 }}>
                           <Typography
                             variant="subtitle1"
@@ -590,7 +552,6 @@ function SellerProfile() {
         >
           {selectedReview && (() => {
             const {
-              listingPhotoUrl,
               reviewerAvatarUrl,
               reviewerName,
               reviewDate,
@@ -610,43 +571,20 @@ function SellerProfile() {
                 </DialogTitle>
                 <DialogContent>
                   <Stack spacing={2}>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Box
-                        sx={{
-                          position: "relative",
-                          width: 64,
-                          height: 64,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Avatar
-                          src={listingPhotoUrl || undefined}
-                          variant="rounded"
-                          sx={{
-                            width: 64,
-                            height: 64,
-                            bgcolor: "grey.100",
-                            borderRadius: 1,
-                          }}
-                        />
-                        <Avatar
-                          src={reviewerAvatarUrl || undefined}
-                          sx={{
-                            position: "absolute",
-                            right: -4,
-                            bottom: -4,
-                            width: 28,
-                            height: 28,
-                            border: "2px solid",
-                            borderColor: "background.paper",
-                            bgcolor: "primary.main",
-                            fontSize: "0.78rem",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {reviewerName.charAt(0).toUpperCase()}
-                        </Avatar>
-                      </Box>
+	                    <Stack direction="row" spacing={1.5} alignItems="center">
+	                      <Avatar
+	                        src={reviewerAvatarUrl || undefined}
+	                        sx={{
+	                          width: 64,
+	                          height: 64,
+	                          bgcolor: "primary.main",
+	                          fontSize: "1.2rem",
+	                          fontWeight: 700,
+	                          flexShrink: 0,
+	                        }}
+	                      >
+	                        {reviewerName.charAt(0).toUpperCase()}
+	                      </Avatar>
                       <Box sx={{ minWidth: 0 }}>
                         <Typography variant="subtitle1" fontWeight={600}>
                           {reviewerName}

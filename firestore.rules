@@ -307,6 +307,7 @@ service cloud.firestore {
           "listingId",
           "listingTitle",
           "listingPhotoS3Key",
+          "saleEventId",
           "sellerId",
           "buyerId",
           "reviewerId",
@@ -324,6 +325,7 @@ service cloud.firestore {
         && data.listingId is string
         && listingExists(data.listingId)
         && listing.status == "sold"
+        && data.saleEventId == listing.saleEventId
         && data.sellerId == listing.userId
         && data.buyerId == listing.buyerId
         && ((isBuyer && data.recipientId == listing.userId) ||
@@ -341,6 +343,7 @@ service cloud.firestore {
         && request.resource.data.sellerId == resource.data.sellerId
         && request.resource.data.buyerId == resource.data.buyerId
         && request.resource.data.listingId == resource.data.listingId
+        && request.resource.data.saleEventId == resource.data.saleEventId
         && request.resource.data.recipientId == resource.data.recipientId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "rating",

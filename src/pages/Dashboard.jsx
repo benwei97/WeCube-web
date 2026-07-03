@@ -550,7 +550,10 @@ function Dashboard() {
   };
 
   const renderPurchaseCard = (listing) => {
-    const existingReview = writtenReviewsByListingId[listing.id];
+    const reviewKey = listing.saleEventId
+      ? `${listing.id}:${listing.saleEventId}`
+      : listing.id;
+    const existingReview = writtenReviewsByListingId[reviewKey];
     const thumbnailUrl = listing.photos?.[0]?.s3Key
       ? getS3PublicUrl(listing.photos[0].s3Key)
       : null;

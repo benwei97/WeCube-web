@@ -11,12 +11,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 
-export function getReviewDocId(listingId, reviewerId) {
-  return `${listingId}_${reviewerId}`;
+export function getReviewDocId(listingId, reviewerId, saleEventId = null) {
+  return saleEventId
+    ? `${listingId}_${saleEventId}_${reviewerId}`
+    : `${listingId}_${reviewerId}`;
 }
 
-export async function getExistingReview(listingId, reviewerId) {
-  const reviewDoc = await getDoc(doc(db, "reviews", getReviewDocId(listingId, reviewerId)));
+export async function getExistingReview(listingId, reviewerId, saleEventId = null) {
+  const reviewDoc = await getDoc(doc(db, "reviews", getReviewDocId(listingId, reviewerId, saleEventId)));
   return reviewDoc.exists() ? { id: reviewDoc.id, ...reviewDoc.data() } : null;
 }
 
@@ -42,6 +44,7 @@ export async function submitTransactionReview({
   recipientId,
   recipientName,
   recipientRole,
+  saleEventId,
 }) {
   if (!listing?.id || !reviewer?.uid) {
     throw new Error("Missing review context");
@@ -78,10 +81,11 @@ export async function submitTransactionReview({
     throw new Error("Invalid review recipient");
   }
 
-  const reviewId = getReviewDocId(listing.id, reviewer.uid);
+  const reviewId = getReviewDocId(listing.id, reviewer.uid, listing.saleEventId || saleEventId);
   const reviewRef = doc(db, "reviews", reviewId);
   const existingReview = await getDoc(reviewRef);
   const now = new Date();
+  const resolvedSaleEventId = listing.saleEventId || saleEventId || null;
   const listingPhotoS3Key = listing.photos?.[0]?.s3Key || "";
 
   await setDoc(
@@ -90,6 +94,7 @@ export async function submitTransactionReview({
       listingId: listing.id,
       listingTitle: listing.title,
       listingPhotoS3Key,
+      saleEventId: resolvedSaleEventId,
       sellerId: listing.userId,
       buyerId: listing.buyerId || null,
       reviewerId: reviewer.uid,
@@ -235,15 +240,18 @@ export function subscribeToUserReviews(reviewerId, callback, onError) {
   return onSnapshot(
     reviewsQuery,
     (snapshot) => {
-      const reviewsByListingId = snapshot.docs.reduce((acc, reviewDoc) => {
+      const reviewsByTransactionId = snapshot.docs.reduce((acc, reviewDoc) => {
         const review = {
           id: reviewDoc.id,
           ...reviewDoc.data(),
         };
         acc[review.listingId] = review;
+        if (review.saleEventId) {
+          acc[`${review.listingId}:${review.saleEventId}`] = review;
+        }
         return acc;
       }, {});
-      callback(reviewsByListingId);
+      callback(reviewsByTransactionId);
     },
     onError
   );
@@ -268,15 +276,21 @@ export function subscribeToPendingReviewCount(userId, callback, onError) {
   let sales = [];
 
   const emitCount = () => {
-    const reviewedListingIds = new Set(authoredReviews.map((review) => review.listingId));
+    const reviewedTransactionIds = new Set(
+      authoredReviews.map((review) =>
+        review.saleEventId ? `${review.listingId}:${review.saleEventId}` : review.listingId
+      )
+    );
+    const getTransactionId = (listing) =>
+      listing.saleEventId ? `${listing.id}:${listing.saleEventId}` : listing.id;
     const pendingPurchaseReviews = purchases.filter(
-      (listing) => listing.status === "sold" && !reviewedListingIds.has(listing.id)
+      (listing) => listing.status === "sold" && !reviewedTransactionIds.has(getTransactionId(listing))
     ).length;
     const pendingSellerReviews = sales.filter(
       (listing) =>
         listing.status === "sold" &&
         Boolean(listing.buyerId) &&
-        !reviewedListingIds.has(listing.id)
+        !reviewedTransactionIds.has(getTransactionId(listing))
     ).length;
 
     callback(pendingPurchaseReviews + pendingSellerReviews);

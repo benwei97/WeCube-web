@@ -515,6 +515,11 @@ function Messages() {
       title: listingDetailsForReview.title || "Listing",
       userId: conversation.sellerId,
       buyerId: conversation.buyerId,
+      saleEventId:
+        reviewDialog.message.saleEventId ||
+        conversation.activeSaleEventId ||
+        listingDetailsForReview.saleEventId ||
+        null,
     };
 
     setSubmittingReview(true);
@@ -527,6 +532,7 @@ function Messages() {
         recipientId,
         recipientName: getConversationCounterpartName(conversation),
         recipientRole,
+        saleEventId: reviewDialog.message.saleEventId || conversation.activeSaleEventId || null,
       });
       saveReviewPromptResponse(reviewDialog.message.id, "reviewed");
       closeReviewDialog();
