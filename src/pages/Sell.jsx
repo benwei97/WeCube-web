@@ -52,8 +52,8 @@ import {
 import {
   characterCountText,
   clampText,
+  formatCurrencyInputFromDigits,
   INPUT_LIMITS,
-  isCurrencyInputWithinLimit,
 } from "../utils/inputLimits";
 
 function InfoTitle({ children, info, variant = "body1", fontWeight }) {
@@ -342,29 +342,37 @@ function Sell() {
   };
 
   const handlePriceChange = (event) => {
-    const value = event.target.value;
-    if (
-      isCurrencyInputWithinLimit(value, INPUT_LIMITS.LISTING_PRICE_MAX)
-    ) {
-      setSubmitNotice(null);
-      setListingData((prev) => ({
-        ...prev,
-        price: value,
-      }));
+    const value = formatCurrencyInputFromDigits(
+      event.target.value,
+      INPUT_LIMITS.LISTING_PRICE_MAX
+    );
+
+    if (value === null) {
+      return;
     }
+
+    setSubmitNotice(null);
+    setListingData((prev) => ({
+      ...prev,
+      price: value,
+    }));
   };
 
   const handleShippingCostChange = (event) => {
-    const value = event.target.value;
-    if (
-      isCurrencyInputWithinLimit(value, INPUT_LIMITS.SHIPPING_COST_MAX)
-    ) {
-      setSubmitNotice(null);
-      setFulfillmentData((prev) => ({
-        ...prev,
-        shippingCost: value,
-      }));
+    const value = formatCurrencyInputFromDigits(
+      event.target.value,
+      INPUT_LIMITS.SHIPPING_COST_MAX
+    );
+
+    if (value === null) {
+      return;
     }
+
+    setSubmitNotice(null);
+    setFulfillmentData((prev) => ({
+      ...prev,
+      shippingCost: value,
+    }));
   };
 
   const handleShippingIncludedChange = (_, value) => {
@@ -761,8 +769,8 @@ function Sell() {
               <Grid container spacing={2}>
                 <Grid>
                   <TextField
-                    label="Price (USD)"
-                    fullWidth
+                    label="Price"
+                    placeholder="0.00"
                     variant="outlined"
                     value={listingData.price}
                     onChange={handlePriceChange}
@@ -779,11 +787,15 @@ function Sell() {
                         ),
                       },
                       htmlInput: {
-                        inputMode: "decimal",
+                        inputMode: "numeric",
                         max: INPUT_LIMITS.LISTING_PRICE_MAX,
                       },
                     }}
-                    sx={{ maxWidth: 180 }}
+                    sx={{
+                      width: 108,
+                      "& .MuiInputAdornment-root": { mr: 0.25 },
+                      "& .MuiOutlinedInput-input": { px: 0.5 },
+                    }}
                     required
                   />
                 </Grid>
@@ -972,8 +984,8 @@ function Sell() {
                     </Box>
                     {!fulfillmentData.shippingIncluded && (
                       <TextField
-                        label="Estimated shipping"
-                        fullWidth
+                        label="Shipping"
+                        placeholder="0.00"
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
@@ -989,11 +1001,15 @@ function Sell() {
                             ),
                           },
                           htmlInput: {
-                            inputMode: "decimal",
+                            inputMode: "numeric",
                             max: INPUT_LIMITS.SHIPPING_COST_MAX,
                           },
                         }}
-                        sx={{ maxWidth: 180 }}
+                        sx={{
+                          width: 98,
+                          "& .MuiInputAdornment-root": { mr: 0.25 },
+                          "& .MuiOutlinedInput-input": { px: 0.5 },
+                        }}
                         required
                       />
                     )}

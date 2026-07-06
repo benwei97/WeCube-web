@@ -89,8 +89,8 @@ import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators"
 import {
   characterCountText,
   clampText,
+  formatCurrencyInputFromDigits,
   INPUT_LIMITS,
-  isCurrencyInputWithinLimit,
 } from "../utils/inputLimits";
 
 const BACK_BUTTON_SX = {
@@ -531,29 +531,37 @@ function ListingDetail() {
   };
 
   const handlePriceChange = (event) => {
-    const value = event.target.value;
-    if (
-      isCurrencyInputWithinLimit(value, INPUT_LIMITS.LISTING_PRICE_MAX)
-    ) {
-      setEditNotice(null);
-      setEditData((prev) => ({
-        ...prev,
-        price: value,
-      }));
+    const value = formatCurrencyInputFromDigits(
+      event.target.value,
+      INPUT_LIMITS.LISTING_PRICE_MAX
+    );
+
+    if (value === null) {
+      return;
     }
+
+    setEditNotice(null);
+    setEditData((prev) => ({
+      ...prev,
+      price: value,
+    }));
   };
 
   const handleShippingCostChange = (event) => {
-    const value = event.target.value;
-    if (
-      isCurrencyInputWithinLimit(value, INPUT_LIMITS.SHIPPING_COST_MAX)
-    ) {
-      setEditNotice(null);
-      setEditData((prev) => ({
-        ...prev,
-        shippingCost: value,
-      }));
+    const value = formatCurrencyInputFromDigits(
+      event.target.value,
+      INPUT_LIMITS.SHIPPING_COST_MAX
+    );
+
+    if (value === null) {
+      return;
     }
+
+    setEditNotice(null);
+    setEditData((prev) => ({
+      ...prev,
+      shippingCost: value,
+    }));
   };
 
   const resolveMeetupLocationForSave = async () => {
@@ -2041,8 +2049,8 @@ function ListingDetail() {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Price (USD)"
-                  fullWidth
+                  label="Price"
+                  placeholder="0.00"
                   value={editData.price}
                   onChange={handlePriceChange}
                   error={isEditPriceInvalid}
@@ -2058,11 +2066,15 @@ function ListingDetail() {
                       ),
                     },
                     htmlInput: {
-                      inputMode: "decimal",
+                      inputMode: "numeric",
                       max: INPUT_LIMITS.LISTING_PRICE_MAX,
                     },
                   }}
-                  sx={{ maxWidth: 180 }}
+                  sx={{
+                    width: 108,
+                    "& .MuiInputAdornment-root": { mr: 0.25 },
+                    "& .MuiOutlinedInput-input": { px: 0.5 },
+                  }}
                   required
                 />
               </Grid>
@@ -2172,8 +2184,8 @@ function ListingDetail() {
                     </Box>
                     {!editData.shippingIncluded && (
                       <TextField
-                        label="Shipping Price (USD)"
-                        fullWidth
+                        label="Shipping"
+                        placeholder="0.00"
                         value={editData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedEditSave && !isEditShippingCostValid}
@@ -2189,12 +2201,17 @@ function ListingDetail() {
                             ),
                           },
                           htmlInput: {
-                            inputMode: "decimal",
+                            inputMode: "numeric",
                             max: INPUT_LIMITS.SHIPPING_COST_MAX,
                           },
                         }}
                         required
-                        sx={{ mb: 2, maxWidth: 180 }}
+                        sx={{
+                          mb: 2,
+                          width: 98,
+                          "& .MuiInputAdornment-root": { mr: 0.25 },
+                          "& .MuiOutlinedInput-input": { px: 0.5 },
+                        }}
                       />
                     )}
                   </>

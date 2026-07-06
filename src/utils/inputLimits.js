@@ -17,15 +17,19 @@ export function characterCountText(value, maxLength) {
   return `${String(value || "").length}/${maxLength}`;
 }
 
-export function isCurrencyInputWithinLimit(value, maxAmount) {
-  if (!/^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
-    return false;
+export function formatCurrencyInputFromDigits(value, maxAmount) {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
   }
 
-  if (value === "" || value === ".") {
-    return true;
+  const amountInCents = Number.parseInt(digits, 10);
+  const maxAmountInCents = Math.round(maxAmount * 100);
+
+  if (!Number.isFinite(amountInCents) || amountInCents > maxAmountInCents) {
+    return null;
   }
 
-  const amount = Number.parseFloat(value);
-  return Number.isFinite(amount) && amount <= maxAmount;
+  return (amountInCents / 100).toFixed(2);
 }
