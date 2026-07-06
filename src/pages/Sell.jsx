@@ -901,28 +901,32 @@ function Sell() {
                 </Box>
                 {fulfillmentData.shippingAvailable && (
                   <Stack
-                    spacing={2}
+                    spacing={1.75}
                     sx={{
-                      mb: 2,
+                      mb: 2.5,
                       ml: { xs: 0, sm: 2 },
-                      pl: { xs: 1.5, sm: 2 },
-                      py: 1.5,
-                      borderLeft: "3px solid",
-                      borderColor: "divider",
-                      bgcolor: "action.hover",
-                      borderRadius: 1,
+                      pl: { xs: 1.5, sm: 2.25 },
+                      pt: 1,
+                      pb: 0.5,
+                      borderLeft: "1px solid",
+                      borderColor: "rgba(100, 108, 255, 0.28)",
                     }}
                   >
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
+                        alignItems: { xs: "flex-start", sm: "center" },
+                        gap: 2,
+                        flexDirection: { xs: "column", sm: "row" },
                       }}
                     >
                       <Box>
                         <Typography variant="body2" fontWeight={600}>
                           Is shipping included in the price?
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          If not, buyers will see the estimated extra cost.
                         </Typography>
                       </Box>
                       <ToggleButtonGroup
@@ -932,11 +936,12 @@ function Sell() {
                         onChange={handleShippingIncludedChange}
                         aria-label="Shipping included in price"
                         sx={{
-                          bgcolor: "background.paper",
+                          bgcolor: "transparent",
                           borderRadius: 1,
                           "& .MuiToggleButton-root": {
-                            px: 2,
-                            borderColor: "divider",
+                            minWidth: 58,
+                            px: 1.75,
+                            borderColor: "rgba(148, 163, 184, 0.36)",
                             color: "text.secondary",
                             fontWeight: 700,
                             "&.Mui-selected": {
@@ -960,16 +965,16 @@ function Sell() {
                     </Box>
                     {!fulfillmentData.shippingIncluded && (
                       <TextField
-                        label="Estimated Shipping Price (USD)"
+                        label="Estimated shipping"
                         fullWidth
-                        placeholder="Estimated Shipping Price (USD)"
+                        placeholder="e.g., 8.00"
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
                         helperText={
                           hasAttemptedSubmit && !isShippingCostValid
                             ? `Enter a shipping price from $0.01 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
-                            : undefined
+                            : "Buyers pay this amount separately."
                         }
                         slotProps={{
                           htmlInput: {
