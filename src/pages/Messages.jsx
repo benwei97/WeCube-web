@@ -697,6 +697,16 @@ function Messages() {
     );
   };
 
+  const getReviewPromptCounterpartId = (conversation) => {
+    if (!conversation) {
+      return null;
+    }
+
+    return conversation.userRole === "seller"
+      ? conversation.buyerId
+      : conversation.sellerId;
+  };
+
   const formatReviewPromptText = (source = {}, conversation = null) => {
     const counterpartName = getReviewPromptCounterpartName(conversation, source);
     const sellerName =
@@ -1261,16 +1271,31 @@ function Messages() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Rate your experience</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {getListingTitle(reviewDialog.conversation?.listingId)} with{" "}
-              {reviewDialog.conversation
-                ? getConversationCounterpartName(reviewDialog.conversation)
-                : "this user"}
-            </Typography>
-            <Box>
+	        <DialogTitle>
+	          Rate your experience with{" "}
+	          {reviewDialog.conversation
+	            ? getConversationCounterpartName(reviewDialog.conversation)
+	            : "this user"}
+	        </DialogTitle>
+	        <DialogContent>
+	          <Stack spacing={2} sx={{ mt: 1 }}>
+	            <Stack alignItems="center">
+	              <Avatar
+	                src={
+	                  getUserAvatarUrl(
+	                    getReviewPromptCounterpartId(reviewDialog.conversation)
+	                  ) || undefined
+	                }
+	                sx={{ width: 96, height: 96, fontSize: "2rem" }}
+	              >
+	                {reviewDialog.conversation
+	                  ? getConversationCounterpartName(reviewDialog.conversation)
+	                      .charAt(0)
+	                      .toUpperCase()
+	                  : "U"}
+	              </Avatar>
+	            </Stack>
+	            <Box>
               <Typography variant="body2" sx={{ mb: 1 }}>
                 Rating
               </Typography>
