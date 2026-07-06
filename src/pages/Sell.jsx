@@ -46,6 +46,7 @@ import {
   CONDITION_OPTIONS,
   getListingCompetitionPayload,
   PUZZLE_TYPE_OPTIONS,
+  parseNonNegativeCurrencyAmount,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
 import {
@@ -308,8 +309,8 @@ function Sell() {
   const isPriceInvalid =
     hasAttemptedSubmit &&
     (!listingData.price ||
-      parsePositiveCurrencyAmount(listingData.price) === null ||
-      parsePositiveCurrencyAmount(listingData.price) >
+      parseNonNegativeCurrencyAmount(listingData.price) === null ||
+      parseNonNegativeCurrencyAmount(listingData.price) >
         INPUT_LIMITS.LISTING_PRICE_MAX);
   const isPuzzleTypeInvalid = hasAttemptedSubmit && !listingData.puzzleType;
   const isConditionInvalid = hasAttemptedSubmit && !listingData.condition;
@@ -405,7 +406,7 @@ function Sell() {
     setHasAttemptedSubmit(true);
 
     const isPhotosValid = selectedPhotos.length > 0;
-    const parsedPrice = parsePositiveCurrencyAmount(listingData.price);
+    const parsedPrice = parseNonNegativeCurrencyAmount(listingData.price);
     const isBasicInfoValid =
       listingData.title.trim() &&
       parsedPrice !== null &&
@@ -768,7 +769,7 @@ function Sell() {
                     error={isPriceInvalid}
                     helperText={
                       isPriceInvalid
-                        ? `Enter a price from $0.01 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                        ? `Enter a price from $0 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
                         : ""
                     }
                     slotProps={{
@@ -782,6 +783,7 @@ function Sell() {
                         max: INPUT_LIMITS.LISTING_PRICE_MAX,
                       },
                     }}
+                    sx={{ maxWidth: 180 }}
                     required
                   />
                 </Grid>
@@ -991,6 +993,7 @@ function Sell() {
                             max: INPUT_LIMITS.SHIPPING_COST_MAX,
                           },
                         }}
+                        sx={{ maxWidth: 180 }}
                         required
                       />
                     )}

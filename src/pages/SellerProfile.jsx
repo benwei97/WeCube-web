@@ -17,7 +17,10 @@ import {
 import { ArrowBack, Close, Star } from "@mui/icons-material";
 import { collection, doc, getDoc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
-import { getPrimaryFulfillmentOption } from "../utils/listingUtils";
+import {
+  formatListingPrice,
+  getPrimaryFulfillmentOption,
+} from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { getS3PublicUrl } from "../utils/s3";
@@ -379,10 +382,7 @@ function SellerProfile() {
                             {listing.title}
                           </Typography>
                           <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
-                              {new Intl.NumberFormat("en-US", {
-                                style: "currency",
-                                currency: "USD",
-                              }).format(listing.price)}
+                              {formatListingPrice(listing.price)}
                           </Typography>
                           <Box sx={{ mt: 0.5 }}>
                             <ListingFulfillmentLine option={fulfillmentOption} />

@@ -75,6 +75,24 @@ export function parsePositiveCurrencyAmount(value) {
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
+export function parseNonNegativeCurrencyAmount(value) {
+  const amount = Number.parseFloat(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+export function formatListingPrice(price) {
+  const amount = Number(price || 0);
+
+  if (amount === 0) {
+    return "Free";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+}
+
 export function getShippingLabel(listing = {}, formatPrice) {
   if (listing.shippingIncluded) {
     return "Ships · Shipping Included";

@@ -75,8 +75,8 @@ service cloud.firestore {
     function validListingCore(data) {
       return isNonEmptyString(data.title, 80)
         && data.price is number
-        && data.price > 0
-        && data.price <= 10000
+        && data.price >= 0
+        && data.price <= 9999.99
         && isNonEmptyString(data.description, 2000)
         && isValidCondition(data.condition)
         && isValidPuzzleType(data.puzzleType)
@@ -90,7 +90,12 @@ service cloud.firestore {
         && data.competitionMeetupAvailable is bool
         && data.shippingCost is number
         && data.shippingCost >= 0
-        && data.shippingCost <= 500
+        && data.shippingCost <= 999.99
+        && (
+          !data.shippingAvailable ||
+          data.shippingIncluded ||
+          data.shippingCost > 0
+        )
         && (
           data.shippingAvailable ||
           data.localMeetupAvailable ||

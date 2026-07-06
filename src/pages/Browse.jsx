@@ -35,6 +35,7 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
+  formatListingPrice,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   isSoldListingPubliclyVisible,
@@ -581,12 +582,7 @@ function Browse() {
     setLocationAnchorEl(null);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  };
+  const formatPrice = formatListingPrice;
 
   const handleListingClick = (listingId) => {
     navigate(`/listing/${listingId}`);

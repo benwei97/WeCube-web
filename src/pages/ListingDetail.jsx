@@ -69,12 +69,14 @@ import {
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
+  formatListingPrice,
   getConditionLabel,
   formatListedLocationLabel,
   getListingCompetitionPayload,
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
   normalizeConditionValue,
+  parseNonNegativeCurrencyAmount,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
 import {
@@ -597,8 +599,8 @@ function ListingDetail() {
   const isEditPriceInvalid =
     hasAttemptedEditSave &&
     (!editData.price ||
-      parsePositiveCurrencyAmount(editData.price) === null ||
-      parsePositiveCurrencyAmount(editData.price) >
+      parseNonNegativeCurrencyAmount(editData.price) === null ||
+      parseNonNegativeCurrencyAmount(editData.price) >
         INPUT_LIMITS.LISTING_PRICE_MAX);
   const isEditPuzzleTypeInvalid =
     hasAttemptedEditSave && !editData.puzzleType;
@@ -612,8 +614,8 @@ function ListingDetail() {
     try {
       if (
         !editData.title.trim() ||
-        parsePositiveCurrencyAmount(editData.price) === null ||
-        parsePositiveCurrencyAmount(editData.price) >
+        parseNonNegativeCurrencyAmount(editData.price) === null ||
+        parseNonNegativeCurrencyAmount(editData.price) >
           INPUT_LIMITS.LISTING_PRICE_MAX ||
         !editData.condition ||
         !editData.description.trim() ||
@@ -639,7 +641,7 @@ function ListingDetail() {
 
       await updateDoc(docRef, {
         title: editData.title.trim(),
-        price: parsePositiveCurrencyAmount(editData.price),
+        price: parseNonNegativeCurrencyAmount(editData.price),
         description: editData.description.trim(),
         condition: editData.condition,
         puzzleType: editData.puzzleType,
@@ -665,7 +667,7 @@ function ListingDetail() {
       setListing((prev) => ({
         ...prev,
         title: editData.title,
-        price: parseFloat(editData.price),
+        price: parseNonNegativeCurrencyAmount(editData.price),
         description: editData.description,
         condition: editData.condition,
         puzzleType: editData.puzzleType,
@@ -1061,12 +1063,7 @@ function ListingDetail() {
     return existingConversation?.status === "rejected";
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  };
+  const formatPrice = formatListingPrice;
 
   const formatShippingDetail = (listingData) => {
     if (listingData.shippingIncluded) {
@@ -2051,7 +2048,7 @@ function ListingDetail() {
                   error={isEditPriceInvalid}
                   helperText={
                     isEditPriceInvalid
-                      ? `Enter a price from $0.01 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                      ? `Enter a price from $0 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
                       : ""
                   }
                   slotProps={{
@@ -2065,6 +2062,7 @@ function ListingDetail() {
                       max: INPUT_LIMITS.LISTING_PRICE_MAX,
                     },
                   }}
+                  sx={{ maxWidth: 180 }}
                   required
                 />
               </Grid>
@@ -2196,7 +2194,7 @@ function ListingDetail() {
                           },
                         }}
                         required
-                        sx={{ mb: 2 }}
+                        sx={{ mb: 2, maxWidth: 180 }}
                       />
                     )}
                   </>

@@ -48,7 +48,11 @@ import {
 } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { cancelListingReviewPrompts } from "../utils/messaging";
-import { getNormalizedFulfillmentFields, getPrimaryFulfillmentOption } from "../utils/listingUtils";
+import {
+  formatListingPrice,
+  getNormalizedFulfillmentFields,
+  getPrimaryFulfillmentOption,
+} from "../utils/listingUtils";
 import {
   deleteImageFromS3,
   deleteMultipleImages,
@@ -239,11 +243,7 @@ function Dashboard() {
     `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim() ||
     "Your Account";
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(Number(price || 0));
+  const formatPrice = formatListingPrice;
 
   const formatDate = (dateValue) => {
     if (!dateValue) return "N/A";

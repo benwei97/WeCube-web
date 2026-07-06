@@ -5,8 +5,8 @@ export const INPUT_LIMITS = {
   MESSAGE_TEXT: 2000,
   REVIEW_COMMENT: 1000,
   LOCATION_LABEL: 160,
-  LISTING_PRICE_MAX: 10000,
-  SHIPPING_COST_MAX: 500,
+  LISTING_PRICE_MAX: 9999.99,
+  SHIPPING_COST_MAX: 999.99,
 };
 
 export function clampText(value, maxLength) {
@@ -18,7 +18,7 @@ export function characterCountText(value, maxLength) {
 }
 
 export function isCurrencyInputWithinLimit(value, maxAmount) {
-  if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
+  if (!/^[0-9]*\.?[0-9]{0,2}$/.test(value)) {
     return false;
   }
 

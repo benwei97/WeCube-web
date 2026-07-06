@@ -24,6 +24,7 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
+  formatListingPrice,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   isSoldListingPubliclyVisible,
@@ -135,11 +136,7 @@ function CompetitionListings() {
     };
   }, [competitionId]);
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
+  const formatPrice = formatListingPrice;
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
   const filteredCubes = normalizedSearchTerm
