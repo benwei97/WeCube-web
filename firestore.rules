@@ -303,6 +303,10 @@ service cloud.firestore {
         && data.conversationId is string
         && conversationExists(data.conversationId)
         && conversationData(data.conversationId).status == "approved"
+        && (
+          data.type != "message" ||
+          conversationData(data.conversationId).closedReason != "listing_deleted"
+        )
         && isConversationParticipantByData(conversationData(data.conversationId))
         && data.senderId == request.auth.uid
         && data.text is string

@@ -253,6 +253,9 @@ export async function addMessage(
     if (type === "message" && conversation.status === "rejected") {
       throw new Error("Conversation is no longer available");
     }
+    if (type === "message" && conversation.closedReason === "listing_deleted") {
+      throw new Error("This listing was deleted, so the conversation is closed.");
+    }
 
     // Add message
     await addDoc(collection(db, "messages"), {
@@ -466,6 +469,55 @@ export async function cancelListingReviewPrompts(
     }
   } catch (error) {
     console.error("Error cancelling listing review prompts:", error);
+    throw error;
+  }
+}
+
+export async function closeListingConversationsForDeletedListing(
+  listingId,
+  sellerId,
+  listingTitle = "this listing"
+) {
+  try {
+    const conversationsQuery = query(
+      collection(db, "conversations"),
+      where("listingId", "==", listingId),
+      where("sellerId", "==", sellerId)
+    );
+    const snapshot = await getDocs(conversationsQuery);
+    const deletedMessage = `The seller deleted "${listingTitle}".`;
+
+    for (const conversationDoc of snapshot.docs) {
+      const conversation = conversationDoc.data();
+
+      if (conversation.status === "rejected") {
+        continue;
+      }
+
+      const conversationRef = doc(db, "conversations", conversationDoc.id);
+
+      await addDoc(collection(db, "messages"), {
+        conversationId: conversationDoc.id,
+        senderId: sellerId,
+        text: deletedMessage,
+        type: "system",
+        createdAt: serverTimestamp(),
+      });
+
+      await updateDoc(conversationRef, {
+        activeSaleEventId: null,
+        closedAt: serverTimestamp(),
+        closedReason: "listing_deleted",
+        lastMessage: deletedMessage,
+        lastMessageType: "system",
+        lastMessageReviewPrompt: false,
+        lastMessageAt: serverTimestamp(),
+        lastMessageSenderId: sellerId,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("Error closing conversations for deleted listing:", error);
     throw error;
   }
 }

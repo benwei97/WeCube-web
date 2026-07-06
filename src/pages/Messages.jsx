@@ -463,6 +463,7 @@ function Messages() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
+    if (selectedConversation.closedReason === "listing_deleted") return;
     if (newMessage.length > INPUT_LIMITS.MESSAGE_TEXT) return;
 
     setSendingMessage(true);
@@ -763,6 +764,9 @@ function Messages() {
     return listingDetails[listingId]?.title || "Unknown Listing";
   };
 
+  const isListingDeletedConversation = (conversation) =>
+    conversation?.closedReason === "listing_deleted";
+
   const getConversationCounterpartName = (conversation) => {
     const counterpartId = getConversationCounterpartId(conversation);
     const fallbackLabel = conversation.userRole === "seller" ? "Buyer" : "Seller";
@@ -941,8 +945,10 @@ function Messages() {
                   userName={getConversationCounterpartName(
                     selectedConversation
                   )}
-                  onListingClick={() =>
-                    navigate(`/listing/${selectedConversation.listingId}`)
+                  onListingClick={
+                    isListingDeletedConversation(selectedConversation)
+                      ? undefined
+                      : () => navigate(`/listing/${selectedConversation.listingId}`)
                   }
                   onUserClick={() =>
                     navigate(
@@ -1195,7 +1201,15 @@ function Messages() {
               </Box>
 
               {/* Message Input */}
-              {selectedConversation.status !== "rejected" && (
+              {isListingDeletedConversation(selectedConversation) ? (
+                <Box
+                  sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
+                >
+                  <Alert severity="info" variant="outlined">
+                    This listing was deleted, so the conversation is closed.
+                  </Alert>
+                </Box>
+              ) : selectedConversation.status !== "rejected" && (
                 <Box
                   sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
                 >

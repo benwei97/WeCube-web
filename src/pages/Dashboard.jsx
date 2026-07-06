@@ -47,7 +47,10 @@ import {
   subscribeToUserReviews,
 } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
-import { cancelListingReviewPrompts } from "../utils/messaging";
+import {
+  cancelListingReviewPrompts,
+  closeListingConversationsForDeletedListing,
+} from "../utils/messaging";
 import {
   formatListingPrice,
   getNormalizedFulfillmentFields,
@@ -383,6 +386,11 @@ function Dashboard() {
       if (s3Keys.length) {
         await deleteMultipleImages(s3Keys);
       }
+      await closeListingConversationsForDeletedListing(
+        deleteDialog.listing.id,
+        deleteDialog.listing.userId,
+        deleteDialog.listing.title
+      );
       await deleteDoc(doc(db, "listings", deleteDialog.listing.id));
       setDeleteDialog({ open: false, listing: null });
     } catch (error) {

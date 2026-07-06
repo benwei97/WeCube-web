@@ -60,6 +60,7 @@ import {
   getListingBuyerOptions,
   closeListingConversationsForSold,
   cancelListingReviewPrompts,
+  closeListingConversationsForDeletedListing,
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
@@ -1028,6 +1029,11 @@ function ListingDetail() {
         await deleteMultipleImages(s3Keys);
       }
 
+      await closeListingConversationsForDeletedListing(
+        id,
+        listing.userId,
+        listing.title
+      );
       await deleteDoc(doc(db, "listings", id));
       setShowDeleteDialog(false);
       navigate("/");
