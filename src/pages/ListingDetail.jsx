@@ -47,6 +47,7 @@ import {
   Restore,
   Save,
   Star,
+  PlayCircleOutline,
 } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -1018,9 +1019,10 @@ function ListingDetail() {
 
     setDeleteLoading(true);
     try {
-      const s3Keys = (listing.photos || [])
-        .map((photo) => photo.s3Key)
-        .filter(Boolean);
+      const s3Keys = [
+        ...(listing.photos || []).map((photo) => photo.s3Key),
+        listing.video?.s3Key,
+      ].filter(Boolean);
 
       if (s3Keys.length > 0) {
         await deleteMultipleImages(s3Keys);
@@ -1094,8 +1096,12 @@ function ListingDetail() {
     return dateObj.toLocaleDateString();
   };
 
-  const photoCount = listing?.photos?.length || 0;
-  const activePhoto = photoCount > 0 ? listing.photos[currentPhotoIndex] : null;
+  const mediaItems = [
+    ...(listing?.photos || []).map((photo) => ({ ...photo, mediaType: "photo" })),
+    ...(listing?.video ? [{ ...listing.video, mediaType: "video" }] : []),
+  ];
+  const mediaCount = mediaItems.length;
+  const activeMedia = mediaCount > 0 ? mediaItems[currentPhotoIndex] : null;
   const descriptionText = listing?.description || "No description provided.";
   const shouldCollapseDescription = descriptionText.length > 280;
   const meetupCompetitionTags = listing?.meetupCompetitionTags || [];
@@ -1108,13 +1114,13 @@ function ListingDetail() {
   );
 
   const handlePreviousPhoto = () => {
-    if (photoCount <= 1) return;
-    setCurrentPhotoIndex((prev) => (prev === 0 ? photoCount - 1 : prev - 1));
+    if (mediaCount <= 1) return;
+    setCurrentPhotoIndex((prev) => (prev === 0 ? mediaCount - 1 : prev - 1));
   };
 
   const handleNextPhoto = () => {
-    if (photoCount <= 1) return;
-    setCurrentPhotoIndex((prev) => (prev === photoCount - 1 ? 0 : prev + 1));
+    if (mediaCount <= 1) return;
+    setCurrentPhotoIndex((prev) => (prev === mediaCount - 1 ? 0 : prev + 1));
   };
 
   const handleViewCompetitionListings = (competition) => {
@@ -1296,7 +1302,7 @@ function ListingDetail() {
               boxShadow: "0 10px 28px rgba(31, 53, 99, 0.07)",
             }}
           >
-            {activePhoto ? (
+            {activeMedia ? (
               <Stack spacing={1} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
                 <Box
                   sx={{
@@ -1312,23 +1318,39 @@ function ListingDetail() {
                 >
                   {listing.status === "sold" && <SoldRibbon size="large" />}
                   {listing.status === "archived" && <PendingBadge size="large" />}
-                  <Box
-                    component="img"
-                    src={getS3PublicUrl(activePhoto.s3Key)}
-                    alt={`Listing photo ${currentPhotoIndex + 1}`}
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                      display: "block",
-                    }}
-                    onError={(e) => {
-                      console.error("Failed to load image:", activePhoto.s3Key);
-                      e.target.style.display = "none";
-                    }}
-                  />
+                  {activeMedia.mediaType === "video" ? (
+                    <Box
+                      component="video"
+                      src={getS3PublicUrl(activeMedia.s3Key)}
+                      controls
+                      playsInline
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                        bgcolor: "grey.900",
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      component="img"
+                      src={getS3PublicUrl(activeMedia.s3Key)}
+                      alt={`Listing photo ${currentPhotoIndex + 1}`}
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                      onError={(e) => {
+                        console.error("Failed to load image:", activeMedia.s3Key);
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  )}
 
-                  {photoCount > 1 && (
+                  {mediaCount > 1 && (
                     <>
                       <IconButton
                         onClick={handlePreviousPhoto}
@@ -1364,15 +1386,15 @@ function ListingDetail() {
                   )}
                 </Box>
 
-                {photoCount > 1 && (
+                {mediaCount > 1 && (
                   <Stack
                     direction="row"
                     spacing={1}
                     sx={{ overflowX: "auto", pb: 0.5, flexShrink: 0 }}
                   >
-                    {listing.photos.map((photo, index) => (
+                    {mediaItems.map((media, index) => (
                       <Box
-                        key={photo.s3Key || index}
+                        key={media.s3Key || index}
                         onClick={() => setCurrentPhotoIndex(index)}
                         sx={{
                           width: 84,
@@ -1387,31 +1409,47 @@ function ListingDetail() {
                           backgroundColor: "grey.100",
                         }}
                       >
-                        <Box
-                          component="img"
-                          src={getS3PublicUrl(photo.s3Key)}
-                          alt={`Thumbnail ${index + 1}`}
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "contain",
-                            display: "block",
-                          }}
-                        />
+                        {media.mediaType === "video" ? (
+                          <Box
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              bgcolor: "grey.900",
+                              color: "common.white",
+                            }}
+                          >
+                            <PlayCircleOutline fontSize="small" />
+                          </Box>
+                        ) : (
+                          <Box
+                            component="img"
+                            src={getS3PublicUrl(media.s3Key)}
+                            alt={`Thumbnail ${index + 1}`}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                              display: "block",
+                            }}
+                          />
+                        )}
                       </Box>
                     ))}
                   </Stack>
                 )}
 
-                {photoCount > 1 && (
+                {mediaCount > 1 && (
                   <Typography variant="body2" color="text.secondary">
-                    {currentPhotoIndex + 1} of {photoCount}
+                    {currentPhotoIndex + 1} of {mediaCount}
                   </Typography>
                 )}
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No photos available
+                No media available
               </Typography>
             )}
           </Paper>
@@ -1966,7 +2004,7 @@ function ListingDetail() {
         <DialogContent>
           <DialogContentText>
             Permanently delete "{listing.title}"? This removes the listing and
-            its uploaded photos. This cannot be undone.
+            its uploaded media. This cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

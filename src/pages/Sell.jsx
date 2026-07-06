@@ -25,13 +25,13 @@ import {
   ToggleButtonGroup,
   InputAdornment,
 } from "@mui/material";
-import { Upload, Close, InfoOutlined } from "@mui/icons-material";
+import { Upload, Close, InfoOutlined, PlayCircleOutline } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { uploadMultipleImages } from "../utils/s3";
+import { uploadListingVideoToS3, uploadMultipleImages } from "../utils/s3";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
   getUpcomingCompetitions,
@@ -87,6 +87,7 @@ function Sell() {
   const COMPETITION_BATCH_SIZE = 50;
   const navigate = useNavigate();
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [selectedVideo, setSelectedVideo] = useState(null);
   const [listingData, setListingData] = useState({
     title: "",
     price: "",
@@ -163,6 +164,36 @@ function Sell() {
 
     setSelectedPhotos((prev) => [...prev, ...photoObjects]);
     setSubmitNotice(null);
+    e.target.value = "";
+  };
+
+  const handleVideoSelection = (event) => {
+    const [file] = Array.from(event.target.files || []);
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("video/")) {
+      setSubmitNotice({
+        severity: "error",
+        message: "Upload a video file.",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    if (selectedVideo) {
+      URL.revokeObjectURL(selectedVideo.url);
+    }
+
+    setSelectedVideo({
+      file,
+      url: URL.createObjectURL(file),
+      id: Date.now() + Math.random(),
+    });
+    setSubmitNotice(null);
+    event.target.value = "";
   };
 
   const removePhoto = (photoId) => {
@@ -173,6 +204,15 @@ function Sell() {
         URL.revokeObjectURL(photoToRemove.url);
       }
       return updated;
+    });
+  };
+
+  const removeVideo = () => {
+    setSelectedVideo((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev.url);
+      }
+      return null;
     });
   };
 
@@ -466,6 +506,20 @@ function Sell() {
         uploadedAt: new Date(),
       }));
 
+      const videoS3Key = selectedVideo
+        ? await uploadListingVideoToS3(selectedVideo.file, listingId)
+        : null;
+      const videoForStorage = selectedVideo
+        ? {
+            id: selectedVideo.id,
+            name: selectedVideo.file.name,
+            size: selectedVideo.file.size,
+            type: selectedVideo.file.type,
+            s3Key: videoS3Key,
+            uploadedAt: new Date(),
+          }
+        : null;
+
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
 
       const shippingCost =
@@ -485,6 +539,7 @@ function Sell() {
             ? resolvedMeetupLocation
             : null,
         photos: photosForStorage,
+        video: videoForStorage,
         shippingAvailable: fulfillmentData.shippingAvailable,
         shippingIncluded: fulfillmentData.shippingIncluded,
         shippingCost,
@@ -532,8 +587,12 @@ function Sell() {
     selectedPhotos.forEach((photo) => {
       URL.revokeObjectURL(photo.url);
     });
+    if (selectedVideo) {
+      URL.revokeObjectURL(selectedVideo.url);
+    }
 
     setSelectedPhotos([]);
+    setSelectedVideo(null);
     setListingData({
       title: "",
       price: "",
@@ -634,10 +693,10 @@ function Sell() {
               fontWeight="bold"
               sx={{ mb: 1 }}
             >
-              Photos
+              Photos & video
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Add up to 5 photos of your cube
+              Add 1-5 photos and an optional video.
             </Typography>
 
             <Grid container spacing={2}>
@@ -689,7 +748,7 @@ function Sell() {
                 <Grid item>
                   <input
                     type="file"
-                    accept=".jpg,.jpeg,.png"
+                    accept="image/jpeg,image/png,image/webp"
                     multiple
                     style={{ display: "none" }}
                     id="photo-upload"
@@ -719,6 +778,97 @@ function Sell() {
                     >
                       <Upload sx={{ fontSize: 30 }} />
                       Upload
+                    </Button>
+                  </label>
+                </Grid>
+              )}
+            </Grid>
+            <Divider sx={{ my: 2.5 }} />
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+              Video
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Add one optional video from your camera or library.
+            </Typography>
+            <Grid container spacing={2}>
+              {selectedVideo ? (
+                <Grid>
+                  <Box
+                    sx={{
+                      position: "relative",
+                      width: 160,
+                      aspectRatio: "16 / 9",
+                      borderRadius: 1,
+                      overflow: "hidden",
+                      border: "1px solid",
+                      borderColor: "grey.300",
+                      bgcolor: "grey.900",
+                    }}
+                  >
+                    <Box
+                      component="video"
+                      src={selectedVideo.url}
+                      controls
+                      playsInline
+                      muted
+                      sx={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      sx={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        bgcolor: "rgba(0, 0, 0, 0.5)",
+                        color: "white",
+                        "&:hover": {
+                          bgcolor: "rgba(0, 0, 0, 0.7)",
+                        },
+                      }}
+                      onClick={removeVideo}
+                    >
+                      <Close fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Grid>
+              ) : (
+                <Grid>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    style={{ display: "none" }}
+                    id="video-upload"
+                    onChange={handleVideoSelection}
+                  />
+                  <label htmlFor="video-upload">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      sx={{
+                        width: 160,
+                        aspectRatio: "16 / 9",
+                        border: "2px dashed",
+                        borderColor: "grey.400",
+                        borderRadius: 1,
+                        color: "grey.600",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                        "&:hover": {
+                          borderColor: "grey.500",
+                          bgcolor: "grey.200",
+                        },
+                      }}
+                    >
+                      <PlayCircleOutline sx={{ fontSize: 30 }} />
+                      Add video
                     </Button>
                   </label>
                 </Grid>

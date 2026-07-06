@@ -375,8 +375,13 @@ function Dashboard() {
 
     setDeleteLoading(true);
     try {
-      if (deleteDialog.listing.photos?.length) {
-        await deleteMultipleImages(deleteDialog.listing.photos.map((photo) => photo.s3Key));
+      const s3Keys = [
+        ...(deleteDialog.listing.photos || []).map((photo) => photo.s3Key),
+        deleteDialog.listing.video?.s3Key,
+      ].filter(Boolean);
+
+      if (s3Keys.length) {
+        await deleteMultipleImages(s3Keys);
       }
       await deleteDoc(doc(db, "listings", deleteDialog.listing.id));
       setDeleteDialog({ open: false, listing: null });

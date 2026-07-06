@@ -9,6 +9,11 @@ const SUPPORTED_IMAGE_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const SUPPORTED_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+]);
 
 function getFileExtension(file) {
   const fromName = file.name?.split(".").pop()?.toLowerCase();
@@ -29,8 +34,10 @@ function assertImageFile(file) {
   }
 }
 
-async function uploadWithSignedUrl(file, uploadRequest) {
-  assertImageFile(file);
+async function uploadWithSignedUrl(file, uploadRequest, { validateImage = true } = {}) {
+  if (validateImage) {
+    assertImageFile(file);
+  }
 
   const { data } = await createSignedS3Upload(uploadRequest);
   const { uploadUrl, s3Key } = data || {};
@@ -54,6 +61,16 @@ async function uploadWithSignedUrl(file, uploadRequest) {
   return s3Key;
 }
 
+function assertListingMediaFile(file) {
+  if (!file) {
+    throw new Error("Select a file to upload.");
+  }
+
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type) && !SUPPORTED_VIDEO_TYPES.has(file.type)) {
+    throw new Error("Upload a JPG, PNG, WebP, MP4, MOV, or WebM file.");
+  }
+}
+
 /**
  * Upload a file to S3 bucket
  * @param {File} file - The file to upload
@@ -62,6 +79,7 @@ async function uploadWithSignedUrl(file, uploadRequest) {
  */
 export async function uploadImageToS3(file, listingId) {
   try {
+    assertImageFile(file);
     return await uploadWithSignedUrl(file, {
       uploadType: "listing",
       listingId,
@@ -69,9 +87,26 @@ export async function uploadImageToS3(file, listingId) {
       contentType: file.type,
       fileExtension: getFileExtension(file),
       fileSize: file.size,
-    });
+    }, { validateImage: false });
   } catch (error) {
     console.error("S3 listing image upload error:", error);
+    throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+  }
+}
+
+export async function uploadListingVideoToS3(file, listingId) {
+  try {
+    assertListingMediaFile(file);
+    return await uploadWithSignedUrl(file, {
+      uploadType: "listing-video",
+      listingId,
+      fileName: file.name,
+      contentType: file.type,
+      fileExtension: getFileExtension(file),
+      fileSize: file.size,
+    }, { validateImage: false });
+  } catch (error) {
+    console.error("S3 listing video upload error:", error);
     throw new Error(`Failed to upload ${file.name}: ${error.message}`);
   }
 }
