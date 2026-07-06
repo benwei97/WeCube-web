@@ -693,10 +693,10 @@ function Sell() {
               fontWeight="bold"
               sx={{ mb: 1 }}
             >
-              Photos & video
+              Photos & Video
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Add 1-5 photos and an optional video.
+              Add 1-5 photos*
             </Typography>
 
             <Grid container spacing={2}>
@@ -784,11 +784,8 @@ function Sell() {
               )}
             </Grid>
             <Divider sx={{ my: 2.5 }} />
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-              Video
-            </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Add one optional video from your camera or library.
+              Add one video (optional)
             </Typography>
             <Grid container spacing={2}>
               {selectedVideo ? (
