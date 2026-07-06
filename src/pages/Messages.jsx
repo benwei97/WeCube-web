@@ -1092,40 +1092,30 @@ function Messages() {
                     );
                   }
 
-                  if (message.type === "system") {
-                    return (
-                      <Box
-                        key={message.id}
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          my: 2,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: 999,
-                            bgcolor: "rgba(100, 108, 255, 0.08)",
-                            color: "text.primary",
-                            border: "1px solid",
-                            borderColor: "rgba(100, 108, 255, 0.18)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            maxWidth: "85%",
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{ fontWeight: 600, textAlign: "center" }}
-                          >
-                            {message.text}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    );
-                  }
+	                  if (message.type === "system") {
+	                    return (
+	                      <Box
+	                        key={message.id}
+	                        sx={{
+	                          display: "flex",
+	                          justifyContent: "center",
+	                          my: 1.75,
+	                        }}
+	                      >
+	                        <Typography
+	                          variant="caption"
+	                          color="text.secondary"
+	                          sx={{
+	                            maxWidth: "85%",
+	                            textAlign: "center",
+	                            lineHeight: 1.45,
+	                          }}
+	                        >
+	                          {message.text}
+	                        </Typography>
+	                      </Box>
+	                    );
+	                  }
 
                   return (
                     <Box
