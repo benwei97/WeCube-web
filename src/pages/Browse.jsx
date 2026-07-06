@@ -709,7 +709,7 @@ function Browse() {
                   <TextField
                     {...params}
                     label="Search location"
-                    placeholder="US city or state"
+                    placeholder="City or region"
                   />
                 )}
               />

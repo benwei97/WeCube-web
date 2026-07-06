@@ -236,7 +236,7 @@ function Competitions() {
             <Stack spacing={2}>
               <TextField
                 label="Search competitions"
-                placeholder="Search US competitions..."
+                placeholder="Search competitions..."
                 value={competitionSearchInput}
                 onChange={(event) =>
                   handleCompetitionSearch(event.target.value)
@@ -261,7 +261,7 @@ function Competitions() {
                       color="text.secondary"
                       sx={{ py: 3, textAlign: "center" }}
                     >
-                      No US competitions found.
+                      No competitions found.
                     </Typography>
                   ) : (
                     competitionOptions.map((competition) => (

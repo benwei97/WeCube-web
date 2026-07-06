@@ -2246,8 +2246,8 @@ function ListingDetail() {
                       loading={loadingLocations}
                       noOptionsText={
                         editData.meetupLocationLabel.trim().length < 2
-                          ? "Start typing a US city..."
-                          : "No matching US cities found"
+                          ? "Start typing a location..."
+                          : "No matching locations found"
                       }
                       renderInput={(params) => (
                         <TextField
@@ -2316,7 +2316,7 @@ function ListingDetail() {
                       <TextField
                         {...params}
                         label="Search competitions"
-                        placeholder="Search US competitions..."
+                        placeholder="Search competitions..."
                         error={hasAttemptedEditSave && !isEditCompetitionValid}
                         helperText={
                           hasAttemptedEditSave && !isEditCompetitionValid
