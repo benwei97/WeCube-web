@@ -696,12 +696,6 @@ function Browse() {
                     {...params}
                     label="Search location"
                     placeholder="City or region"
-                    error={isLocationDraftInvalid}
-                    helperText={
-                      isLocationDraftInvalid
-                        ? "Select a location from the list."
-                        : ""
-                    }
                   />
                 )}
               />
