@@ -47,6 +47,12 @@ import {
   PUZZLE_TYPE_OPTIONS,
   parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
+import {
+  characterCountText,
+  clampText,
+  INPUT_LIMITS,
+  isCurrencyInputWithinLimit,
+} from "../utils/inputLimits";
 
 function InfoTitle({ children, info, variant = "body1", fontWeight }) {
   return (
@@ -293,13 +299,21 @@ function Sell() {
   const isShippingCostValid =
     !fulfillmentData.shippingAvailable ||
     fulfillmentData.shippingIncluded ||
-    parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null;
+    (parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null &&
+      parsePositiveCurrencyAmount(fulfillmentData.shippingCost) <=
+        INPUT_LIMITS.SHIPPING_COST_MAX);
   const isPhotosInvalid = hasAttemptedSubmit && selectedPhotos.length === 0;
-  const isTitleInvalid = hasAttemptedSubmit && !listingData.title;
-  const isPriceInvalid = hasAttemptedSubmit && !listingData.price;
+  const isTitleInvalid = hasAttemptedSubmit && !listingData.title.trim();
+  const isPriceInvalid =
+    hasAttemptedSubmit &&
+    (!listingData.price ||
+      parsePositiveCurrencyAmount(listingData.price) === null ||
+      parsePositiveCurrencyAmount(listingData.price) >
+        INPUT_LIMITS.LISTING_PRICE_MAX);
   const isPuzzleTypeInvalid = hasAttemptedSubmit && !listingData.puzzleType;
   const isConditionInvalid = hasAttemptedSubmit && !listingData.condition;
-  const isDescriptionInvalid = hasAttemptedSubmit && !listingData.description;
+  const isDescriptionInvalid =
+    hasAttemptedSubmit && !listingData.description.trim();
 
   const handleSubmitNoticeClose = (_, reason) => {
     if (reason === "clickaway") {
@@ -309,16 +323,27 @@ function Sell() {
   };
 
   const handleInputChange = (field) => (event) => {
+    const fieldLimits = {
+      title: INPUT_LIMITS.LISTING_TITLE,
+      description: INPUT_LIMITS.LISTING_DESCRIPTION,
+    };
+    const limit = fieldLimits[field];
+    const value = limit
+      ? clampText(event.target.value, limit)
+      : event.target.value;
+
     setSubmitNotice(null);
     setListingData((prev) => ({
       ...prev,
-      [field]: event.target.value,
+      [field]: value,
     }));
   };
 
   const handlePriceChange = (event) => {
     const value = event.target.value;
-    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+    if (
+      isCurrencyInputWithinLimit(value, INPUT_LIMITS.LISTING_PRICE_MAX)
+    ) {
       setSubmitNotice(null);
       setListingData((prev) => ({
         ...prev,
@@ -329,7 +354,9 @@ function Sell() {
 
   const handleShippingCostChange = (event) => {
     const value = event.target.value;
-    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+    if (
+      isCurrencyInputWithinLimit(value, INPUT_LIMITS.SHIPPING_COST_MAX)
+    ) {
       setSubmitNotice(null);
       setFulfillmentData((prev) => ({
         ...prev,
@@ -377,11 +404,13 @@ function Sell() {
     setHasAttemptedSubmit(true);
 
     const isPhotosValid = selectedPhotos.length > 0;
+    const parsedPrice = parsePositiveCurrencyAmount(listingData.price);
     const isBasicInfoValid =
-      listingData.title &&
-      listingData.price &&
+      listingData.title.trim() &&
+      parsedPrice !== null &&
+      parsedPrice <= INPUT_LIMITS.LISTING_PRICE_MAX &&
       listingData.condition &&
-      listingData.description &&
+      listingData.description.trim() &&
       listingData.puzzleType;
 
     if (
@@ -442,9 +471,9 @@ function Sell() {
           : parsePositiveCurrencyAmount(fulfillmentData.shippingCost);
 
       const listingToSave = {
-        title: listingData.title,
-        price: parseFloat(listingData.price),
-        description: listingData.description,
+        title: listingData.title.trim(),
+        price: parsedPrice,
+        description: listingData.description.trim(),
         condition: listingData.condition,
         puzzleType: listingData.puzzleType,
         meetupLocationLabel: fulfillmentData.meetupLocationLabel.trim(),
@@ -719,6 +748,11 @@ function Sell() {
                 onChange={handleInputChange("title")}
                 error={isTitleInvalid}
                 helperText={isTitleInvalid ? "Enter a title." : ""}
+                slotProps={{
+                  htmlInput: {
+                    maxLength: INPUT_LIMITS.LISTING_TITLE,
+                  },
+                }}
                 required
               />
 
@@ -732,10 +766,15 @@ function Sell() {
                     value={listingData.price}
                     onChange={handlePriceChange}
                     error={isPriceInvalid}
-                    helperText={isPriceInvalid ? "Enter a price." : ""}
+                    helperText={
+                      isPriceInvalid
+                        ? `Enter a price from $0.01 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                        : ""
+                    }
                     slotProps={{
                       htmlInput: {
                         inputMode: "decimal",
+                        max: INPUT_LIMITS.LISTING_PRICE_MAX,
                       },
                     }}
                     required
@@ -807,7 +846,19 @@ function Sell() {
                 value={listingData.description}
                 onChange={handleInputChange("description")}
                 error={isDescriptionInvalid}
-                helperText={isDescriptionInvalid ? "Enter a description." : ""}
+                helperText={
+                  isDescriptionInvalid
+                    ? "Enter a description."
+                    : characterCountText(
+                        listingData.description,
+                        INPUT_LIMITS.LISTING_DESCRIPTION
+                      )
+                }
+                slotProps={{
+                  htmlInput: {
+                    maxLength: INPUT_LIMITS.LISTING_DESCRIPTION,
+                  },
+                }}
                 required
               />
 
@@ -917,12 +968,13 @@ function Sell() {
                         error={hasAttemptedSubmit && !isShippingCostValid}
                         helperText={
                           hasAttemptedSubmit && !isShippingCostValid
-                            ? "Enter a shipping price greater than $0."
+                            ? `Enter a shipping price from $0.01 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
                             : undefined
                         }
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",
+                            max: INPUT_LIMITS.SHIPPING_COST_MAX,
                           },
                         }}
                         required
@@ -960,10 +1012,14 @@ function Sell() {
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
+                        const label = clampText(
+                          getLocationOptionLabel(newValue),
+                          INPUT_LIMITS.LOCATION_LABEL
+                        );
                         setSubmitNotice(null);
                         setFulfillmentData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: getLocationOptionLabel(newValue),
+                          meetupLocationLabel: label,
                           meetupLocation: selectedLocation,
                         }));
                       }}
@@ -974,7 +1030,10 @@ function Sell() {
                         setSubmitNotice(null);
                         setFulfillmentData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: newInputValue,
+                          meetupLocationLabel: clampText(
+                            newInputValue,
+                            INPUT_LIMITS.LOCATION_LABEL
+                          ),
                           meetupLocation:
                             newInputValue === prev.meetupLocation?.label
                               ? prev.meetupLocation
@@ -998,6 +1057,12 @@ function Sell() {
                               : undefined
                           }
                           error={hasAttemptedSubmit && !isMeetupLocationValid}
+                          slotProps={{
+                            htmlInput: {
+                              ...params.inputProps,
+                              maxLength: INPUT_LIMITS.LOCATION_LABEL,
+                            },
+                          }}
                           required
                         />
                       )}

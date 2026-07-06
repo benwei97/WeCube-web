@@ -18,6 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CloseIcon from "@mui/icons-material/Close";
+import { clampText, INPUT_LIMITS } from "../utils/inputLimits";
 
 export function AuthModal({ open, onClose, initialMode = "login" }) {
   const [mode, setMode] = useState(initialMode);
@@ -96,6 +97,15 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+
+    if (!isLogin && (!trimmedFirstName || !trimmedLastName)) {
+      setError("Enter your first and last name.");
+      setSuccess("");
+      return;
+    }
+
     try {
       setError("");
       setSuccess("");
@@ -105,7 +115,12 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         await login(email, password);
         handleClose();
       } else {
-        const result = await signup(email, password, firstName, lastName);
+        const result = await signup(
+          email,
+          password,
+          trimmedFirstName,
+          trimmedLastName
+        );
 
         setMode("login");
         setPassword("");
@@ -175,8 +190,17 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
                   fullWidth
                   variant="outlined"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  onChange={(e) =>
+                    setFirstName(
+                      clampText(e.target.value, INPUT_LIMITS.USER_NAME)
+                    )
+                  }
                   required={!isLogin}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: INPUT_LIMITS.USER_NAME,
+                    },
+                  }}
                   sx={{ mt: 0 }}
                 />
               </Grid>
@@ -188,8 +212,17 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
                   fullWidth
                   variant="outlined"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  onChange={(e) =>
+                    setLastName(
+                      clampText(e.target.value, INPUT_LIMITS.USER_NAME)
+                    )
+                  }
                   required={!isLogin}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: INPUT_LIMITS.USER_NAME,
+                    },
+                  }}
                   sx={{ mt: 0 }}
                 />
               </Grid>

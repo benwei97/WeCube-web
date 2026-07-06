@@ -36,6 +36,11 @@ import { submitTransactionReview } from "../utils/reviews";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getS3PublicUrl } from "../utils/s3";
+import {
+  characterCountText,
+  clampText,
+  INPUT_LIMITS,
+} from "../utils/inputLimits";
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 const REVIEW_PROMPT_RESPONSE_STORAGE_KEY = "wecubeReviewPromptResponses";
@@ -458,6 +463,7 @@ function Messages() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
+    if (newMessage.length > INPUT_LIMITS.MESSAGE_TEXT) return;
 
     setSendingMessage(true);
     try {
@@ -1197,7 +1203,11 @@ function Messages() {
                     fullWidth
                     placeholder="Type a message..."
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) =>
+                      setNewMessage(
+                        clampText(e.target.value, INPUT_LIMITS.MESSAGE_TEXT)
+                      )
+                    }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -1217,6 +1227,9 @@ function Messages() {
                             </IconButton>
                           </InputAdornment>
                         ),
+                      },
+                      htmlInput: {
+                        maxLength: INPUT_LIMITS.MESSAGE_TEXT,
                       },
                     }}
                   />
@@ -1291,10 +1304,22 @@ function Messages() {
               onChange={(event) =>
                 setReviewForm((prev) => ({
                   ...prev,
-                  comment: event.target.value,
+                  comment: clampText(
+                    event.target.value,
+                    INPUT_LIMITS.REVIEW_COMMENT
+                  ),
                 }))
               }
               placeholder="Share how the experience went."
+              helperText={characterCountText(
+                reviewForm.comment,
+                INPUT_LIMITS.REVIEW_COMMENT
+              )}
+              slotProps={{
+                htmlInput: {
+                  maxLength: INPUT_LIMITS.REVIEW_COMMENT,
+                },
+              }}
             />
           </Stack>
         </DialogContent>

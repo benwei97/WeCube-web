@@ -83,6 +83,12 @@ import {
 } from "../utils/wcaApi";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
+import {
+  characterCountText,
+  clampText,
+  INPUT_LIMITS,
+  isCurrencyInputWithinLimit,
+} from "../utils/inputLimits";
 
 const BACK_BUTTON_SX = {
   color: "text.primary",
@@ -417,10 +423,19 @@ function ListingDetail() {
   };
 
   const handleInputChange = (field) => (event) => {
+    const fieldLimits = {
+      title: INPUT_LIMITS.LISTING_TITLE,
+      description: INPUT_LIMITS.LISTING_DESCRIPTION,
+    };
+    const limit = fieldLimits[field];
+    const value = limit
+      ? clampText(event.target.value, limit)
+      : event.target.value;
+
     setEditNotice(null);
     setEditData((prev) => ({
       ...prev,
-      [field]: event.target.value,
+      [field]: value,
     }));
   };
 
@@ -514,7 +529,9 @@ function ListingDetail() {
 
   const handlePriceChange = (event) => {
     const value = event.target.value;
-    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+    if (
+      isCurrencyInputWithinLimit(value, INPUT_LIMITS.LISTING_PRICE_MAX)
+    ) {
       setEditNotice(null);
       setEditData((prev) => ({
         ...prev,
@@ -525,7 +542,9 @@ function ListingDetail() {
 
   const handleShippingCostChange = (event) => {
     const value = event.target.value;
-    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+    if (
+      isCurrencyInputWithinLimit(value, INPUT_LIMITS.SHIPPING_COST_MAX)
+    ) {
       setEditNotice(null);
       setEditData((prev) => ({
         ...prev,
@@ -570,9 +589,16 @@ function ListingDetail() {
   const isEditShippingCostValid =
     !editData.shippingAvailable ||
     editData.shippingIncluded ||
-    parsePositiveCurrencyAmount(editData.shippingCost) !== null;
+    (parsePositiveCurrencyAmount(editData.shippingCost) !== null &&
+      parsePositiveCurrencyAmount(editData.shippingCost) <=
+        INPUT_LIMITS.SHIPPING_COST_MAX);
   const isEditTitleInvalid = hasAttemptedEditSave && !editData.title.trim();
-  const isEditPriceInvalid = hasAttemptedEditSave && !editData.price;
+  const isEditPriceInvalid =
+    hasAttemptedEditSave &&
+    (!editData.price ||
+      parsePositiveCurrencyAmount(editData.price) === null ||
+      parsePositiveCurrencyAmount(editData.price) >
+        INPUT_LIMITS.LISTING_PRICE_MAX);
   const isEditPuzzleTypeInvalid =
     hasAttemptedEditSave && !editData.puzzleType;
   const isEditConditionInvalid = hasAttemptedEditSave && !editData.condition;
@@ -585,7 +611,9 @@ function ListingDetail() {
     try {
       if (
         !editData.title.trim() ||
-        !editData.price ||
+        parsePositiveCurrencyAmount(editData.price) === null ||
+        parsePositiveCurrencyAmount(editData.price) >
+          INPUT_LIMITS.LISTING_PRICE_MAX ||
         !editData.condition ||
         !editData.description.trim() ||
         !editData.puzzleType ||
@@ -609,9 +637,9 @@ function ListingDetail() {
           : parsePositiveCurrencyAmount(editData.shippingCost);
 
       await updateDoc(docRef, {
-        title: editData.title,
-        price: parseFloat(editData.price),
-        description: editData.description,
+        title: editData.title.trim(),
+        price: parsePositiveCurrencyAmount(editData.price),
+        description: editData.description.trim(),
         condition: editData.condition,
         puzzleType: editData.puzzleType,
         meetupLocationLabel: editData.meetupLocationLabel.trim(),
@@ -696,6 +724,14 @@ function ListingDetail() {
       setMessageNotice({
         severity: "error",
         message: "Please enter a message before sending.",
+      });
+      return;
+    }
+
+    if (messageText.length > INPUT_LIMITS.MESSAGE_TEXT) {
+      setMessageNotice({
+        severity: "error",
+        message: `Keep your message under ${INPUT_LIMITS.MESSAGE_TEXT.toLocaleString()} characters.`,
       });
       return;
     }
@@ -1995,6 +2031,11 @@ function ListingDetail() {
               onChange={handleInputChange("title")}
               error={isEditTitleInvalid}
               helperText={isEditTitleInvalid ? "Enter a title." : ""}
+              slotProps={{
+                htmlInput: {
+                  maxLength: INPUT_LIMITS.LISTING_TITLE,
+                },
+              }}
               required
             />
 
@@ -2006,10 +2047,15 @@ function ListingDetail() {
                   value={editData.price}
                   onChange={handlePriceChange}
                   error={isEditPriceInvalid}
-                  helperText={isEditPriceInvalid ? "Enter a price." : ""}
+                  helperText={
+                    isEditPriceInvalid
+                      ? `Enter a price from $0.01 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                      : ""
+                  }
                   slotProps={{
                     htmlInput: {
                       inputMode: "decimal",
+                      max: INPUT_LIMITS.LISTING_PRICE_MAX,
                     },
                   }}
                   required
@@ -2064,8 +2110,18 @@ function ListingDetail() {
               onChange={handleInputChange("description")}
               error={isEditDescriptionInvalid}
               helperText={
-                isEditDescriptionInvalid ? "Enter a description." : ""
+                isEditDescriptionInvalid
+                  ? "Enter a description."
+                  : characterCountText(
+                      editData.description,
+                      INPUT_LIMITS.LISTING_DESCRIPTION
+                    )
               }
+              slotProps={{
+                htmlInput: {
+                  maxLength: INPUT_LIMITS.LISTING_DESCRIPTION,
+                },
+              }}
             />
 
             <FormControl
@@ -2119,12 +2175,13 @@ function ListingDetail() {
                         error={hasAttemptedEditSave && !isEditShippingCostValid}
                         helperText={
                           hasAttemptedEditSave && !isEditShippingCostValid
-                            ? "Enter a shipping price greater than $0."
+                            ? `Enter a shipping price from $0.01 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
                             : "Set a shipping price greater than $0 that buyers should expect to pay you directly."
                         }
                         slotProps={{
                           htmlInput: {
                             inputMode: "decimal",
+                            max: INPUT_LIMITS.SHIPPING_COST_MAX,
                           },
                         }}
                         required
@@ -2158,10 +2215,14 @@ function ListingDetail() {
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
+                        const label = clampText(
+                          getLocationOptionLabel(newValue),
+                          INPUT_LIMITS.LOCATION_LABEL
+                        );
                         setEditNotice(null);
                         setEditData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: getLocationOptionLabel(newValue),
+                          meetupLocationLabel: label,
                           meetupLocation: selectedLocation,
                         }));
                       }}
@@ -2172,7 +2233,10 @@ function ListingDetail() {
                         setEditNotice(null);
                         setEditData((prev) => ({
                           ...prev,
-                          meetupLocationLabel: newInputValue,
+                          meetupLocationLabel: clampText(
+                            newInputValue,
+                            INPUT_LIMITS.LOCATION_LABEL
+                          ),
                           meetupLocation:
                             newInputValue === prev.meetupLocation?.label
                               ? prev.meetupLocation
@@ -2198,6 +2262,12 @@ function ListingDetail() {
                           error={
                             hasAttemptedEditSave && !isEditMeetupLocationValid
                           }
+                          slotProps={{
+                            htmlInput: {
+                              ...params.inputProps,
+                              maxLength: INPUT_LIMITS.LOCATION_LABEL,
+                            },
+                          }}
                           required
                         />
                       )}
@@ -2368,9 +2438,16 @@ function ListingDetail() {
             value={messageText}
             onChange={(e) => {
               setMessageNotice(null);
-              setMessageText(e.target.value);
+              setMessageText(
+                clampText(e.target.value, INPUT_LIMITS.MESSAGE_TEXT)
+              );
             }}
             placeholder="Please type your message to the seller"
+            slotProps={{
+              htmlInput: {
+                maxLength: INPUT_LIMITS.MESSAGE_TEXT,
+              },
+            }}
             sx={{ mt: 1 }}
           />
         </DialogContent>
