@@ -569,22 +569,10 @@ function ListingDetail() {
       return null;
     }
 
-    const label = editData.meetupLocationLabel.trim();
-    if (!label) {
-      return null;
-    }
-
-    if (editData.meetupLocation?.label === label) {
+    if (editData.meetupLocation?.label === editData.meetupLocationLabel.trim()) {
       return editData.meetupLocation;
     }
-
-    try {
-      const [suggestion] = await fetchLocationSuggestionOptions(label);
-      return suggestion || null;
-    } catch (error) {
-      console.error("Error resolving meetup location:", error);
-      return null;
-    }
+    return null;
   };
 
   const isEditDeliveryValid =
@@ -593,7 +581,8 @@ function ListingDetail() {
     editData.competitionMeetupAvailable;
   const isEditMeetupLocationValid =
     !editData.localMeetupAvailable ||
-    Boolean(editData.meetupLocationLabel.trim());
+    (Boolean(editData.meetupLocationLabel.trim()) &&
+      editData.meetupLocation?.label === editData.meetupLocationLabel.trim());
   const isEditCompetitionValid =
     !editData.competitionMeetupAvailable ||
     selectedCompetitions.length > 0;
@@ -2234,10 +2223,12 @@ function ListingDetail() {
                   <Box sx={{ mt: 2, mb: 2 }}>
                     <Autocomplete
                       options={locationOptions}
-                      freeSolo
-                      value={editData.meetupLocationLabel || null}
+                      value={editData.meetupLocation}
                       inputValue={editData.meetupLocationLabel}
                       getOptionLabel={getLocationOptionLabel}
+                      isOptionEqualToValue={(option, value) =>
+                        option?.label === value?.label
+                      }
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
@@ -2282,7 +2273,7 @@ function ListingDetail() {
                           placeholder="ex. Los Angeles, CA"
                           helperText={
                             hasAttemptedEditSave && !isEditMeetupLocationValid
-                              ? "Enter a general meetup area."
+                              ? "Select a location from the list."
                               : "Keep this approximate, not an exact address."
                           }
                           error={

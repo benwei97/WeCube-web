@@ -345,6 +345,9 @@ function Browse() {
     locationDraft.meetupLocation.trim().length >= 2 ? locationSearchOptions : [];
   const isLocationPopoverOpen = Boolean(locationAnchorEl);
   const hasLocationFilter = Boolean(filters.meetupLocation.trim());
+  const isLocationDraftInvalid =
+    Boolean(locationDraft.meetupLocation.trim()) &&
+    !locationDraft.meetupLocationOption;
   const locationButtonLabel = getLocationButtonLabel(filters);
   const locationFilterStorageKey = getLocationFilterStorageKey(currentUser?.uid);
 
@@ -555,29 +558,14 @@ function Browse() {
     setLocationAnchorEl(event.currentTarget);
   };
 
-  const handleApplyLocationFilter = async () => {
-    let nextLocationDraft = locationDraft;
-    const locationLabel = locationDraft.meetupLocation.trim();
-
-    if (locationLabel && !locationDraft.meetupLocationOption) {
-      try {
-        const [suggestion] = await fetchLocationSuggestionOptions(locationLabel);
-        if (suggestion) {
-          nextLocationDraft = {
-            ...locationDraft,
-            meetupLocation: suggestion.label,
-            meetupLocationOption: suggestion,
-          };
-          setLocationDraft(nextLocationDraft);
-        }
-      } catch (error) {
-        console.error("Error resolving location filter:", error);
-      }
+  const handleApplyLocationFilter = () => {
+    if (isLocationDraftInvalid) {
+      return;
     }
 
     setFilters((prev) => ({
       ...prev,
-      ...nextLocationDraft,
+      ...locationDraft,
     }));
     setLocationAnchorEl(null);
   };
@@ -666,9 +654,11 @@ function Browse() {
               </Box>
 
               <Autocomplete
-                freeSolo
                 options={locationOptions}
                 getOptionLabel={getLocationOptionLabel}
+                isOptionEqualToValue={(option, value) =>
+                  option?.label === value?.label
+                }
                 inputValue={locationDraft.meetupLocation}
                 value={locationDraft.meetupLocationOption}
                 loading={loadingLocationOptions}
@@ -706,6 +696,12 @@ function Browse() {
                     {...params}
                     label="Search location"
                     placeholder="City or region"
+                    error={isLocationDraftInvalid}
+                    helperText={
+                      isLocationDraftInvalid
+                        ? "Select a location from the list."
+                        : ""
+                    }
                   />
                 )}
               />
@@ -789,6 +785,7 @@ function Browse() {
                 <Button
                   variant="contained"
                   onClick={handleApplyLocationFilter}
+                  disabled={isLocationDraftInvalid}
                 >
                   Apply
                 </Button>

@@ -297,7 +297,9 @@ function Sell() {
     selectedCompetitions.length > 0;
   const isMeetupLocationValid =
     !fulfillmentData.localMeetupAvailable ||
-    Boolean(fulfillmentData.meetupLocationLabel.trim());
+    (Boolean(fulfillmentData.meetupLocationLabel.trim()) &&
+      fulfillmentData.meetupLocation?.label ===
+        fulfillmentData.meetupLocationLabel.trim());
   const isShippingCostValid =
     !fulfillmentData.shippingAvailable ||
     fulfillmentData.shippingIncluded ||
@@ -392,22 +394,13 @@ function Sell() {
       return null;
     }
 
-    const label = fulfillmentData.meetupLocationLabel.trim();
-    if (!label) {
-      return null;
-    }
-
-    if (fulfillmentData.meetupLocation?.label === label) {
+    if (
+      fulfillmentData.meetupLocation?.label ===
+      fulfillmentData.meetupLocationLabel.trim()
+    ) {
       return fulfillmentData.meetupLocation;
     }
-
-    try {
-      const [suggestion] = await fetchLocationSuggestionOptions(label);
-      return suggestion || null;
-    } catch (error) {
-      console.error("Error resolving meetup location:", error);
-      return null;
-    }
+    return null;
   };
 
   const handlePublishListing = async () => {
@@ -1038,10 +1031,12 @@ function Sell() {
                   <Box sx={{ mb: 2 }}>
                     <Autocomplete
                       options={locationOptions}
-                      freeSolo
-                      value={fulfillmentData.meetupLocationLabel || null}
+                      value={fulfillmentData.meetupLocation}
                       inputValue={fulfillmentData.meetupLocationLabel}
                       getOptionLabel={getLocationOptionLabel}
+                      isOptionEqualToValue={(option, value) =>
+                        option?.label === value?.label
+                      }
                       onChange={(_, newValue) => {
                         const selectedLocation =
                           typeof newValue === "string" ? null : newValue;
@@ -1086,7 +1081,7 @@ function Sell() {
                           placeholder="ex. Los Angeles, CA"
                           helperText={
                             hasAttemptedSubmit && !isMeetupLocationValid
-                              ? "Enter a general meetup area."
+                              ? "Select a location from the list."
                               : undefined
                           }
                           error={hasAttemptedSubmit && !isMeetupLocationValid}
