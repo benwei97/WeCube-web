@@ -762,7 +762,6 @@ function Sell() {
                   <TextField
                     label="Price (USD)"
                     fullWidth
-                    placeholder="25.00"
                     variant="outlined"
                     value={listingData.price}
                     onChange={handlePriceChange}
@@ -973,7 +972,6 @@ function Sell() {
                       <TextField
                         label="Estimated shipping"
                         fullWidth
-                        placeholder="8.00"
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}

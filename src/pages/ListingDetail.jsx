@@ -2176,7 +2176,6 @@ function ListingDetail() {
                       <TextField
                         label="Shipping Price (USD)"
                         fullWidth
-                        placeholder="8.00"
                         value={editData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedEditSave && !isEditShippingCostValid}
