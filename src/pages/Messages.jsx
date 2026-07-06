@@ -18,7 +18,7 @@ import {
   DialogTitle,
   Alert,
 } from "@mui/material";
-import { Send, Person, Star } from "@mui/icons-material";
+import { CheckCircle, Send, Person, Star } from "@mui/icons-material";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -1067,9 +1067,17 @@ function Messages() {
 	                              )}
 	                            </Typography>
 	                            {response ? (
-	                              <Typography variant="caption" color="text.secondary">
-	                                Review submitted.
-	                              </Typography>
+	                              <Stack
+	                                direction="row"
+	                                spacing={0.5}
+	                                alignItems="center"
+	                                sx={{ color: "success.main" }}
+	                              >
+	                                <CheckCircle sx={{ fontSize: 16 }} />
+	                                <Typography variant="caption" fontWeight={700}>
+	                                  Review submitted.
+	                                </Typography>
+	                              </Stack>
 	                            ) : selectedConversation.activeSaleEventId !==
 	                              message.saleEventId ? (
 	                              <Typography variant="caption" color="text.secondary">
