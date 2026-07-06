@@ -30,6 +30,7 @@ import {
   Snackbar,
   Menu,
   Radio,
+  InputAdornment,
 } from "@mui/material";
 import {
   CheckCircle,
@@ -2027,6 +2028,7 @@ function ListingDetail() {
             <TextField
               label="Title"
               fullWidth
+              placeholder="ex. Gan 16 Maglev UV"
               value={editData.title}
               onChange={handleInputChange("title")}
               error={isEditTitleInvalid}
@@ -2053,6 +2055,11 @@ function ListingDetail() {
                       : ""
                   }
                   slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">$</InputAdornment>
+                      ),
+                    },
                     htmlInput: {
                       inputMode: "decimal",
                       max: INPUT_LIMITS.LISTING_PRICE_MAX,
@@ -2169,7 +2176,7 @@ function ListingDetail() {
                       <TextField
                         label="Shipping Price (USD)"
                         fullWidth
-                        placeholder="e.g., 8.00"
+                        placeholder="8.00"
                         value={editData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedEditSave && !isEditShippingCostValid}
@@ -2179,6 +2186,11 @@ function ListingDetail() {
                             : "Set a shipping price greater than $0 that buyers should expect to pay you directly."
                         }
                         slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">$</InputAdornment>
+                            ),
+                          },
                           htmlInput: {
                             inputMode: "decimal",
                             max: INPUT_LIMITS.SHIPPING_COST_MAX,
@@ -2253,7 +2265,7 @@ function ListingDetail() {
                         <TextField
                           {...params}
                           label="General Meetup Area"
-                          placeholder="e.g., UCLA / Westwood"
+                          placeholder="ex. Los Angeles, CA"
                           helperText={
                             hasAttemptedEditSave && !isEditMeetupLocationValid
                               ? "Enter a general meetup area."

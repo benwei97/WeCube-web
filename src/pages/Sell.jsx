@@ -23,6 +23,7 @@ import {
   Tooltip,
   ToggleButton,
   ToggleButtonGroup,
+  InputAdornment,
 } from "@mui/material";
 import { Upload, Close, InfoOutlined } from "@mui/icons-material";
 import { useState, useEffect } from "react";
@@ -742,7 +743,7 @@ function Sell() {
               <TextField
                 label="Title"
                 fullWidth
-                placeholder="e.g., Gan 356 X 3x3 Speed Cube"
+                placeholder="ex. Gan 16 Maglev UV"
                 variant="outlined"
                 value={listingData.title}
                 onChange={handleInputChange("title")}
@@ -772,6 +773,11 @@ function Sell() {
                         : ""
                     }
                     slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">$</InputAdornment>
+                        ),
+                      },
                       htmlInput: {
                         inputMode: "decimal",
                         max: INPUT_LIMITS.LISTING_PRICE_MAX,
@@ -967,7 +973,7 @@ function Sell() {
                       <TextField
                         label="Estimated shipping"
                         fullWidth
-                        placeholder="e.g., 8.00"
+                        placeholder="8.00"
                         value={fulfillmentData.shippingCost}
                         onChange={handleShippingCostChange}
                         error={hasAttemptedSubmit && !isShippingCostValid}
@@ -977,6 +983,11 @@ function Sell() {
                             : "Buyers pay this amount separately."
                         }
                         slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">$</InputAdornment>
+                            ),
+                          },
                           htmlInput: {
                             inputMode: "decimal",
                             max: INPUT_LIMITS.SHIPPING_COST_MAX,
@@ -1055,7 +1066,7 @@ function Sell() {
                         <TextField
                           {...params}
                           label="General Meetup Area"
-                          placeholder="e.g., UCLA / Westwood"
+                          placeholder="ex. Los Angeles, CA"
                           helperText={
                             hasAttemptedSubmit && !isMeetupLocationValid
                               ? "Enter a general meetup area."
