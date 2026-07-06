@@ -11,15 +11,26 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 
-export function getReviewDocId(listingId, reviewerId, saleEventId = null) {
-  return saleEventId
-    ? `${listingId}_${saleEventId}_${reviewerId}`
-    : `${listingId}_${reviewerId}`;
+export function getReviewDocId(reviewerId, recipientId) {
+  return `${reviewerId}_${recipientId}`;
 }
 
-export async function getExistingReview(listingId, reviewerId, saleEventId = null) {
-  const reviewDoc = await getDoc(doc(db, "reviews", getReviewDocId(listingId, reviewerId, saleEventId)));
-  return reviewDoc.exists() ? { id: reviewDoc.id, ...reviewDoc.data() } : null;
+export async function getExistingReview(reviewerId, recipientId) {
+  const pairReviewDoc = await getDoc(doc(db, "reviews", getReviewDocId(reviewerId, recipientId)));
+  if (pairReviewDoc.exists()) {
+    return { id: pairReviewDoc.id, ...pairReviewDoc.data() };
+  }
+
+  const legacyReviewsQuery = query(
+    collection(db, "reviews"),
+    where("reviewerId", "==", reviewerId),
+    where("recipientId", "==", recipientId)
+  );
+  const legacyReviewsSnapshot = await getDocs(legacyReviewsQuery);
+  const legacyReviewDoc = legacyReviewsSnapshot.docs[0];
+  return legacyReviewDoc
+    ? { id: legacyReviewDoc.id, ...legacyReviewDoc.data() }
+    : null;
 }
 
 export async function deleteTransactionReviews(listingId) {
@@ -81,9 +92,13 @@ export async function submitTransactionReview({
     throw new Error("Invalid review recipient");
   }
 
-  const reviewId = getReviewDocId(listing.id, reviewer.uid, listing.saleEventId || saleEventId);
+  const reviewId = getReviewDocId(reviewer.uid, resolvedRecipientId);
   const reviewRef = doc(db, "reviews", reviewId);
-  const existingReview = await getDoc(reviewRef);
+  const existingReview = await getExistingReview(reviewer.uid, resolvedRecipientId);
+  if (existingReview) {
+    throw new Error("You have already reviewed this user");
+  }
+
   const now = new Date();
   const resolvedSaleEventId = listing.saleEventId || saleEventId || null;
   const listingPhotoS3Key = listing.photos?.[0]?.s3Key || "";
@@ -107,10 +122,10 @@ export async function submitTransactionReview({
       recipientRole: resolvedRecipientRole,
       rating: normalizedRating,
       comment: comment.trim(),
-      createdAt: existingReview.exists() ? existingReview.data().createdAt : now,
+      createdAt: now,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: false }
   );
 }
 
@@ -147,9 +162,13 @@ export async function submitConversationReview({
 
   const reviewerRole =
     reviewer.uid === conversation.buyerId ? "buyer" : "seller";
-  const reviewId = `${conversation.id}_${reviewer.uid}`;
+  const reviewId = getReviewDocId(reviewer.uid, recipientId);
   const reviewRef = doc(db, "reviews", reviewId);
-  const existingReview = await getDoc(reviewRef);
+  const existingReview = await getExistingReview(reviewer.uid, recipientId);
+  if (existingReview) {
+    throw new Error("You have already reviewed this user");
+  }
+
   const now = new Date();
   const listingPhotoS3Key = listing.photos?.[0]?.s3Key || "";
 
@@ -173,10 +192,10 @@ export async function submitConversationReview({
       recipientRole,
       rating: normalizedRating,
       comment: comment.trim(),
-      createdAt: existingReview.exists() ? existingReview.data().createdAt : now,
+      createdAt: now,
       updatedAt: now,
     },
-    { merge: true }
+    { merge: false }
   );
 }
 
@@ -240,18 +259,17 @@ export function subscribeToUserReviews(reviewerId, callback, onError) {
   return onSnapshot(
     reviewsQuery,
     (snapshot) => {
-      const reviewsByTransactionId = snapshot.docs.reduce((acc, reviewDoc) => {
+      const reviewsByRecipientId = snapshot.docs.reduce((acc, reviewDoc) => {
         const review = {
           id: reviewDoc.id,
           ...reviewDoc.data(),
         };
-        acc[review.listingId] = review;
-        if (review.saleEventId) {
-          acc[`${review.listingId}:${review.saleEventId}`] = review;
+        if (review.recipientId) {
+          acc[review.recipientId] = review;
         }
         return acc;
       }, {});
-      callback(reviewsByTransactionId);
+      callback(reviewsByRecipientId);
     },
     onError
   );
@@ -276,24 +294,36 @@ export function subscribeToPendingReviewCount(userId, callback, onError) {
   let sales = [];
 
   const emitCount = () => {
-    const reviewedTransactionIds = new Set(
-      authoredReviews.map((review) =>
-        review.saleEventId ? `${review.listingId}:${review.saleEventId}` : review.listingId
-      )
+    const reviewedRecipientIds = new Set(
+      authoredReviews
+        .map((review) => review.recipientId)
+        .filter(Boolean)
     );
-    const getTransactionId = (listing) =>
-      listing.saleEventId ? `${listing.id}:${listing.saleEventId}` : listing.id;
-    const pendingPurchaseReviews = purchases.filter(
-      (listing) => listing.status === "sold" && !reviewedTransactionIds.has(getTransactionId(listing))
-    ).length;
-    const pendingSellerReviews = sales.filter(
-      (listing) =>
-        listing.status === "sold" &&
-        Boolean(listing.buyerId) &&
-        !reviewedTransactionIds.has(getTransactionId(listing))
-    ).length;
+    const pendingRecipientIds = new Set();
 
-    callback(pendingPurchaseReviews + pendingSellerReviews);
+    purchases.forEach((listing) => {
+      if (
+        listing.status === "sold" &&
+        listing.userId &&
+        listing.userId !== userId &&
+        !reviewedRecipientIds.has(listing.userId)
+      ) {
+        pendingRecipientIds.add(listing.userId);
+      }
+    });
+
+    sales.forEach((listing) => {
+      if (
+        listing.status === "sold" &&
+        listing.buyerId &&
+        listing.buyerId !== userId &&
+        !reviewedRecipientIds.has(listing.buyerId)
+      ) {
+        pendingRecipientIds.add(listing.buyerId);
+      }
+    });
+
+    callback(pendingRecipientIds.size);
   };
 
   const handleError = (error) => {

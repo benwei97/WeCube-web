@@ -117,7 +117,7 @@ function Dashboard() {
   const avatarInputRef = useRef(null);
   const [listings, setListings] = useState([]);
   const [purchases, setPurchases] = useState([]);
-  const [writtenReviewsByListingId, setWrittenReviewsByListingId] = useState({});
+  const [writtenReviewsByRecipientId, setWrittenReviewsByRecipientId] = useState({});
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -138,7 +138,7 @@ function Dashboard() {
     if (!currentUser?.uid) {
       setListings([]);
       setPurchases([]);
-      setWrittenReviewsByListingId({});
+      setWrittenReviewsByRecipientId({});
       setReceivedReviews([]);
       setLoading(false);
       return undefined;
@@ -185,7 +185,7 @@ function Dashboard() {
 
     const unsubscribeWrittenReviews = subscribeToUserReviews(
       currentUser.uid,
-      setWrittenReviewsByListingId,
+      setWrittenReviewsByRecipientId,
       (error) => console.error("Error subscribing to written reviews:", error)
     );
 
@@ -563,10 +563,7 @@ function Dashboard() {
   };
 
   const renderPurchaseCard = (listing) => {
-    const reviewKey = listing.saleEventId
-      ? `${listing.id}:${listing.saleEventId}`
-      : listing.id;
-    const existingReview = writtenReviewsByListingId[reviewKey];
+    const existingReview = writtenReviewsByRecipientId[listing.userId];
     const thumbnailUrl = listing.photos?.[0]?.s3Key
       ? getS3PublicUrl(listing.photos[0].s3Key)
       : null;

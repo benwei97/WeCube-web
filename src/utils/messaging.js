@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase";
-import { getReviewDocId } from "./reviews";
+import { getExistingReview } from "./reviews";
 
 /**
  * Firestore Collections Schema:
@@ -354,20 +354,20 @@ export async function closeListingConversationsForSold(
       }
 
       const [buyerReviewDoc, sellerReviewDoc] = await Promise.all([
-        getDoc(doc(db, "reviews", getReviewDocId(listingId, conversation.buyerId, saleEventId))),
-        getDoc(doc(db, "reviews", getReviewDocId(listingId, sellerId, saleEventId))),
+        getExistingReview(conversation.buyerId, sellerId),
+        getExistingReview(sellerId, conversation.buyerId),
       ]);
       const reviewResponses = {};
 
-      if (buyerReviewDoc.exists()) {
+      if (buyerReviewDoc) {
         reviewResponses[conversation.buyerId] = "reviewed";
       }
 
-      if (sellerReviewDoc.exists()) {
+      if (sellerReviewDoc) {
         reviewResponses[sellerId] = "reviewed";
       }
 
-      if (buyerReviewDoc.exists() && sellerReviewDoc.exists()) {
+      if (buyerReviewDoc && sellerReviewDoc) {
         await addDoc(collection(db, "messages"), {
           conversationId: conversationDoc.id,
           senderId: sellerId,

@@ -1075,7 +1075,7 @@ function Messages() {
 	                              >
 	                                <CheckCircle sx={{ fontSize: 16 }} />
 	                                <Typography variant="caption" fontWeight={700}>
-	                                  Review submitted.
+	                                  You already reviewed this user.
 	                                </Typography>
 	                              </Stack>
 	                            ) : selectedConversation.activeSaleEventId !==

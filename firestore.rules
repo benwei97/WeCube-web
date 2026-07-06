@@ -333,7 +333,7 @@ service cloud.firestore {
         ]);
     }
 
-    function validReviewCreate(data) {
+    function validReviewCreate(reviewId, data) {
       let listing = listingData(data.listingId);
       let isBuyer = listing.buyerId == request.auth.uid;
       let isSeller = listing.userId == request.auth.uid && listing.buyerId is string;
@@ -357,6 +357,7 @@ service cloud.firestore {
           "updatedAt"
         ])
         && data.reviewerId == request.auth.uid
+        && reviewId == data.reviewerId + "_" + data.recipientId
         && data.listingId is string
         && listingExists(data.listingId)
         && listing.status == "sold"
@@ -422,7 +423,7 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if validReviewCreate(request.resource.data);
+      allow create: if validReviewCreate(reviewId, request.resource.data);
       allow update: if validReviewUpdate();
       allow delete: if signedIn() && resource.data.reviewerId == request.auth.uid;
     }
