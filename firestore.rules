@@ -305,6 +305,7 @@ service cloud.firestore {
         && conversationData(data.conversationId).status == "approved"
         && (
           data.type != "message" ||
+          !("closedReason" in conversationData(data.conversationId)) ||
           conversationData(data.conversationId).closedReason != "listing_deleted"
         )
         && isConversationParticipantByData(conversationData(data.conversationId))

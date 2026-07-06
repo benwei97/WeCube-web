@@ -12,8 +12,6 @@ import {
   InputAdornment,
   IconButton,
   Stack,
-  Card,
-  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -712,12 +710,6 @@ function Messages() {
     return `Rate your experience with ${counterpartName}. ${sellerName} marked "${listingTitle}" as sold.`;
   };
 
-  const formatReviewPromptTitle = (source = {}, conversation = null) => {
-    const counterpartName = getReviewPromptCounterpartName(conversation, source);
-
-    return `Rate your experience with ${counterpartName}`;
-  };
-
   const formatReviewPromptDetail = (source = {}, conversation = null) => {
     const sellerName =
       source.sellerName ||
@@ -1018,7 +1010,7 @@ function Messages() {
                     !isReviewPrompt &&
                     nextMessageItem?.message?.senderId !== message.senderId;
 
-                  if (isReviewPrompt) {
+	                  if (isReviewPrompt) {
                     const response = getReviewPromptResponse(message);
                     const isPromptClosed =
                       selectedConversation.activeSaleEventId !==
@@ -1032,65 +1024,71 @@ function Messages() {
                       return null;
                     }
 
-                    return (
-                      <Box
-                        key={message.id}
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          my: 2,
-                        }}
-                      >
-                        <Card
-                          variant="outlined"
-                          sx={{
-                            maxWidth: 420,
-                            width: "100%",
-                            borderColor: "primary.main",
-                            bgcolor: "background.paper",
-                          }}
-                        >
-                          <CardContent>
-                            <Stack spacing={1.5}>
-                              <Typography variant="body1" fontWeight={700}>
-                                {formatReviewPromptTitle(
-                                  message,
-                                  selectedConversation
-                                )}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {formatReviewPromptDetail(
-                                  message,
-                                  selectedConversation
-                                )}
-                              </Typography>
-                              {response ? (
-                                <Alert severity="success">
-                                  Review submitted.
-                                </Alert>
-                              ) : selectedConversation.activeSaleEventId !==
-                                message.saleEventId ? (
-                                <Alert severity="info">
-                                  This review request is no longer active.
-                                </Alert>
-                              ) : (
-                                <Button
-                                  variant="contained"
-                                  onClick={() =>
-                                    openReviewDialog(message, selectedConversation)
-                                  }
-                                  disabled={Boolean(isPromptClosed)}
-                                  sx={{ alignSelf: "flex-start" }}
-                                >
-                                  Rate
-                                </Button>
-                              )}
-                            </Stack>
-                          </CardContent>
-                        </Card>
-                      </Box>
-                    );
-                  }
+	                    return (
+	                      <Box
+	                        key={message.id}
+	                        sx={{
+	                          display: "flex",
+	                          justifyContent: "center",
+	                          my: 1.75,
+	                        }}
+	                      >
+	                        <Paper
+	                          variant="outlined"
+	                          sx={{
+	                            width: "min(360px, 88%)",
+	                            px: 1.75,
+	                            py: 1.25,
+	                            borderRadius: 1.5,
+	                            borderColor: "rgba(148, 163, 184, 0.32)",
+	                            bgcolor: "rgba(248, 250, 252, 0.82)",
+	                            boxShadow: "none",
+	                          }}
+	                        >
+	                          <Stack spacing={0.85} alignItems="center">
+	                            <Typography
+	                              variant="body2"
+	                              color="text.secondary"
+	                              sx={{ lineHeight: 1.45, textAlign: "center" }}
+	                            >
+	                              {formatReviewPromptDetail(
+	                                message,
+	                                selectedConversation
+	                              )}
+	                            </Typography>
+	                            {response ? (
+	                              <Typography variant="caption" color="text.secondary">
+	                                Review submitted.
+	                              </Typography>
+	                            ) : selectedConversation.activeSaleEventId !==
+	                              message.saleEventId ? (
+	                              <Typography variant="caption" color="text.secondary">
+	                                Review request closed.
+	                              </Typography>
+	                            ) : (
+	                              <Button
+	                                variant="outlined"
+	                                size="small"
+	                                onClick={() =>
+	                                  openReviewDialog(message, selectedConversation)
+	                                }
+	                                disabled={Boolean(isPromptClosed)}
+	                                sx={{
+	                                  mt: 0.25,
+	                                  minHeight: 30,
+	                                  borderRadius: 1,
+	                                  px: 1.5,
+	                                  fontWeight: 700,
+	                                }}
+	                              >
+	                                Rate your experience
+	                              </Button>
+	                            )}
+	                          </Stack>
+	                        </Paper>
+	                      </Box>
+	                    );
+	                  }
 
 	                  if (message.type === "system") {
 	                    return (
