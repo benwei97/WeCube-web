@@ -16,7 +16,7 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { Search, LocationOn } from "@mui/icons-material";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
@@ -25,13 +25,15 @@ import {
   query,
 } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import {
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
   LISTING_CARD_SX,
   LISTING_CARD_TEXT_STACK_SX,
   LISTING_CARD_TITLE_SX,
+} from "../components/listingStatusStyles";
+import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
@@ -447,9 +449,48 @@ function Browse() {
     };
   }, [locationDraft.meetupLocation]);
 
+  const applyFilters = useCallback(() => {
+    const hasActiveFilter = Boolean(filters.search || filters.meetupLocation.trim());
+    const sourceListings = hasActiveFilter ? allListings : listings;
+    let filtered = sourceListings.filter(
+      (listing) =>
+        listing.userId === currentUser?.uid ||
+        isSoldListingPubliclyVisible(listing)
+    );
+
+    if (filters.search) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+          listing.description
+            ?.toLowerCase()
+            .includes(filters.search.toLowerCase())
+      );
+    }
+
+    if (filters.meetupLocation.trim()) {
+      filtered = filtered.filter((listing) => {
+        const locationMatch = getLocationMatchInfo(listing, filters);
+        return locationMatch.matchesLocation || locationMatch.matchesShipping;
+      });
+    }
+
+    setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
+  }, [allListings, currentUser?.uid, filters, listings]);
+
+  const loadMoreListings = useCallback(() => {
+    if (!isSearching && hasMore && !loadingMore) {
+      setLoadingMore(true);
+      window.setTimeout(() => {
+        setVisibleCount((prev) => prev + 8);
+        setLoadingMore(false);
+      }, 120);
+    }
+  }, [hasMore, isSearching, loadingMore]);
+
   useEffect(() => {
     applyFilters();
-  }, [listings, allListings, filters, currentUser, isSearching]);
+  }, [applyFilters, isSearching]);
 
   useEffect(() => {
     const sortedListings = sortListingsByAvailabilityAndDate(allListings);
@@ -465,16 +506,6 @@ function Browse() {
     setIsSearching(searching);
 
   }, [filters, hasLocationFilter]);
-
-  const loadMoreListings = () => {
-    if (!isSearching && hasMore && !loadingMore) {
-      setLoadingMore(true);
-      window.setTimeout(() => {
-        setVisibleCount((prev) => prev + 8);
-        setLoadingMore(false);
-      }, 120);
-    }
-  };
 
   useEffect(() => {
     if (isSearching || !hasMore || loading) {
@@ -498,38 +529,7 @@ function Browse() {
     handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [hasMore, isSearching, loading, loadingMore]);
-
-  const applyFilters = () => {
-    // Use allListings for search/filter, listings for pagination
-    const hasActiveFilter = Boolean(filters.search || filters.meetupLocation.trim());
-    const sourceListings = hasActiveFilter ? allListings : listings;
-    let filtered = sourceListings.filter(
-      (listing) =>
-        listing.userId === currentUser?.uid ||
-        isSoldListingPubliclyVisible(listing)
-    );
-
-    // Search filter
-    if (filters.search) {
-      filtered = filtered.filter(
-        (listing) =>
-          listing.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-          listing.description
-            ?.toLowerCase()
-            .includes(filters.search.toLowerCase())
-      );
-    }
-
-    if (filters.meetupLocation.trim()) {
-      filtered = filtered.filter((listing) => {
-        const locationMatch = getLocationMatchInfo(listing, filters);
-        return locationMatch.matchesLocation || locationMatch.matchesShipping;
-      });
-    }
-
-    setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
-  };
+  }, [hasMore, isSearching, loading, loadingMore, loadMoreListings]);
 
   const handleFilterChange = (filterType, value) => {
     setFilters((prev) => ({

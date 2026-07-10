@@ -19,11 +19,10 @@ import {
   Alert,
 } from "@mui/material";
 import { CheckCircle, Send, Person, Star } from "@mui/icons-material";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import {
-  getUserConversations,
   subscribeToUserConversations,
   subscribeToMessages,
   addMessage,
@@ -245,7 +244,6 @@ function Messages() {
       return;
     }
 
-    loadConversations();
     setLoading(true);
 
     const unsubscribeConversations = subscribeToUserConversations(
@@ -262,42 +260,6 @@ function Messages() {
       unsubscribeConversations();
     };
   }, [currentUserId, navigate]);
-
-  useEffect(() => {
-    if (!currentUserId) {
-      return undefined;
-    }
-
-    if (conversationId) {
-      const conversation = conversations.find((c) => c.id === conversationId);
-      if (conversation) {
-        setSelectedConversation(conversation);
-        if (
-          conversation.status !== "rejected" &&
-          isConversationUnread(conversation, currentUserId)
-        ) {
-          markConversationReadLocally(conversation);
-          markConversationAsRead(conversation.id, currentUserId).catch((error) =>
-            console.error("Error marking conversation as read:", error)
-          );
-        }
-        if (messagesUnsubscribeRef.current) {
-          messagesUnsubscribeRef.current();
-        }
-        messagesUnsubscribeRef.current = loadMessages(conversationId);
-      }
-    } else {
-      setSelectedConversation(null);
-      setMessages([]);
-    }
-
-    return () => {
-      if (messagesUnsubscribeRef.current) {
-        messagesUnsubscribeRef.current();
-        messagesUnsubscribeRef.current = null;
-      }
-    };
-  }, [conversationId, conversations, currentUserId]);
 
   useEffect(() => {
     const currentConversationId = selectedConversation?.id || null;
@@ -343,7 +305,7 @@ function Messages() {
       120;
   };
 
-  const getReadFieldForConversation = (conversation) => {
+  const getReadFieldForConversation = useCallback((conversation) => {
     if (!currentUserId) {
       return null;
     }
@@ -357,9 +319,9 @@ function Messages() {
     }
 
     return null;
-  };
+  }, [currentUserId]);
 
-  const markConversationReadLocally = (conversation) => {
+  const markConversationReadLocally = useCallback((conversation) => {
     const readField = getReadFieldForConversation(conversation);
 
     if (!readField) {
@@ -381,25 +343,7 @@ function Messages() {
           : item
       )
     );
-  };
-
-  const loadConversations = async () => {
-    if (!currentUserId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const userConversations = await getUserConversations(currentUserId);
-      setConversations(userConversations);
-      await loadListingDetails(userConversations);
-      await loadUserDetails(userConversations);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error loading conversations:", error);
-      setLoading(false);
-    }
-  };
+  }, [getReadFieldForConversation]);
 
   const loadListingDetails = async (conversationsList) => {
     const details = {};
@@ -450,14 +394,56 @@ function Messages() {
     setUserDetails((prev) => ({ ...prev, ...details }));
   };
 
-  const loadMessages = (convId) => {
+  const loadMessages = useCallback((convId) => {
     // Subscribe to real-time messages
     const unsubscribe = subscribeToMessages(convId, (messagesList) => {
       setMessages(messagesList);
     });
 
     return () => unsubscribe();
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      return undefined;
+    }
+
+    if (conversationId) {
+      const conversation = conversations.find((c) => c.id === conversationId);
+      if (conversation) {
+        setSelectedConversation(conversation);
+        if (
+          conversation.status !== "rejected" &&
+          isConversationUnread(conversation, currentUserId)
+        ) {
+          markConversationReadLocally(conversation);
+          markConversationAsRead(conversation.id, currentUserId).catch((error) =>
+            console.error("Error marking conversation as read:", error)
+          );
+        }
+        if (messagesUnsubscribeRef.current) {
+          messagesUnsubscribeRef.current();
+        }
+        messagesUnsubscribeRef.current = loadMessages(conversationId);
+      }
+    } else {
+      setSelectedConversation(null);
+      setMessages([]);
+    }
+
+    return () => {
+      if (messagesUnsubscribeRef.current) {
+        messagesUnsubscribeRef.current();
+        messagesUnsubscribeRef.current = null;
+      }
+    };
+  }, [
+    conversationId,
+    conversations,
+    currentUserId,
+    loadMessages,
+    markConversationReadLocally,
+  ]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUserId) return;

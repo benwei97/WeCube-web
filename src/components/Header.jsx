@@ -16,7 +16,7 @@ import {
   DialogActions,
   Badge,
 } from "@mui/material";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { AuthModal } from "./AuthModal";
 import {
   countUnreadConversations,
@@ -42,18 +42,30 @@ function Header() {
     ? location.pathname.split("/")[2] || null
     : null;
 
-  const getVisibleUnreadCount = (conversations, userId) => {
-    const filteredConversations = activeConversationId
-      ? conversations.filter(
-          (conversation) => conversation.id !== activeConversationId
-        )
-      : conversations;
-
-    return countUnreadConversations(filteredConversations, userId);
-  };
-
   useEffect(() => {
     if (currentUser) {
+      const getVisibleUnreadCount = (conversations, userId) => {
+        const filteredConversations = activeConversationId
+          ? conversations.filter(
+              (conversation) => conversation.id !== activeConversationId
+            )
+          : conversations;
+
+        return countUnreadConversations(filteredConversations, userId);
+      };
+
+      const loadMessageNotificationCount = async () => {
+        try {
+          const conversations = await getUserConversations(currentUser.uid);
+
+          setUnreadConversationCount(
+            getVisibleUnreadCount(conversations, currentUser.uid)
+          );
+        } catch (error) {
+          console.error("Error loading message notifications:", error);
+        }
+      };
+
       loadMessageNotificationCount();
 
       const unsubscribeConversations = subscribeToUserConversations(
@@ -72,18 +84,6 @@ function Header() {
       setUnreadConversationCount(0);
     }
   }, [currentUser, activeConversationId]);
-
-  const loadMessageNotificationCount = async () => {
-    try {
-      const conversations = await getUserConversations(currentUser.uid);
-
-      setUnreadConversationCount(
-        getVisibleUnreadCount(conversations, currentUser.uid)
-      );
-    } catch (error) {
-      console.error("Error loading message notifications:", error);
-    }
-  };
 
   const openAuth = (mode = "login") => {
     setAuthMode(mode);

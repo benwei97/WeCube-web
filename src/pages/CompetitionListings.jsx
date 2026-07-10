@@ -21,6 +21,8 @@ import {
   LISTING_CARD_SX,
   LISTING_CARD_TEXT_STACK_SX,
   LISTING_CARD_TITLE_SX,
+} from "../components/listingStatusStyles";
+import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {

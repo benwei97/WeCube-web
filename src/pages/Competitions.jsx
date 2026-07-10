@@ -10,11 +10,11 @@ import {
   IconButton,
 } from "@mui/material";
 import { KeyboardArrowRight, Star, StarBorder } from "@mui/icons-material";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { AuthModal } from "../components/AuthModal";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
@@ -29,8 +29,9 @@ const SOFT_PANEL_SX = {
   boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
 };
 
+const COMPETITION_BATCH_SIZE = 50;
+
 function Competitions() {
-  const COMPETITION_BATCH_SIZE = 50;
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [allCompetitions, setAllCompetitions] = useState([]);
@@ -48,17 +49,12 @@ function Competitions() {
     setOptimisticSavedCompetitions(currentUser?.attendingCompetitions || []);
   }, [currentUser?.attendingCompetitions]);
 
-  const resetCompetitionOptions = (competitionsList) => {
+  const resetCompetitionOptions = useCallback((competitionsList) => {
     const nextOptions = competitionsList.slice(0, COMPETITION_BATCH_SIZE);
     setCompetitionOptions(nextOptions);
-  };
-
-  // Load competitions on mount
-  useEffect(() => {
-    loadCompetitions();
   }, []);
 
-  const loadCompetitions = async () => {
+  const loadCompetitions = useCallback(async () => {
     try {
       setLoadingCompetitions(true);
       console.log('Cache status before loading:', getCacheStatus());
@@ -74,7 +70,12 @@ function Competitions() {
     } finally {
       setLoadingCompetitions(false);
     }
-  };
+  }, [resetCompetitionOptions]);
+
+  // Load competitions on mount
+  useEffect(() => {
+    loadCompetitions();
+  }, [loadCompetitions]);
 
   const handleCompetitionSearch = async (value) => {
     const normalizedValue = typeof value === "string" ? value : "";

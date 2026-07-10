@@ -30,7 +30,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { uploadListingVideoToS3, uploadMultipleImages } from "../utils/s3";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,

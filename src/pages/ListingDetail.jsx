@@ -49,11 +49,11 @@ import {
   Star,
   PlayCircleOutline,
 } from "@mui/icons-material";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import {
   createConversation,
   getExistingConversation,
@@ -275,12 +275,21 @@ function ListingDetail() {
     });
   }, [location.pathname, location.state, navigate]);
 
+  const checkExistingConversation = useCallback(async () => {
+    try {
+      const conversation = await getExistingConversation(id, currentUser.uid);
+      setExistingConversation(conversation);
+    } catch (error) {
+      console.error("Error checking existing conversation:", error);
+    }
+  }, [currentUser?.uid, id]);
+
   useEffect(() => {
     // Check for existing conversation when user and listing are loaded
     if (currentUser && listing && currentUser.uid !== listing.userId) {
       checkExistingConversation();
     }
-  }, [currentUser, listing]);
+  }, [checkExistingConversation, currentUser, listing]);
 
   useEffect(() => {
     if (!listing?.userId) {
@@ -389,15 +398,6 @@ function ListingDetail() {
     setCurrentPhotoIndex(0);
     setShowFullDescription(false);
   }, [listing?.id]);
-
-  const checkExistingConversation = async () => {
-    try {
-      const conversation = await getExistingConversation(id, currentUser.uid);
-      setExistingConversation(conversation);
-    } catch (error) {
-      console.error("Error checking existing conversation:", error);
-    }
-  };
 
   const handleEditToggle = () => {
     setEditMode((prev) => !prev);
@@ -782,8 +782,8 @@ function ListingDetail() {
     setShowMessageDialog(true);
   };
 
-  const openMarkSoldDialog = async () => {
-    closeOwnerMenu();
+  const openMarkSoldDialog = useCallback(async () => {
+    setOwnerMenuAnchorEl(null);
     setShowMarkSoldDialog(true);
     setLoadingBuyerOptions(true);
     setSoldMethodChoice("in_app");
@@ -805,7 +805,7 @@ function ListingDetail() {
     } finally {
       setLoadingBuyerOptions(false);
     }
-  };
+  }, [id, listing?.userId]);
 
   const closeMarkSoldDialog = () => {
     if (statusActionLoading) return;
@@ -833,10 +833,13 @@ function ListingDetail() {
       state: { ...location.state, openMarkSoldDialog: false },
     });
   }, [
+    location.pathname,
     location.state,
+    navigate,
     openedMarkSoldFromRoute,
     listing,
     currentUser,
+    openMarkSoldDialog,
     showMarkSoldDialog,
   ]);
 
@@ -1045,22 +1048,6 @@ function ListingDetail() {
       });
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  const getMessageButtonText = () => {
-    if (listing?.status === "archived") return "Pending";
-    if (listing?.status === "sold") return "Sold";
-    if (!existingConversation) return "Message";
-
-    switch (existingConversation.status) {
-      case "approved":
-      case "pending":
-        return "Continue Chat";
-      case "rejected":
-        return "Message Unavailable";
-      default:
-        return "Message";
     }
   };
 
