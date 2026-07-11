@@ -26,9 +26,11 @@ const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const DEFAULT_SEED_EMAIL_DOMAIN = "wecube-seed.test";
 const DEFAULT_LISTINGS_PER_SELLER = 5;
 const DEFAULT_COMPETITION_LIMIT = 25;
+const UPLOAD_RETRY_COUNT = 4;
 const IMAGE_WIDTH = 1200;
 const IMAGE_HEIGHT = 900;
 const WCA_API_BASE = "https://www.worldcubeassociation.org/api/v0";
+const UNITED_STATES_COUNTRY_CODE = "US";
 
 const sellers = [
   { firstName: "Maya", lastName: "Chen", city: "Los Angeles, CA" },
@@ -509,6 +511,14 @@ function normalizeCompetition(competition) {
   };
 }
 
+function isUnitedStatesCompetition(competition) {
+  return (
+    competition?.country_iso2 === UNITED_STATES_COUNTRY_CODE ||
+    competition?.countryIso2 === UNITED_STATES_COUNTRY_CODE ||
+    competition?.country === UNITED_STATES_COUNTRY_CODE
+  );
+}
+
 async function loadSeedCompetitions(filePath) {
   const parsed = await readJsonFile(filePath);
   const source = Array.isArray(parsed)
@@ -522,6 +532,7 @@ async function loadSeedCompetitions(filePath) {
   }
 
   const competitions = source
+    .filter(isUnitedStatesCompetition)
     .map(normalizeCompetition)
     .filter((competition) => competition.id && competition.name);
 
@@ -550,6 +561,7 @@ async function fetchOfficialWcaCompetitions(limit) {
     }
 
     data
+      .filter(isUnitedStatesCompetition)
       .map(normalizeCompetition)
       .filter((competition) => competition.id && competition.name)
       .forEach((competition) => competitions.push(competition));
@@ -696,26 +708,46 @@ function createSeedCubePng(listing, variantIndex) {
 
 async function uploadBuffer({ createSignedUpload, buffer, listingId, fileName, contentType }) {
   const extension = fileName.split(".").pop();
-  const { data } = await createSignedUpload({
-    uploadType: contentType.startsWith("video/") ? "listing-video" : "listing",
-    listingId,
-    fileName,
-    contentType,
-    fileExtension: extension,
-    fileSize: buffer.length,
-  });
+  let lastError = null;
 
-  const response = await fetch(data.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: buffer,
-  });
+  for (let attempt = 1; attempt <= UPLOAD_RETRY_COUNT; attempt += 1) {
+    try {
+      const { data } = await createSignedUpload({
+        uploadType: contentType.startsWith("video/") ? "listing-video" : "listing",
+        listingId,
+        fileName,
+        contentType,
+        fileExtension: extension,
+        fileSize: buffer.length,
+      });
 
-  if (!response.ok) {
-    throw new Error(`S3 upload failed for ${fileName}: ${response.status}`);
+      const response = await fetch(data.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: buffer,
+      });
+
+      if (response.ok) {
+        return data.s3Key;
+      }
+
+      lastError = new Error(`S3 upload failed for ${fileName}: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < UPLOAD_RETRY_COUNT) {
+      const delayMs = 500 * attempt;
+      console.warn(
+        `Upload attempt ${attempt} failed for ${fileName}; retrying in ${delayMs}ms.`
+      );
+      await new Promise((resolveDelay) => {
+        setTimeout(resolveDelay, delayMs);
+      });
+    }
   }
 
-  return data.s3Key;
+  throw lastError;
 }
 
 async function ensureSeedUser({ auth, db, email, password, firstName, lastName, write }) {
@@ -906,6 +938,14 @@ async function main() {
   console.log(`Sellers: ${sellers.length}`);
   console.log(`Listings per seller: ${options.listingsPerSeller}`);
   console.log(`Competitions loaded: ${seedCompetitions.length}`);
+  if (!options.write) {
+    console.log(
+      `Competition sample: ${seedCompetitions
+        .slice(0, 5)
+        .map((competition) => `${competition.name} (${competition.city}, ${competition.country})`)
+        .join("; ")}`
+    );
+  }
 
   for (let sellerIndex = 0; sellerIndex < sellers.length; sellerIndex += 1) {
     const seller = sellers[sellerIndex];
