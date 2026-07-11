@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "qa": "playwright test",
     "qa:smoke": "playwright test tests/e2e/public-smoke.spec.js",
-    "qa:report": "playwright show-report"
+    "qa:report": "playwright show-report",
+    "seed:listings": "node scripts/seed/seedListings.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
