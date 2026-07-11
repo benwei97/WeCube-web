@@ -138,7 +138,7 @@ function Header() {
           boxShadow: "0 1px 10px rgba(31, 53, 99, 0.06)",
         }}
       >
-        <Toolbar sx={{ px: { xs: 2, md: 10 } }}>
+        <Toolbar sx={{ px: { xs: 2, md: 10 }, minHeight: { xs: 56, sm: 64 } }}>
           <Box
             component={Link}
             to="/"
@@ -173,7 +173,7 @@ function Header() {
             </Button>
           </Box>
 
-          <Box sx={{ flexGrow: 1 }} />
+          <Box sx={{ display: { xs: "none", md: "block" }, flexGrow: 1 }} />
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <IconButton
@@ -251,6 +251,51 @@ function Header() {
             </Menu>
           </Box>
         </Toolbar>
+
+        <Box
+          component="nav"
+          aria-label="Primary navigation"
+          sx={{
+            display: { xs: "grid", md: "none" },
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            borderTop: "1px solid rgba(148, 163, 184, 0.14)",
+            px: 1,
+            pb: 0.5,
+          }}
+        >
+          {[
+            { label: "Browse", path: "/" },
+            { label: "Competitions", path: "/competitions" },
+            { label: "Sell", path: "/sell" },
+          ].map((item) => {
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(item.path);
+
+            return (
+              <Button
+                key={item.path}
+                component={Link}
+                to={item.path}
+                color="inherit"
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: 0.5,
+                  py: 0.75,
+                  borderRadius: 1,
+                  fontSize: "0.78rem",
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? "primary.main" : "text.secondary",
+                  textTransform: "none",
+                }}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
+        </Box>
       </AppBar>
 
       <AuthModal open={showAuth} onClose={closeModals} initialMode={authMode} />

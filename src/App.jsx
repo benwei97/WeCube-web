@@ -23,7 +23,7 @@ function App() {
           <Box
             component="main"
             sx={{
-              pt: 8,
+              pt: { xs: 11, md: 8 },
               display: "flex",
               justifyContent: "center",
               width: "100vw",
