@@ -9,6 +9,7 @@ The script:
 - Creates matching Firestore user profiles for newly created sellers.
 - Generates simple cube-style PNG images locally.
 - Uploads those generated images through the existing Firebase Function/S3 signed upload flow.
+- Uses upcoming official WCA competitions by default, fetched from the WCA API.
 - Creates active listings through the normal client Firestore permissions.
 - Uses deterministic `listingId` values so rerunning the script skips listings it already created.
 
@@ -23,6 +24,49 @@ Before running with `--write`:
 5. Set a temporary seed user password.
 
 Do not use a real personal password for seed users.
+
+## Real Competitions
+
+By default, the script tries to fetch upcoming official competitions from the WCA API:
+
+```text
+https://www.worldcubeassociation.org/api/v0/competitions
+```
+
+If the WCA API is unavailable, the script falls back to a small built-in set so the workflow can still dry-run. For real seed data, prefer a successful WCA API fetch or provide a local competition file.
+
+You can change how many WCA competitions are fetched:
+
+```bash
+npm run seed:listings -- --competition-limit 50
+```
+
+To hand-pick real competitions, create `scripts/seed/competitions.json`:
+
+```json
+{
+  "competitions": [
+    {
+      "id": "RealWCACompetitionId2026",
+      "name": "Real Competition Name 2026",
+      "city": "Los Angeles",
+      "country": "United States",
+      "latitude": 34.0522,
+      "longitude": -118.2437,
+      "displayName": "Real Competition Name 2026",
+      "dateRange": "Jul 10-12, 2026",
+      "startDate": "2026-07-10",
+      "endDate": "2026-07-12"
+    }
+  ]
+}
+```
+
+You can also point to another file:
+
+```bash
+npm run seed:listings -- --competitions scripts/seed/my-real-competitions.json
+```
 
 ## Dry Run
 

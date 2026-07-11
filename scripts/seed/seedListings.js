@@ -21,11 +21,14 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 const DEFAULT_ENV_PATH = ".env";
+const DEFAULT_COMPETITIONS_PATH = "scripts/seed/competitions.json";
 const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const DEFAULT_SEED_EMAIL_DOMAIN = "wecube-seed.test";
 const DEFAULT_LISTINGS_PER_SELLER = 5;
+const DEFAULT_COMPETITION_LIMIT = 25;
 const IMAGE_WIDTH = 1200;
 const IMAGE_HEIGHT = 900;
+const WCA_API_BASE = "https://www.worldcubeassociation.org/api/v0";
 
 const sellers = [
   { firstName: "Maya", lastName: "Chen", city: "Los Angeles, CA" },
@@ -336,7 +339,7 @@ const meetupLocations = [
   },
 ];
 
-const competitions = [
+const fallbackCompetitions = [
   {
     id: "seed-bay-area-open-2026",
     name: "Bay Area Open 2026",
@@ -368,9 +371,11 @@ function parseArgs() {
   const options = {
     write: false,
     envPath: DEFAULT_ENV_PATH,
+    competitionsPath: DEFAULT_COMPETITIONS_PATH,
     emailDomain: process.env.SEED_EMAIL_DOMAIN || DEFAULT_SEED_EMAIL_DOMAIN,
     password: process.env.SEED_USER_PASSWORD || "",
     listingsPerSeller: DEFAULT_LISTINGS_PER_SELLER,
+    competitionLimit: DEFAULT_COMPETITION_LIMIT,
     videoPath: process.env.SEED_VIDEO_PATH || "",
   };
 
@@ -381,6 +386,9 @@ function parseArgs() {
     } else if (arg === "--env") {
       options.envPath = args[index + 1];
       index += 1;
+    } else if (arg === "--competitions") {
+      options.competitionsPath = args[index + 1];
+      index += 1;
     } else if (arg === "--email-domain") {
       options.emailDomain = args[index + 1];
       index += 1;
@@ -390,6 +398,9 @@ function parseArgs() {
     } else if (arg === "--listings-per-seller") {
       options.listingsPerSeller = Number(args[index + 1]);
       index += 1;
+    } else if (arg === "--competition-limit") {
+      options.competitionLimit = Number(args[index + 1]);
+      index += 1;
     } else if (arg === "--video") {
       options.videoPath = args[index + 1];
       index += 1;
@@ -397,6 +408,18 @@ function parseArgs() {
   }
 
   return options;
+}
+
+async function readJsonFile(filePath) {
+  try {
+    return JSON.parse(await readFile(resolve(process.cwd(), filePath), "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 async function readEnvFile(envPath) {
@@ -439,6 +462,129 @@ function getFirebaseConfig(env) {
   }
 
   return config;
+}
+
+function formatDateRange(startDate, endDate) {
+  if (!startDate) {
+    return "";
+  }
+
+  if (!endDate || endDate === startDate) {
+    return startDate;
+  }
+
+  return `${startDate} to ${endDate}`;
+}
+
+function getTodayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeCompetition(competition) {
+  const id = competition.id || competition.competitionId || "";
+  const name = competition.name || competition.displayName || id;
+  const startDate = competition.startDate || competition.start_date || null;
+  const endDate = competition.endDate || competition.end_date || startDate;
+
+  return {
+    id,
+    name,
+    city: competition.city || competition.venueCity || "",
+    country: competition.country || competition.countryIso2 || competition.country_iso2 || "",
+    latitude:
+      typeof competition.latitude === "number"
+        ? competition.latitude
+        : Number(competition.latitude) || null,
+    longitude:
+      typeof competition.longitude === "number"
+        ? competition.longitude
+        : Number(competition.longitude) || null,
+    displayName: competition.displayName || name,
+    dateRange:
+      competition.dateRange ||
+      competition.date_range ||
+      formatDateRange(startDate, endDate),
+    startDate,
+    endDate,
+  };
+}
+
+async function loadSeedCompetitions(filePath) {
+  const parsed = await readJsonFile(filePath);
+  const source = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.competitions)
+      ? parsed.competitions
+      : null;
+
+  if (!source || source.length === 0) {
+    return null;
+  }
+
+  const competitions = source
+    .map(normalizeCompetition)
+    .filter((competition) => competition.id && competition.name);
+
+  if (competitions.length === 0) {
+    throw new Error(`No valid competitions found in ${filePath}.`);
+  }
+
+  return competitions;
+}
+
+async function fetchOfficialWcaCompetitions(limit) {
+  const startDate = getTodayIsoDate();
+  const competitions = [];
+  let page = 1;
+
+  while (competitions.length < limit && page <= 10) {
+    const url = `${WCA_API_BASE}/competitions?sort=start_date&start=${startDate}&page=${page}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`WCA API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      break;
+    }
+
+    data
+      .map(normalizeCompetition)
+      .filter((competition) => competition.id && competition.name)
+      .forEach((competition) => competitions.push(competition));
+
+    if (data.length < 25) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return competitions.slice(0, limit);
+}
+
+async function getSeedCompetitions(options) {
+  const localCompetitions = await loadSeedCompetitions(options.competitionsPath);
+  if (localCompetitions) {
+    console.log(`Loaded competitions from ${options.competitionsPath}.`);
+    return localCompetitions;
+  }
+
+  try {
+    const officialCompetitions = await fetchOfficialWcaCompetitions(
+      options.competitionLimit
+    );
+    if (officialCompetitions.length > 0) {
+      console.log("Loaded upcoming competitions from the official WCA API.");
+      return officialCompetitions;
+    }
+  } catch (error) {
+    console.warn(`Unable to fetch WCA competitions: ${error.message}`);
+  }
+
+  console.warn("Using fallback seed competitions.");
+  return fallbackCompetitions;
 }
 
 function makeCrcTable() {
@@ -597,9 +743,9 @@ async function ensureSeedUser({ auth, db, email, password, firstName, lastName, 
   }
 }
 
-function getFulfillmentPayload(listing, sellerIndex, listingIndex) {
+function getFulfillmentPayload(listing, sellerIndex, listingIndex, seedCompetitions) {
   const meetup = meetupLocations[sellerIndex % meetupLocations.length];
-  const competition = competitions[listingIndex % competitions.length];
+  const competition = seedCompetitions[listingIndex % seedCompetitions.length];
   const hasShipping = listing.fulfillment.includes("shipping");
   const hasLocal = listing.fulfillment.includes("local");
   const hasCompetition = listingIndex % 5 === 0;
@@ -645,6 +791,7 @@ async function createSeedListing({
   sellerListingIndex,
   options,
   videoBuffer,
+  seedCompetitions,
 }) {
   const listingId = `seed_${sellerIndex + 1}_${sellerListingIndex + 1}`;
   const email = sellers[sellerIndex].email;
@@ -701,7 +848,12 @@ async function createSeedListing({
     };
   }
 
-  const fulfillment = getFulfillmentPayload(listing, sellerIndex, listingIndex);
+  const fulfillment = getFulfillmentPayload(
+    listing,
+    sellerIndex,
+    listingIndex,
+    seedCompetitions
+  );
   await addDoc(collection(db, "listings"), {
     title: listing.title,
     price: listing.price,
@@ -744,6 +896,7 @@ async function main() {
     env.VITE_FIREBASE_FUNCTIONS_REGION || DEFAULT_FUNCTIONS_REGION
   );
   const createSignedUpload = httpsCallable(functions, "createSignedS3Upload");
+  const seedCompetitions = await getSeedCompetitions(options);
   const videoBuffer = options.videoPath
     ? await readFile(resolve(process.cwd(), options.videoPath))
     : null;
@@ -752,6 +905,7 @@ async function main() {
   console.log(`Project: ${env.VITE_FIREBASE_PROJECT_ID}`);
   console.log(`Sellers: ${sellers.length}`);
   console.log(`Listings per seller: ${options.listingsPerSeller}`);
+  console.log(`Competitions loaded: ${seedCompetitions.length}`);
 
   for (let sellerIndex = 0; sellerIndex < sellers.length; sellerIndex += 1) {
     const seller = sellers[sellerIndex];
@@ -778,6 +932,7 @@ async function main() {
         sellerListingIndex: offset,
         options,
         videoBuffer,
+        seedCompetitions,
       });
     }
 
