@@ -47,7 +47,6 @@ import {
   Restore,
   Save,
   Star,
-  PlayCircleOutline,
 } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -1025,7 +1024,6 @@ function ListingDetail() {
     try {
       const s3Keys = [
         ...(listing.photos || []).map((photo) => photo.s3Key),
-        listing.video?.s3Key,
       ].filter(Boolean);
 
       if (s3Keys.length > 0) {
@@ -1089,10 +1087,7 @@ function ListingDetail() {
     return dateObj.toLocaleDateString();
   };
 
-  const mediaItems = [
-    ...(listing?.photos || []).map((photo) => ({ ...photo, mediaType: "photo" })),
-    ...(listing?.video ? [{ ...listing.video, mediaType: "video" }] : []),
-  ];
+  const mediaItems = listing?.photos || [];
   const mediaCount = mediaItems.length;
   const activeMedia = mediaCount > 0 ? mediaItems[currentPhotoIndex] : null;
   const descriptionText = listing?.description || "No description provided.";
@@ -1311,37 +1306,21 @@ function ListingDetail() {
                 >
                   {listing.status === "sold" && <SoldRibbon size="large" />}
                   {listing.status === "archived" && <PendingBadge size="large" />}
-                  {activeMedia.mediaType === "video" ? (
-                    <Box
-                      component="video"
-                      src={getS3PublicUrl(activeMedia.s3Key)}
-                      controls
-                      playsInline
-                      sx={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        display: "block",
-                        bgcolor: "grey.900",
-                      }}
-                    />
-                  ) : (
-                    <Box
-                      component="img"
-                      src={getS3PublicUrl(activeMedia.s3Key)}
-                      alt={`Listing photo ${currentPhotoIndex + 1}`}
-                      sx={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        display: "block",
-                      }}
-                      onError={(e) => {
-                        console.error("Failed to load image:", activeMedia.s3Key);
-                        e.target.style.display = "none";
-                      }}
-                    />
-                  )}
+                  <Box
+                    component="img"
+                    src={getS3PublicUrl(activeMedia.s3Key)}
+                    alt={`Listing photo ${currentPhotoIndex + 1}`}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                    onError={(e) => {
+                      console.error("Failed to load image:", activeMedia.s3Key);
+                      e.target.style.display = "none";
+                    }}
+                  />
 
                   {mediaCount > 1 && (
                     <>
@@ -1402,33 +1381,17 @@ function ListingDetail() {
                           backgroundColor: "grey.100",
                         }}
                       >
-                        {media.mediaType === "video" ? (
-                          <Box
-                            sx={{
-                              width: "100%",
-                              height: "100%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              bgcolor: "grey.900",
-                              color: "common.white",
-                            }}
-                          >
-                            <PlayCircleOutline fontSize="small" />
-                          </Box>
-                        ) : (
-                          <Box
-                            component="img"
-                            src={getS3PublicUrl(media.s3Key)}
-                            alt={`Thumbnail ${index + 1}`}
-                            sx={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain",
-                              display: "block",
-                            }}
-                          />
-                        )}
+                        <Box
+                          component="img"
+                          src={getS3PublicUrl(media.s3Key)}
+                          alt={`Thumbnail ${index + 1}`}
+                          sx={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                            display: "block",
+                          }}
+                        />
                       </Box>
                     ))}
                   </Stack>

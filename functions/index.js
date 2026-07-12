@@ -17,17 +17,11 @@ const functionOptions = {
 };
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
-const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024;
 const SIGNED_URL_EXPIRES_SECONDS = 5 * 60;
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-]);
-const SUPPORTED_VIDEO_TYPES = new Set([
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
 ]);
 
 function requireAuth(request) {
@@ -75,7 +69,7 @@ function sanitizeExtension(extension) {
     return "jpeg";
   }
 
-  if (["jpeg", "png", "webp", "mp4", "mov", "webm"].includes(normalized)) {
+  if (["jpeg", "png", "webp"].includes(normalized)) {
     return normalized;
   }
 
@@ -99,25 +93,6 @@ function assertImageRequest({ contentType, fileSize }) {
 
   if (fileSize > MAX_IMAGE_SIZE_BYTES) {
     throw new HttpsError("invalid-argument", "Images must be 10 MB or smaller.");
-  }
-}
-
-function assertUploadRequest({ contentType, fileSize }) {
-  if (SUPPORTED_IMAGE_TYPES.has(contentType)) {
-    assertImageRequest({ contentType, fileSize });
-    return;
-  }
-
-  if (!SUPPORTED_VIDEO_TYPES.has(contentType)) {
-    throw new HttpsError("invalid-argument", "Upload a JPG, PNG, WebP, MP4, MOV, or WebM file.");
-  }
-
-  if (!Number.isFinite(fileSize) || fileSize <= 0) {
-    throw new HttpsError("invalid-argument", "Video size is invalid.");
-  }
-
-  if (fileSize > MAX_VIDEO_SIZE_BYTES) {
-    throw new HttpsError("invalid-argument", "Videos must be 100 MB or smaller.");
   }
 }
 
@@ -204,11 +179,11 @@ export const createSignedS3Upload = onCall(functionOptions, async (request) => {
     fileSize,
   } = request.data || {};
 
-  if (uploadType === "avatar") {
-    assertImageRequest({ contentType, fileSize: Number(fileSize) });
-  } else {
-    assertUploadRequest({ contentType, fileSize: Number(fileSize) });
+  if (!["avatar", "listing"].includes(uploadType)) {
+    throw new HttpsError("invalid-argument", "Upload type is invalid.");
   }
+
+  assertImageRequest({ contentType, fileSize: Number(fileSize) });
 
   const bucketName = getBucketName();
   const s3Key =

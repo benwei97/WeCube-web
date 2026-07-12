@@ -380,7 +380,6 @@ function Dashboard() {
     try {
       const s3Keys = [
         ...(deleteDialog.listing.photos || []).map((photo) => photo.s3Key),
-        deleteDialog.listing.video?.s3Key,
       ].filter(Boolean);
 
       if (s3Keys.length) {

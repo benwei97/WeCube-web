@@ -84,29 +84,6 @@ service cloud.firestore {
         && data.photos is list
         && data.photos.size() >= 1
         && data.photos.size() <= 5
-        && (
-          !("video" in data) ||
-          data.video == null ||
-          (
-            data.video is map
-            && data.video.keys().hasOnly([
-              "id",
-              "name",
-              "size",
-              "type",
-              "s3Key",
-              "uploadedAt"
-            ])
-            && data.video.name is string
-            && data.video.name.size() <= 180
-            && data.video.size is number
-            && data.video.size > 0
-            && data.video.size <= 104857600
-            && data.video.type in ["video/mp4", "video/quicktime", "video/webm"]
-            && data.video.s3Key is string
-            && data.video.s3Key.size() <= 512
-          )
-        )
         && data.shippingAvailable is bool
         && data.shippingIncluded is bool
         && data.localMeetupAvailable is bool
@@ -136,7 +113,6 @@ service cloud.firestore {
         "meetupLocationLabel",
         "meetupLocation",
         "photos",
-        "video",
         "shippingAvailable",
         "shippingIncluded",
         "shippingCost",
@@ -172,7 +148,6 @@ service cloud.firestore {
           "puzzleType",
           "meetupLocationLabel",
           "meetupLocation",
-          "video",
           "shippingAvailable",
           "shippingIncluded",
           "shippingCost",
