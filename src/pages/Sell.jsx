@@ -902,9 +902,11 @@ function Sell() {
                 slotProps={{
                   inputLabel: {
                     sx: {
-                      bgcolor: "background.paper",
-                      px: 0.5,
-                      mx: -0.5,
+                      "&.MuiInputLabel-shrink": {
+                        bgcolor: "background.paper",
+                        px: 0.5,
+                        mx: -0.5,
+                      },
                     },
                   },
                   htmlInput: {
