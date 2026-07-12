@@ -900,6 +900,13 @@ function Sell() {
                       )
                 }
                 slotProps={{
+                  inputLabel: {
+                    sx: {
+                      bgcolor: "background.paper",
+                      px: 0.5,
+                      mx: -0.5,
+                    },
+                  },
                   htmlInput: {
                     maxLength: INPUT_LIMITS.LISTING_DESCRIPTION,
                   },
