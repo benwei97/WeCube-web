@@ -18,7 +18,7 @@ import {
   DialogTitle,
   Alert,
 } from "@mui/material";
-import { CheckCircle, Send, Person, Star } from "@mui/icons-material";
+import { ArrowBack, CheckCircle, Send, Person, Star } from "@mui/icons-material";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
@@ -550,6 +550,10 @@ function Messages() {
     navigate(`/messages/${conversation.id}`);
   };
 
+  const handleBackToConversations = () => {
+    navigate("/messages");
+  };
+
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     const date = getTimestampDate(timestamp);
@@ -782,14 +786,46 @@ function Messages() {
   }
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2, height: "80vh" }}>
-      <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+    <Box
+      sx={{
+        width: { xs: "100%", md: "80vw" },
+        mx: "auto",
+        p: { xs: 1.5, md: 3 },
+        mt: { xs: 1, md: 2 },
+        height: { xs: "calc(100dvh - 104px)", md: "80vh" },
+        boxSizing: "border-box",
+      }}
+    >
+      <Typography
+        variant="h3"
+        component="h1"
+        gutterBottom
+        fontWeight="bold"
+        sx={{ display: { xs: selectedConversation ? "none" : "block", md: "block" } }}
+      >
         Messages
       </Typography>
 
-      <Box sx={{ display: "flex", height: "calc(100% - 80px)", gap: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          height: {
+            xs: selectedConversation ? "100%" : "calc(100% - 64px)",
+            md: "calc(100% - 80px)",
+          },
+          gap: { xs: 0, md: 2 },
+          minHeight: 0,
+        }}
+      >
         {/* Left Panel */}
-        <Paper sx={{ width: 400, display: "flex", flexDirection: "column" }}>
+        <Paper
+          sx={{
+            width: { xs: "100%", md: 400 },
+            display: { xs: selectedConversation ? "none" : "flex", md: "flex" },
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
           <List sx={{ flex: 1, overflow: "auto" }}>
             {conversations.map((conversation) => (
               <ListItem
@@ -909,20 +945,36 @@ function Messages() {
         </Paper>
 
         {/* Chat Area */}
-        <Paper sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <Paper
+          sx={{
+            flex: 1,
+            display: { xs: selectedConversation ? "flex" : "none", md: "flex" },
+            flexDirection: "column",
+            minWidth: 0,
+            minHeight: 0,
+          }}
+        >
           {selectedConversation ? (
             <>
               {/* Chat Header */}
               <Box
                 sx={{
-                  p: 2,
+                  p: { xs: 1.25, md: 2 },
                   borderBottom: "1px solid",
                   borderColor: "divider",
                   display: "flex",
                   alignItems: "center",
-                  gap: 1.5,
+                  gap: { xs: 1, md: 1.5 },
+                  minWidth: 0,
                 }}
               >
+                <IconButton
+                  aria-label="Back to conversations"
+                  onClick={handleBackToConversations}
+                  sx={{ display: { xs: "inline-flex", md: "none" }, flexShrink: 0 }}
+                >
+                  <ArrowBack />
+                </IconButton>
                 <ConversationIdentityThumb
                   listingPhotoUrl={getListingPhotoUrl(
                     selectedConversation.listingId
@@ -944,11 +996,11 @@ function Messages() {
                     )
                   }
                 />
-                <Box sx={{ minWidth: 0 }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography variant="h6" noWrap>
                     {getConversationCounterpartName(selectedConversation)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" noWrap>
                     {getListingTitle(selectedConversation.listingId)} •{" "}
                     {selectedConversation.userRole === "seller"
                         ? "Buyer inquiry"
@@ -961,7 +1013,12 @@ function Messages() {
                 <Box
                   ref={messagesScrollRef}
                   onScroll={handleMessagesScroll}
-                  sx={{ flex: 1, overflow: "auto", p: 2 }}
+                  sx={{
+                    flex: 1,
+                    overflow: "auto",
+                    p: { xs: 1.25, md: 2 },
+                    minHeight: 0,
+                  }}
                 >
                 {getTranscriptItems().map((item, index, transcriptItems) => {
                   if (item.type === "timeDivider") {
@@ -1157,7 +1214,7 @@ function Messages() {
                         sx={{
                           px: 1.75,
                           py: 1.1,
-                          maxWidth: "70%",
+                          maxWidth: { xs: "82%", md: "70%" },
                           borderRadius:
                             isCurrentUserMessage
                               ? "20px 20px 6px 20px"
@@ -1195,7 +1252,11 @@ function Messages() {
               {/* Message Input */}
               {isListingDeletedConversation(selectedConversation) ? (
                 <Box
-                  sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
+                  sx={{
+                    p: { xs: 1.25, md: 2 },
+                    borderTop: "1px solid",
+                    borderColor: "divider",
+                  }}
                 >
                   <Alert severity="info" variant="outlined">
                     This listing was deleted, so the conversation is closed.
@@ -1203,7 +1264,11 @@ function Messages() {
                 </Box>
               ) : selectedConversation.status !== "rejected" && (
                 <Box
-                  sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}
+                  sx={{
+                    p: { xs: 1.25, md: 2 },
+                    borderTop: "1px solid",
+                    borderColor: "divider",
+                  }}
                 >
                   <TextField
                     fullWidth
