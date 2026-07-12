@@ -56,6 +56,12 @@ import {
   INPUT_LIMITS,
 } from "../utils/inputLimits";
 
+const SUPPORTED_PHOTO_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 function InfoTitle({ children, info, variant = "body1", fontWeight }) {
   return (
     <Typography
@@ -167,7 +173,9 @@ function Sell() {
 
   const handlePhotoSelection = (e) => {
     const files = Array.from(e.target.files);
-    const newPhotos = files.slice(0, 5 - selectedPhotos.length);
+    const imageFiles = files.filter((file) => SUPPORTED_PHOTO_TYPES.has(file.type));
+    const rejectedCount = files.length - imageFiles.length;
+    const newPhotos = imageFiles.slice(0, 5 - selectedPhotos.length);
 
     const photoObjects = newPhotos.map((file) => ({
       file,
@@ -175,8 +183,17 @@ function Sell() {
       id: Date.now() + Math.random(),
     }));
 
-    setSelectedPhotos((prev) => [...prev, ...photoObjects]);
-    setSubmitNotice(null);
+    if (photoObjects.length > 0) {
+      setSelectedPhotos((prev) => [...prev, ...photoObjects]);
+    }
+    setSubmitNotice(
+      rejectedCount > 0
+        ? {
+            severity: "error",
+            message: "Photos must be JPG, PNG, or WebP. Add videos with the video upload below.",
+          }
+        : null
+    );
     e.target.value = "";
   };
 
@@ -763,6 +780,7 @@ function Sell() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     multiple
+                    capture="environment"
                     style={{ display: "none" }}
                     id="photo-upload"
                     onChange={handlePhotoSelection}
@@ -851,6 +869,7 @@ function Sell() {
                   <input
                     type="file"
                     accept="video/mp4,video/quicktime,video/webm,video/*"
+                    capture="environment"
                     style={{ display: "none" }}
                     id="video-upload"
                     onChange={handleVideoSelection}
