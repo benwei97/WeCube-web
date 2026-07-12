@@ -82,6 +82,19 @@ const SOFT_FORM_CARD_SX = {
   borderColor: "rgba(148, 163, 184, 0.22)",
   boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
 };
+const SELL_PAGE_CONTAINER_SX = {
+  width: { xs: "100%", md: "60vw" },
+  maxWidth: { xs: "100%", md: "none" },
+  mx: "auto",
+  p: { xs: 1.5, sm: 2.5, md: 3 },
+  mt: 2,
+};
+const SELL_SECTION_SX = {
+  px: { xs: 2, sm: 2.5, md: 3 },
+};
+const SELL_MEDIA_TILE_SX = {
+  width: { xs: "min(42vw, 132px)", sm: 120 },
+};
 
 function Sell() {
   const COMPETITION_BATCH_SIZE = 50;
@@ -616,7 +629,7 @@ function Sell() {
 
   if (!currentUser) {
     return (
-      <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={SELL_PAGE_CONTAINER_SX}>
         <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
           List Your Cube
         </Typography>
@@ -628,7 +641,7 @@ function Sell() {
   }
 
   return (
-    <Box sx={{ width: "60vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={SELL_PAGE_CONTAINER_SX}>
       <Snackbar
         key={submitNoticePulse}
         open={Boolean(submitNotice)}
@@ -672,12 +685,12 @@ function Sell() {
         component="h1"
         gutterBottom
         fontWeight="bold"
-        sx={{ mb: 4 }}
+        sx={{ mb: { xs: 2.5, md: 4 } }}
       >
         List Your Cube
       </Typography>
 
-      <Stack spacing={3}>
+      <Stack spacing={{ xs: 2.25, md: 3 }}>
         <Card
           variant="outlined"
           sx={{
@@ -686,7 +699,7 @@ function Sell() {
           }}
         >
           <CardContent sx={{ p: 0 }}>
-          <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Box sx={{ ...SELL_SECTION_SX, pt: { xs: 2, md: 3 }, pb: 2 }}>
             <Typography
               variant="subtitle1"
               component="h2"
@@ -695,17 +708,17 @@ function Sell() {
             >
               Photos & Video
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: { xs: 2, md: 3 } }}>
               Add 1-5 photos*
             </Typography>
 
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
               {selectedPhotos.map((photo, index) => (
                 <Grid key={photo.id}>
                   <Box
                     sx={{
                       position: "relative",
-                      width: 120,
+                      ...SELL_MEDIA_TILE_SX,
                       aspectRatio: "1 / 1",
                       borderRadius: 1,
                       overflow: "hidden",
@@ -759,8 +772,8 @@ function Sell() {
                       variant="outlined"
                       component="span"
                       sx={{
-                        width: 120,
-                        height: 120,
+                        ...SELL_MEDIA_TILE_SX,
+                        aspectRatio: "1 / 1",
                         border: "2px dashed",
                         borderColor: isPhotosInvalid ? "error.main" : "grey.400",
                         borderRadius: 1,
@@ -787,13 +800,13 @@ function Sell() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Add one video (optional)
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, md: 2 }}>
               {selectedVideo ? (
                 <Grid>
                   <Box
                     sx={{
                       position: "relative",
-                      width: 160,
+                      width: { xs: "min(72vw, 220px)", sm: 160 },
                       aspectRatio: "16 / 9",
                       borderRadius: 1,
                       overflow: "hidden",
@@ -847,7 +860,7 @@ function Sell() {
                       variant="outlined"
                       component="span"
                       sx={{
-                        width: 160,
+                        width: { xs: "min(72vw, 220px)", sm: 160 },
                         aspectRatio: "16 / 9",
                         border: "2px dashed",
                         borderColor: "grey.400",
@@ -878,7 +891,7 @@ function Sell() {
             )}
           </Box>
 
-          <Box sx={{ px: 3, py: 2 }}>
+          <Box sx={{ ...SELL_SECTION_SX, py: 2 }}>
             <Typography
               variant="subtitle1"
               component="h2"
@@ -888,7 +901,7 @@ function Sell() {
               Basic Information
             </Typography>
 
-            <Stack spacing={3}>
+            <Stack spacing={{ xs: 2.25, md: 3 }}>
               <TextField
                 label="Title"
                 fullWidth
@@ -906,7 +919,7 @@ function Sell() {
                 required
               />
 
-              <Grid container spacing={2}>
+              <Grid container spacing={{ xs: 1.5, md: 2 }}>
                 <Grid>
                   <TextField
                     label="Price"
@@ -1024,7 +1037,7 @@ function Sell() {
             </Stack>
           </Box>
 
-          <Box sx={{ px: 3, pt: 2, pb: 3 }}>
+          <Box sx={{ ...SELL_SECTION_SX, pt: 2, pb: { xs: 2.5, md: 3 } }}>
             <InfoTitle
               variant="subtitle1"
               fontWeight="bold"
@@ -1353,12 +1366,21 @@ function Sell() {
           </CardContent>
         </Card>
 
-        <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mt: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            gap: { xs: 1.5, md: 3 },
+            mt: 1,
+            flexDirection: { xs: "column-reverse", sm: "row" },
+          }}
+        >
           <Button
             variant="outlined"
             size="large"
             onClick={handleClearListing}
-            sx={{ px: 6, py: 2 }}
+            fullWidth
+            sx={{ px: 6, py: 2, maxWidth: { sm: 240 } }}
           >
             Clear All
           </Button>
@@ -1367,7 +1389,8 @@ function Sell() {
             size="large"
             onClick={handlePublishListing}
             disabled={isPublishing}
-            sx={{ px: 6, py: 2 }}
+            fullWidth
+            sx={{ px: 6, py: 2, maxWidth: { sm: 260 } }}
           >
             {isPublishing ? "Publishing..." : "Publish Listing"}
           </Button>
