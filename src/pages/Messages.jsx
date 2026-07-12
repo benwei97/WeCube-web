@@ -41,6 +41,7 @@ import {
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 const REVIEW_PROMPT_RESPONSE_STORAGE_KEY = "wecubeReviewPromptResponses";
+const MOBILE_MESSAGES_CHROME_OFFSET = 104;
 
 function getTimestampDate(timestamp) {
   if (!timestamp) {
@@ -183,6 +184,7 @@ function Messages() {
   });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewPromptResponses, setReviewPromptResponses] = useState({});
+  const [visualViewportHeight, setVisualViewportHeight] = useState(null);
   const messagesScrollRef = useRef(null);
 
   const getReviewPromptResponseKey = (messageId) =>
@@ -218,6 +220,26 @@ function Messages() {
   const previousConversationIdRef = useRef(null);
   const previousNewestMessageIdRef = useRef(null);
   const userNearBottomRef = useRef(true);
+
+  useEffect(() => {
+    if (!window.visualViewport) {
+      return undefined;
+    }
+
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      setVisualViewportHeight(Math.round(viewport.height));
+    };
+
+    updateViewportHeight();
+    viewport.addEventListener("resize", updateViewportHeight);
+    viewport.addEventListener("scroll", updateViewportHeight);
+
+    return () => {
+      viewport.removeEventListener("resize", updateViewportHeight);
+      viewport.removeEventListener("scroll", updateViewportHeight);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -800,7 +822,12 @@ function Messages() {
         mx: "auto",
         p: { xs: 1.5, md: 3 },
         mt: { xs: 1, md: 2 },
-        height: { xs: "calc(100dvh - 104px)", md: "80vh" },
+        height: {
+          xs: visualViewportHeight
+            ? `calc(${visualViewportHeight}px - ${MOBILE_MESSAGES_CHROME_OFFSET}px)`
+            : `calc(100dvh - ${MOBILE_MESSAGES_CHROME_OFFSET}px)`,
+          md: "80vh",
+        },
         boxSizing: "border-box",
         overflow: "hidden",
       }}
@@ -1265,7 +1292,9 @@ function Messages() {
               {isListingDeletedConversation(selectedConversation) ? (
                 <Box
                   sx={{
-                    p: { xs: 1.25, md: 2 },
+                    px: { xs: 1, md: 2 },
+                    pt: { xs: 1, md: 2 },
+                    pb: { xs: 0.75, md: 2 },
                     borderTop: "1px solid",
                     borderColor: "divider",
                   }}
@@ -1277,7 +1306,9 @@ function Messages() {
               ) : selectedConversation.status !== "rejected" && (
                 <Box
                   sx={{
-                    p: { xs: 1.25, md: 2 },
+                    px: { xs: 1, md: 2 },
+                    pt: { xs: 1, md: 2 },
+                    pb: { xs: 0.75, md: 2 },
                     borderTop: "1px solid",
                     borderColor: "divider",
                   }}
