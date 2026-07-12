@@ -803,6 +803,16 @@ function Messages() {
         height: { xs: "calc(100dvh - 104px)", md: "80vh" },
         boxSizing: "border-box",
         overflow: "hidden",
+        ...(selectedConversation
+          ? {
+              position: { xs: "fixed", md: "static" },
+              inset: { xs: "88px 0 0 0", md: "auto" },
+              zIndex: { xs: 1000, md: "auto" },
+              height: { xs: "auto", md: "80vh" },
+              mt: { xs: 0, md: 2 },
+              bgcolor: "background.default",
+            }
+          : {}),
       }}
     >
       <Typography
@@ -1266,8 +1276,8 @@ function Messages() {
                 <Box
                   sx={{
                     px: { xs: 1, md: 2 },
-                    pt: { xs: 1, md: 2 },
-                    pb: { xs: 0.25, md: 2 },
+                    pt: { xs: 0.75, md: 2 },
+                    pb: { xs: 0, md: 2 },
                     borderTop: "1px solid",
                     borderColor: "divider",
                   }}
@@ -1280,8 +1290,8 @@ function Messages() {
                 <Box
                   sx={{
                     px: { xs: 1, md: 2 },
-                    pt: { xs: 1, md: 2 },
-                    pb: { xs: 0.25, md: 2 },
+                    pt: { xs: 0.75, md: 2 },
+                    pb: { xs: 0, md: 2 },
                     borderTop: "1px solid",
                     borderColor: "divider",
                   }}
