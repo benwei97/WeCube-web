@@ -28,6 +28,13 @@ const SOFT_PANEL_SX = {
   border: "1px solid rgba(148, 163, 184, 0.22)",
   boxShadow: "0 8px 24px rgba(31, 53, 99, 0.06)",
 };
+const COMPETITIONS_PAGE_CONTAINER_SX = {
+  width: { xs: "100%", md: "80vw" },
+  maxWidth: { xs: "100%", md: "none" },
+  mx: "auto",
+  p: { xs: 1.5, sm: 2.5, md: 3 },
+  mt: 2,
+};
 
 const COMPETITION_BATCH_SIZE = 50;
 
@@ -193,7 +200,7 @@ function Competitions() {
       .join(" • ");
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={COMPETITIONS_PAGE_CONTAINER_SX}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Competitions
       </Typography>
@@ -217,11 +224,11 @@ function Competitions() {
             xs: "1fr",
             lg: "minmax(0, 2fr) minmax(300px, 0.8fr)",
           },
-          gap: 3,
+          gap: { xs: 2.25, md: 3 },
           alignItems: "start",
         }}
       >
-        <Card sx={{ p: 3, ...SOFT_PANEL_SX }}>
+        <Card sx={{ p: { xs: 2, sm: 2.5, md: 3 }, ...SOFT_PANEL_SX }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
             Select a Competition
           </Typography>
@@ -285,7 +292,7 @@ function Competitions() {
                             direction="row"
                             spacing={1.25}
                             alignItems="center"
-                            sx={{ p: 2 }}
+                            sx={{ p: { xs: 1.5, md: 2 } }}
                           >
                             <Box
                               role="button"
@@ -357,7 +364,7 @@ function Competitions() {
           )}
         </Card>
 
-        <Card sx={{ p: 3, ...SOFT_PANEL_SX }}>
+        <Card sx={{ p: { xs: 2, sm: 2.5, md: 3 }, ...SOFT_PANEL_SX }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Saved Competitions
           </Typography>
