@@ -125,6 +125,7 @@ function Sell() {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [submitNotice, setSubmitNotice] = useState(null);
   const [submitNoticePulse, setSubmitNoticePulse] = useState(0);
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
   const [competitions, setCompetitions] = useState([]);
   const [allCompetitions, setAllCompetitions] = useState([]);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
@@ -890,6 +891,8 @@ function Sell() {
                 variant="outlined"
                 value={listingData.description}
                 onChange={handleInputChange("description")}
+                onFocus={() => setIsDescriptionFocused(true)}
+                onBlur={() => setIsDescriptionFocused(false)}
                 error={isDescriptionInvalid}
                 helperText={
                   isDescriptionInvalid
@@ -901,6 +904,9 @@ function Sell() {
                 }
                 slotProps={{
                   inputLabel: {
+                    shrink:
+                      isDescriptionFocused ||
+                      Boolean(listingData.description.trim()),
                     sx: {
                       "&.MuiInputLabel-shrink": {
                         bgcolor: "background.paper",
