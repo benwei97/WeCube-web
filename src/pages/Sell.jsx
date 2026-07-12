@@ -600,17 +600,19 @@ function Sell() {
           publishSuccess: true,
         },
       });
-    } catch (error) {
-      console.error("Error saving listing:", error);
-
-      if (error.message.includes("upload")) {
-        alert(`Failed to upload images: ${error.message}`);
-      } else {
-        alert(`Failed to publish listing: ${error.message}`);
-      }
-    } finally {
-      setIsPublishing(false);
-    }
+	    } catch (error) {
+	      console.error("Error saving listing:", error);
+	      const isUploadError = error.message?.toLowerCase().includes("upload");
+	      setSubmitNotice({
+	        severity: "error",
+	        message: isUploadError
+	          ? `Failed to upload media: ${error.message}`
+	          : `Failed to publish listing: ${error.message}`,
+	      });
+	      setSubmitNoticePulse((prev) => prev + 1);
+	    } finally {
+	      setIsPublishing(false);
+	    }
   };
 
   const handleClearListing = () => {
