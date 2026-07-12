@@ -70,9 +70,15 @@ const SOFT_PANEL_SX = {
 };
 const LOCATION_FILTER_BUTTON_SX = {
   whiteSpace: "nowrap",
-  maxWidth: { xs: 160, sm: 280 },
+  minWidth: { xs: 44, sm: 64 },
+  width: { xs: 44, sm: "auto" },
+  maxWidth: { xs: 44, sm: 280 },
+  px: { xs: 0, sm: 2 },
   color: "text.primary",
   borderColor: "rgba(148, 163, 184, 0.22)",
+  "& .MuiButton-startIcon": {
+    m: { xs: 0, sm: "0 8px 0 -4px" },
+  },
   "&:hover": {
     borderColor: "primary.main",
     bgcolor: "rgba(100, 108, 255, 0.04)",
@@ -612,11 +618,13 @@ function Browse() {
               variant={hasLocationFilter ? "contained" : "outlined"}
               startIcon={<LocationOn />}
               onClick={handleOpenLocationFilter}
+              aria-label={locationButtonLabel}
               sx={LOCATION_FILTER_BUTTON_SX}
             >
               <Box
                 component="span"
                 sx={{
+                  display: { xs: "none", sm: "inline" },
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
