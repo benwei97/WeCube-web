@@ -1,5 +1,5 @@
 const WCA_API_BASE = 'https://www.worldcubeassociation.org/api/v0';
-const COMPETITIONS_CACHE_STORAGE_KEY = 'wecube_competitions_cache_us_v1';
+const COMPETITIONS_CACHE_STORAGE_KEY = 'wecube_competitions_cache_us_v2';
 const WCA_PAGE_SIZE = 25;
 export const DEFAULT_COMPETITION_LOAD_LIMIT = 50;
 const UNITED_STATES_COUNTRY_CODE = 'US';
@@ -75,6 +75,18 @@ function writeStoredCompetitionCache() {
   }
 }
 
+function parseWcaDate(dateValue) {
+  if (typeof dateValue === 'string') {
+    const dateOnlyMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [, year, month, day] = dateOnlyMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+  }
+
+  return new Date(dateValue);
+}
+
 function mergeCompetitionsIntoCache(competitions) {
   if (!Array.isArray(competitions) || competitions.length === 0) {
     return;
@@ -95,7 +107,7 @@ function mergeCompetitionsIntoCache(competitions) {
     ...competitionCache,
     data: [...competitionsById.values()]
       .filter(isUnitedStatesFormattedCompetition)
-      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate)),
+      .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate)),
     timestamp: competitionCache.timestamp || Date.now(),
   };
   writeStoredCompetitionCache();
@@ -137,7 +149,10 @@ function hydrateMemoryCacheFromStorage() {
   }
 
   competitionCache = {
-    data: storedCache.data,
+    data: storedCache.data
+      .filter(isUnitedStatesFormattedCompetition)
+      .map(normalizeFormattedCompetition)
+      .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate)),
     timestamp: storedCache.timestamp,
     isLoading: false,
     isLoadingMore: false,
@@ -560,10 +575,17 @@ function formatOfficialCompetitions(competitions) {
       displayName: `${comp.name} - ${comp.city}, ${comp.country_iso2}`,
       dateRange: formatDateRange(comp.start_date, comp.end_date)
     }))
-    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+    .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate));
 
   console.log('After formatting:', result.length, 'competitions');
   return result;
+}
+
+function normalizeFormattedCompetition(competition) {
+  return {
+    ...competition,
+    dateRange: formatDateRange(competition.startDate, competition.endDate),
+  };
 }
 
 /**
@@ -771,8 +793,8 @@ export async function getCompetitionsByCountry(countryCode, limit = 50) {
  * Format date range for display
  */
 function formatDateRange(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseWcaDate(startDate);
+  const end = parseWcaDate(endDate);
 
   const options = {
     year: 'numeric',
@@ -803,7 +825,7 @@ export function isRegistrationOpen(competition) {
  */
 export function getDaysUntilCompetition(competition) {
   const now = new Date();
-  const startDate = new Date(competition.startDate);
+  const startDate = parseWcaDate(competition.startDate);
   const diffTime = startDate - now;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
