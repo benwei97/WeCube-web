@@ -288,7 +288,15 @@ function Messages() {
   }, [messages, selectedConversation?.id, currentUserId]);
 
   const scrollToBottom = (behavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    const scrollElement = messagesScrollRef.current;
+    if (!scrollElement) return;
+
+    requestAnimationFrame(() => {
+      scrollElement.scrollTo({
+        top: scrollElement.scrollHeight,
+        behavior,
+      });
+    });
   };
 
   const handleMessagesScroll = () => {
@@ -794,6 +802,7 @@ function Messages() {
         mt: { xs: 1, md: 2 },
         height: { xs: "calc(100dvh - 104px)", md: "80vh" },
         boxSizing: "border-box",
+        overflow: "hidden",
       }}
     >
       <Typography
@@ -815,6 +824,7 @@ function Messages() {
           },
           gap: { xs: 0, md: 2 },
           minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {/* Left Panel */}
@@ -824,6 +834,7 @@ function Messages() {
             display: { xs: selectedConversation ? "none" : "flex", md: "flex" },
             flexDirection: "column",
             minHeight: 0,
+            overflow: "hidden",
           }}
         >
           <List sx={{ flex: 1, overflow: "auto" }}>
@@ -952,6 +963,7 @@ function Messages() {
             flexDirection: "column",
             minWidth: 0,
             minHeight: 0,
+            overflow: "hidden",
           }}
         >
           {selectedConversation ? (
