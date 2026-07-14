@@ -1,6 +1,5 @@
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -31,20 +30,6 @@ export async function getExistingReview(reviewerId, recipientId) {
   return legacyReviewDoc
     ? { id: legacyReviewDoc.id, ...legacyReviewDoc.data() }
     : null;
-}
-
-export async function deleteTransactionReviews(listingId) {
-  if (!listingId) return;
-
-  const reviewsQuery = query(
-    collection(db, "reviews"),
-    where("listingId", "==", listingId)
-  );
-  const snapshot = await getDocs(reviewsQuery);
-
-  await Promise.all(
-    snapshot.docs.map((reviewDoc) => deleteDoc(reviewDoc.ref))
-  );
 }
 
 export async function submitTransactionReview({

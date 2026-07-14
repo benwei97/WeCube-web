@@ -131,7 +131,7 @@ Status behavior:
 - `archived` / Pending: still visible on listing pages, but buyers cannot message through the listing
 - `sold`: visible for a limited window, dimmed thumbnails and sold pill badge
 
-When a sold listing is changed back to `active` or `archived`, sale attribution fields are cleared and transaction reviews for that listing are deleted. This handles premature sales that fall through.
+When a sold listing is changed back to `active` or `archived`, sale attribution fields are cleared and active review prompts are closed. Existing user-to-user reviews are retained so a reviewer can only ever review the same user once.
 
 ## Fulfillment Display
 
@@ -219,13 +219,13 @@ Review utilities live in `src/utils/reviews.js`.
 Listing transaction review document id:
 
 ```js
-`${listingId}_${reviewerId}`
+`${reviewerId}_${recipientId}`
 ```
 
 Conversation experience review document id:
 
 ```js
-`${conversationId}_${reviewerId}`
+`${reviewerId}_${recipientId}`
 ```
 
 Current review model:
@@ -233,16 +233,15 @@ Current review model:
 - Chat-based review prompts are created when a listing is marked sold
 - Either participant in a prompted conversation can review the other participant
 - Reviews are experience reviews, not strictly confirmed-purchase reviews
+- Review documents are keyed by reviewer and recipient, so one user can only review another user once across all transactions
 - The prompt stores per-user dismiss/submitted state locally in the browser to avoid mutating message documents
 - Submitted reviews are written to `reviews`
-- Reverting a sold listing removes stale review documents for that listing and disables active prompts
+- Reverting a sold listing disables active prompts but does not delete existing reviews
 
 Pages/components:
 
 - `src/pages/Dashboard.jsx` - account dashboard with profile, listings, and purchases
 - `src/pages/Messages.jsx` - in-chat review prompt rendering and review dialog
-
-When sold status is reverted, `deleteTransactionReviews(listingId)` removes stale review documents for that transaction.
 
 ## Images and S3
 
