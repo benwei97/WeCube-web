@@ -378,7 +378,6 @@ function parseArgs() {
     password: process.env.SEED_USER_PASSWORD || "",
     listingsPerSeller: DEFAULT_LISTINGS_PER_SELLER,
     competitionLimit: DEFAULT_COMPETITION_LIMIT,
-    videoPath: process.env.SEED_VIDEO_PATH || "",
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -402,9 +401,6 @@ function parseArgs() {
       index += 1;
     } else if (arg === "--competition-limit") {
       options.competitionLimit = Number(args[index + 1]);
-      index += 1;
-    } else if (arg === "--video") {
-      options.videoPath = args[index + 1];
       index += 1;
     }
   }
@@ -713,7 +709,7 @@ async function uploadBuffer({ createSignedUpload, buffer, listingId, fileName, c
   for (let attempt = 1; attempt <= UPLOAD_RETRY_COUNT; attempt += 1) {
     try {
       const { data } = await createSignedUpload({
-        uploadType: contentType.startsWith("video/") ? "listing-video" : "listing",
+        uploadType: "listing",
         listingId,
         fileName,
         contentType,
@@ -822,7 +818,6 @@ async function createSeedListing({
   listingIndex,
   sellerListingIndex,
   options,
-  videoBuffer,
   seedCompetitions,
 }) {
   const listingId = `seed_${sellerIndex + 1}_${sellerListingIndex + 1}`;
@@ -860,26 +855,6 @@ async function createSeedListing({
     });
   }
 
-  let video = null;
-  if (videoBuffer && listingIndex % 4 === 0) {
-    const name = `${listingId}-demo.webm`;
-    const s3Key = await uploadBuffer({
-      createSignedUpload,
-      buffer: videoBuffer,
-      listingId,
-      fileName: name,
-      contentType: "video/webm",
-    });
-    video = {
-      id: `${listingId}_video`,
-      name,
-      size: videoBuffer.length,
-      type: "video/webm",
-      s3Key,
-      uploadedAt: new Date(),
-    };
-  }
-
   const fulfillment = getFulfillmentPayload(
     listing,
     sellerIndex,
@@ -893,7 +868,6 @@ async function createSeedListing({
     condition: listing.condition,
     puzzleType: listing.puzzleType,
     photos,
-    video,
     ...fulfillment,
     status: "active",
     createdAt: new Date(Date.now() - listingIndex * 60 * 60 * 1000),
@@ -929,9 +903,6 @@ async function main() {
   );
   const createSignedUpload = httpsCallable(functions, "createSignedS3Upload");
   const seedCompetitions = await getSeedCompetitions(options);
-  const videoBuffer = options.videoPath
-    ? await readFile(resolve(process.cwd(), options.videoPath))
-    : null;
 
   console.log(options.write ? "Seeding listings..." : "Dry run only. Pass --write to create data.");
   console.log(`Project: ${env.VITE_FIREBASE_PROJECT_ID}`);
@@ -971,7 +942,6 @@ async function main() {
         listingIndex,
         sellerListingIndex: offset,
         options,
-        videoBuffer,
         seedCompetitions,
       });
     }

@@ -106,16 +106,6 @@ You can change how many listings are created per seller:
 SEED_USER_PASSWORD='Use-A-Temporary-Password-Here' npm run seed:listings -- --write --listings-per-seller 3
 ```
 
-## Optional Video
-
-The script can attach one local video file to some listings. Provide a small WebM file:
-
-```bash
-SEED_USER_PASSWORD='Use-A-Temporary-Password-Here' npm run seed:listings -- --write --video scripts/seed/media/demo.webm
-```
-
-Keep the file small. The backend limit is 100 MB, but seed uploads should be lightweight.
-
 ## Different Env File
 
 Use a different env file:
