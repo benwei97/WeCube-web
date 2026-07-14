@@ -36,7 +36,7 @@ test.describe("authenticated marketplace flows", () => {
     await page.getByRole("option").first().click();
     await page.getByLabel("Description").fill("Automated QA listing. Safe to delete.");
     await page.getByRole("checkbox", { name: "Shipping" }).click();
-    await page.getByRole("button", { name: "Shipping included" }).click();
+    await page.getByLabel("Shipping Price").fill("0.00");
     await page.getByRole("button", { name: /publish listing/i }).click();
 
     await expect(page).toHaveURL(/\/listing\//, { timeout: 30_000 });

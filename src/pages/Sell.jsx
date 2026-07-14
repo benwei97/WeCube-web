@@ -19,8 +19,6 @@ import {
   Chip,
   Alert,
   Snackbar,
-  ToggleButton,
-  ToggleButtonGroup,
   InputAdornment,
 } from "@mui/material";
 import { Upload, Close } from "@mui/icons-material";
@@ -45,7 +43,6 @@ import {
   getListingCompetitionPayload,
   PUZZLE_TYPE_OPTIONS,
   parseNonNegativeCurrencyAmount,
-  parsePositiveCurrencyAmount,
 } from "../utils/listingUtils";
 import {
   characterCountText,
@@ -93,8 +90,7 @@ function Sell() {
   });
   const [fulfillmentData, setFulfillmentData] = useState({
     shippingAvailable: false,
-    shippingIncluded: false,
-    shippingCost: "",
+    shippingCost: "0.00",
     localMeetupAvailable: false,
     competitionMeetupAvailable: false,
     meetupLocationLabel: "",
@@ -193,6 +189,9 @@ function Sell() {
     setFulfillmentData((prev) => ({
       ...prev,
       [field]: isChecked,
+      ...(field === "shippingAvailable" && isChecked && !prev.shippingCost
+        ? { shippingCost: "0.00" }
+        : {}),
     }));
 
     if (field === "competitionMeetupAvailable" && isChecked) {
@@ -312,9 +311,8 @@ function Sell() {
         fulfillmentData.meetupLocationLabel.trim());
   const isShippingCostValid =
     !fulfillmentData.shippingAvailable ||
-    fulfillmentData.shippingIncluded ||
-    (parsePositiveCurrencyAmount(fulfillmentData.shippingCost) !== null &&
-      parsePositiveCurrencyAmount(fulfillmentData.shippingCost) <=
+    (parseNonNegativeCurrencyAmount(fulfillmentData.shippingCost) !== null &&
+      parseNonNegativeCurrencyAmount(fulfillmentData.shippingCost) <=
         INPUT_LIMITS.SHIPPING_COST_MAX);
   const isPhotosInvalid = hasAttemptedSubmit && selectedPhotos.length === 0;
   const isTitleInvalid = hasAttemptedSubmit && !listingData.title.trim();
@@ -384,18 +382,6 @@ function Sell() {
     setFulfillmentData((prev) => ({
       ...prev,
       shippingCost: value,
-    }));
-  };
-
-  const handleShippingIncludedChange = (_, value) => {
-    if (value === null) {
-      return;
-    }
-
-    setSubmitNotice(null);
-    setFulfillmentData((prev) => ({
-      ...prev,
-      shippingIncluded: value === "yes",
     }));
   };
 
@@ -478,10 +464,11 @@ function Sell() {
 
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
 
-      const shippingCost =
-        !fulfillmentData.shippingAvailable || fulfillmentData.shippingIncluded
-          ? 0
-          : parsePositiveCurrencyAmount(fulfillmentData.shippingCost);
+      const shippingCost = fulfillmentData.shippingAvailable
+        ? parseNonNegativeCurrencyAmount(fulfillmentData.shippingCost)
+        : 0;
+      const shippingIncluded =
+        fulfillmentData.shippingAvailable && shippingCost === 0;
 
       const listingToSave = {
         title: listingData.title.trim(),
@@ -496,7 +483,7 @@ function Sell() {
             : null,
         photos: photosForStorage,
         shippingAvailable: fulfillmentData.shippingAvailable,
-        shippingIncluded: fulfillmentData.shippingIncluded,
+        shippingIncluded,
         shippingCost,
         localMeetupAvailable: fulfillmentData.localMeetupAvailable,
         competitionMeetupAvailable:
@@ -555,8 +542,7 @@ function Sell() {
     });
     setFulfillmentData({
       shippingAvailable: false,
-      shippingIncluded: false,
-      shippingCost: "",
+      shippingCost: "0.00",
       localMeetupAvailable: false,
       competitionMeetupAvailable: false,
       meetupLocationLabel: "",
@@ -947,88 +933,34 @@ function Sell() {
                       borderColor: "rgba(100, 108, 255, 0.28)",
                     }}
                   >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: { xs: "flex-start", sm: "center" },
-                        gap: 2,
-                        flexDirection: { xs: "column", sm: "row" },
+                    <TextField
+                      label="Shipping Price"
+                      placeholder="0.00"
+                      value={fulfillmentData.shippingCost}
+                      onChange={handleShippingCostChange}
+                      error={hasAttemptedSubmit && !isShippingCostValid}
+                      helperText={
+                        hasAttemptedSubmit && !isShippingCostValid
+                          ? `Enter a shipping price from $0 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
+                          : "Keep at $0 if there is no additional shipping cost."
+                      }
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">$</InputAdornment>
+                          ),
+                        },
+                        htmlInput: {
+                          inputMode: "numeric",
+                          max: INPUT_LIMITS.SHIPPING_COST_MAX,
+                        },
                       }}
-                    >
-                      <Box>
-                        <Typography variant="body2" fontWeight={600}>
-                          Is shipping included in the price?
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          If not, buyers will see the estimated extra cost.
-                        </Typography>
-                      </Box>
-                      <ToggleButtonGroup
-                        exclusive
-                        size="small"
-                        value={fulfillmentData.shippingIncluded ? "yes" : "no"}
-                        onChange={handleShippingIncludedChange}
-                        aria-label="Shipping included in price"
-                        sx={{
-                          bgcolor: "transparent",
-                          borderRadius: 1,
-                          "& .MuiToggleButton-root": {
-                            minWidth: 58,
-                            px: 1.75,
-                            borderColor: "rgba(148, 163, 184, 0.36)",
-                            color: "text.secondary",
-                            fontWeight: 700,
-                            "&.Mui-selected": {
-                              bgcolor: "primary.main",
-                              color: "primary.contrastText",
-                              borderColor: "primary.main",
-                              "&:hover": {
-                                bgcolor: "primary.dark",
-                              },
-                            },
-                          },
-                        }}
-                      >
-                        <ToggleButton value="yes" aria-label="Shipping included">
-                          Yes
-                        </ToggleButton>
-                        <ToggleButton value="no" aria-label="Shipping not included">
-                          No
-                        </ToggleButton>
-                      </ToggleButtonGroup>
-                    </Box>
-                    {!fulfillmentData.shippingIncluded && (
-                      <TextField
-                        label="Shipping"
-                        placeholder="0.00"
-                        value={fulfillmentData.shippingCost}
-                        onChange={handleShippingCostChange}
-                        error={hasAttemptedSubmit && !isShippingCostValid}
-                        helperText={
-                          hasAttemptedSubmit && !isShippingCostValid
-                            ? `Enter a shipping price from $0.01 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
-                            : "Buyers pay this amount separately."
-                        }
-                        slotProps={{
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">$</InputAdornment>
-                            ),
-                          },
-                          htmlInput: {
-                            inputMode: "numeric",
-                            max: INPUT_LIMITS.SHIPPING_COST_MAX,
-                          },
-                        }}
-                        sx={{
-                          width: 98,
-                          "& .MuiInputAdornment-root": { mr: 0.25 },
-                          "& .MuiOutlinedInput-input": { px: 0.5 },
-                        }}
-                        required
-                      />
-                    )}
+                      sx={{
+                        width: { xs: "100%", sm: 180 },
+                        "& .MuiInputAdornment-root": { mr: 0.25 },
+                      }}
+                      required
+                    />
                   </Stack>
                 )}
                 <Box
