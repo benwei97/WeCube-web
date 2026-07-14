@@ -19,12 +19,11 @@ import {
   Chip,
   Alert,
   Snackbar,
-  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
   InputAdornment,
 } from "@mui/material";
-import { Upload, Close, InfoOutlined } from "@mui/icons-material";
+import { Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
@@ -60,26 +59,6 @@ const SUPPORTED_PHOTO_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
-
-function InfoTitle({ children, info, variant = "body1", fontWeight }) {
-  return (
-    <Typography
-      variant={variant}
-      fontWeight={fontWeight}
-      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
-    >
-      {children}
-      <Tooltip title={info} arrow placement="top">
-        <InfoOutlined
-          tabIndex={0}
-          fontSize="small"
-          color="action"
-          sx={{ cursor: "help" }}
-        />
-      </Tooltip>
-    </Typography>
-  );
-}
 
 const SOFT_FORM_CARD_SX = {
   width: "100%",
@@ -926,13 +905,9 @@ function Sell() {
           </Box>
 
           <Box sx={{ ...SELL_SECTION_SX, pt: 2, pb: { xs: 2.5, md: 3 } }}>
-            <InfoTitle
-              variant="subtitle1"
-              fontWeight="bold"
-              info="Choose at least one way buyers can receive this item."
-            >
+            <Typography variant="subtitle1" fontWeight="bold">
               Fulfillment Methods
-            </InfoTitle>
+            </Typography>
 
             <FormControl
               sx={{ width: "100%", mt: 3 }}
@@ -949,9 +924,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <InfoTitle info="Coordinate payment and delivery directly with the buyer.">
+                    <Typography variant="body1">
                       Shipping
-                    </InfoTitle>
+                    </Typography>
                   </Box>
                   <Switch
                     checked={fulfillmentData.shippingAvailable}
@@ -1065,9 +1040,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <InfoTitle info="Coordinate the general meetup area in the listing, then confirm the exact time and place in chat.">
+                    <Typography variant="body1">
                       Local Meetup
-                    </InfoTitle>
+                    </Typography>
                   </Box>
                   <Switch
                     checked={fulfillmentData.localMeetupAvailable}
@@ -1153,9 +1128,9 @@ function Sell() {
                   }}
                 >
                   <Box>
-                    <InfoTitle info="Select competitions where this cube can be exchanged in person.">
+                    <Typography variant="body1">
                       Competition Meetup
-                    </InfoTitle>
+                    </Typography>
                   </Box>
                   <Switch
                     checked={fulfillmentData.competitionMeetupAvailable}
