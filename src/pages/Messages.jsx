@@ -1428,6 +1428,15 @@ function Messages() {
                 INPUT_LIMITS.REVIEW_COMMENT
               )}
               slotProps={{
+                inputLabel: {
+                  sx: {
+                    "&.MuiInputLabel-shrink": {
+                      bgcolor: { xs: "background.paper", sm: "transparent" },
+                      px: { xs: 0.5, sm: 0 },
+                      mx: { xs: -0.5, sm: 0 },
+                    },
+                  },
+                },
                 htmlInput: {
                   maxLength: INPUT_LIMITS.REVIEW_COMMENT,
                 },
