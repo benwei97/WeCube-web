@@ -53,6 +53,10 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         return "Too many login attempts. Please wait a moment and try again.";
       }
 
+      if (code === "auth/email-not-verified") {
+        return "Please verify your email before logging in. We sent a new verification email in case the previous link expired.";
+      }
+
       return "Unable to log in right now. Please try again.";
     }
 
@@ -115,7 +119,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         await login(email, password);
         handleClose();
       } else {
-        const result = await signup(
+        await signup(
           email,
           password,
           trimmedFirstName,
@@ -124,12 +128,9 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
         setMode("login");
         setPassword("");
-
-        if (result.profileCreated) {
-          setSuccess("Account created successfully. Please sign in.");
-        } else {
-          setSuccess("Account created successfully. Please sign in.");
-        }
+        setSuccess(
+          "Verification email sent. Click the link in your email, then log in. If the link expires, try logging in again and we will send a new one."
+        );
       }
     } catch (error) {
       setError(getAuthErrorMessage(error, isLogin));

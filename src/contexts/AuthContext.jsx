@@ -1,17 +1,119 @@
 import { useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  updateProfile,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
 import { AuthContext } from "./authContextValue";
 
+const PENDING_PROFILE_STORAGE_KEY = "wecubePendingProfiles";
+
+function createAuthFlowError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
+function readPendingProfiles() {
+  try {
+    return JSON.parse(localStorage.getItem(PENDING_PROFILE_STORAGE_KEY) || "{}");
+  } catch (error) {
+    console.error("Error reading pending signup profile:", error);
+    return {};
+  }
+}
+
+function writePendingProfile(uid, profile) {
+  try {
+    const profiles = readPendingProfiles();
+    profiles[uid] = profile;
+    localStorage.setItem(PENDING_PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  } catch (error) {
+    console.error("Error storing pending signup profile:", error);
+  }
+}
+
+function clearPendingProfile(uid) {
+  try {
+    const profiles = readPendingProfiles();
+    delete profiles[uid];
+    localStorage.setItem(PENDING_PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  } catch (error) {
+    console.error("Error clearing pending signup profile:", error);
+  }
+}
+
+function getNamePartsFromDisplayName(displayName = "") {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" ") || "",
+  };
+}
+
+function getFallbackProfile(user) {
+  const pendingProfile = readPendingProfiles()[user.uid] || {};
+  const displayNameProfile = getNamePartsFromDisplayName(user.displayName || "");
+  const emailName = user.email?.split("@")[0] || "WeCube";
+
+  return {
+    email: user.email || pendingProfile.email || "",
+    firstName:
+      pendingProfile.firstName ||
+      displayNameProfile.firstName ||
+      emailName,
+    lastName:
+      pendingProfile.lastName ||
+      displayNameProfile.lastName ||
+      "Member",
+  };
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  async function ensureVerifiedUserProfile(user) {
+    await user.reload();
+
+    if (!user.emailVerified) {
+      throw createAuthFlowError(
+        "auth/email-not-verified",
+        "Verify your email before logging in."
+      );
+    }
+
+    await user.getIdToken(true);
+
+    const userDocRef = doc(db, "users", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (userDocSnap.exists()) {
+      clearPendingProfile(user.uid);
+      return {
+        uid: user.uid,
+        ...userDocSnap.data(),
+      };
+    }
+
+    const profile = getFallbackProfile(user);
+    await setDoc(userDocRef, {
+      email: profile.email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      createdAt: new Date().toISOString(),
+    });
+    clearPendingProfile(user.uid);
+
+    return {
+      uid: user.uid,
+      ...profile,
+      createdAt: new Date().toISOString(),
+    };
+  }
 
   async function signup(email, password, firstName, lastName) {
     const userCredential = await createUserWithEmailAndPassword(
@@ -21,38 +123,44 @@ export function AuthProvider({ children }) {
     );
     const user = userCredential.user;
 
-    try {
-      await setDoc(doc(db, "users", user.uid), {
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      // Auth account creation succeeded, but Firestore profile creation failed.
-      // Sign the user back out and let the UI present a success message that
-      // encourages them to sign in while the database configuration is fixed.
-      if (error.code === "permission-denied") {
-        await signOut(auth);
-        return {
-          userCredential,
-          profileCreated: false,
-        };
-      }
-
-      throw error;
-    }
-
+    await updateProfile(user, {
+      displayName: `${firstName} ${lastName}`.trim(),
+    });
+    writePendingProfile(user.uid, {
+      email,
+      firstName,
+      lastName,
+    });
+    await sendEmailVerification(user);
     await signOut(auth);
 
     return {
       userCredential,
-      profileCreated: true,
+      verificationSent: true,
     };
   }
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function login(email, password) {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    await user.reload();
+
+    if (!user.emailVerified) {
+      try {
+        await sendEmailVerification(user);
+      } finally {
+        await signOut(auth);
+      }
+
+      throw createAuthFlowError(
+        "auth/email-not-verified",
+        "Verify your email before logging in."
+      );
+    }
+
+    await ensureVerifiedUserProfile(user);
+    return userCredential;
   }
 
   function logout() {
@@ -70,6 +178,7 @@ export function AuthProvider({ children }) {
 
       if (user) {
         try {
+          await ensureVerifiedUserProfile(user);
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
 
@@ -95,11 +204,14 @@ export function AuthProvider({ children }) {
             );
           } else {
             console.warn("User document not found in Firestore");
-            setCurrentUser(user);
+            setCurrentUser(null);
           }
         } catch (error) {
           console.error("Error fetching user document:", error);
-          setCurrentUser(user);
+          if (error.code === "auth/email-not-verified") {
+            await signOut(auth);
+          }
+          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);

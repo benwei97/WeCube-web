@@ -194,6 +194,7 @@ service cloud.firestore {
         && data.email is string
         && isNonEmptyString(data.firstName, 50)
         && isNonEmptyString(data.lastName, 50)
+        && request.auth.token.email_verified == true
         && isSelf(userId);
     }
 
