@@ -349,12 +349,14 @@ function Dashboard() {
           currentUser?.firstName ||
           currentUser?.displayName?.trim()?.split(/\s+/)?.[0] ||
           "Seller";
-        await cancelListingReviewPrompts(
+        cancelListingReviewPrompts(
           listing.id,
           listing.userId,
           sellerFirstName,
           listing.title
-        );
+        ).catch((promptError) => {
+          console.error("Error notifying buyer chats after status update:", promptError);
+        });
       }
     } catch (error) {
       console.error(`Error updating listing ${listing.id} to ${status}:`, error);

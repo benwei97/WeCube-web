@@ -884,12 +884,14 @@ function ListingDetail() {
       if (listing.status === "sold" && status !== "sold") {
         const sellerFirstName =
           listing?.sellerName?.trim()?.split(/\s+/)?.[0] || "Seller";
-        await cancelListingReviewPrompts(
+        cancelListingReviewPrompts(
           id,
           listing.userId,
           sellerFirstName,
           listing.title
-        );
+        ).catch((promptError) => {
+          console.error("Error notifying buyer chats after status update:", promptError);
+        });
       }
       setListing((prev) => ({
         ...prev,
