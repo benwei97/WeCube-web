@@ -26,7 +26,9 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -94,7 +96,9 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
     setLastName("");
     setEmail("");
     setPassword("");
+    setConfirmPassword("");
     setShowPassword(false);
+    setShowConfirmPassword(false);
     setError("");
     setSuccess("");
     setLoading(false);
@@ -108,6 +112,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const switchMode = () => {
     setMode(isLogin ? "signup" : "login");
     setPassword("");
+    setConfirmPassword("");
     setError("");
     setSuccess("");
   };
@@ -115,6 +120,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const switchToResetPassword = () => {
     setMode("resetPassword");
     setPassword("");
+    setConfirmPassword("");
     setError("");
     setSuccess("");
   };
@@ -122,6 +128,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const switchToLogin = () => {
     setMode("login");
     setPassword("");
+    setConfirmPassword("");
     setError("");
     setSuccess("");
   };
@@ -145,6 +152,12 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
       return;
     }
 
+    if (!isLogin && !isResetPassword && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setSuccess("");
+      return;
+    }
+
     try {
       setError("");
       setSuccess("");
@@ -154,6 +167,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         await resetPassword(trimmedEmail);
         setMode("login");
         setPassword("");
+        setConfirmPassword("");
         setSuccess(
           "If an account exists for that email, a password reset link has been sent."
         );
@@ -170,6 +184,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
         setMode("login");
         setPassword("");
+        setConfirmPassword("");
         setSuccess(
           "Verification email sent. Click the link in your email, then log in. If the link expires, try logging in again and we will send a new one."
         );
@@ -322,6 +337,44 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
                     Forgot password?
                   </Button>
                 </Box>
+              )}
+              {!isLogin && (
+                <TextField
+                  margin="normal"
+                  label="Confirm Password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  fullWidth
+                  variant="outlined"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  error={Boolean(confirmPassword) && password !== confirmPassword}
+                  helperText={
+                    confirmPassword && password !== confirmPassword
+                      ? "Passwords do not match."
+                      : ""
+                  }
+                  slotProps={{
+                    input: {
+                      endAdornment: confirmPassword.length > 0 && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
+                            edge="end"
+                          >
+                            {showConfirmPassword ? (
+                              <VisibilityOffIcon />
+                            ) : (
+                              <VisibilityIcon />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
               )}
             </>
           )}
