@@ -69,7 +69,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
       }
 
       if (code === "auth/email-not-verified") {
-        return "Please verify your email before logging in. We sent a new verification email in case the previous link expired.";
+        return "Please verify your email before logging in. We sent a new verification email in case the previous link expired. Check your spam or junk folder if you do not see it.";
       }
 
       return "Unable to log in right now. Please try again.";
@@ -169,7 +169,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         setPassword("");
         setConfirmPassword("");
         setSuccess(
-          "If an account exists for that email, a password reset link has been sent."
+          "If an account exists for that email, a password reset link has been sent. Check your spam or junk folder if you do not see it."
         );
       } else if (isLogin) {
         await login(trimmedEmail, password);
@@ -186,7 +186,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
         setPassword("");
         setConfirmPassword("");
         setSuccess(
-          "Verification email sent. Click the link in your email, then log in. If the link expires, try logging in again and we will send a new one."
+          "Verification email sent. Click the link in your email, then log in. Check your spam or junk folder if you do not see it. If the link expires, try logging in again and we will send a new one."
         );
       }
     } catch (error) {
