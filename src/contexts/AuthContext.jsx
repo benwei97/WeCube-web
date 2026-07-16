@@ -12,6 +12,7 @@ import { auth, db } from "../../firebase.js";
 import { AuthContext } from "./authContextValue";
 
 const PENDING_PROFILE_STORAGE_KEY = "wecubePendingProfiles";
+const profileCreationPromises = new Map();
 
 function createAuthFlowError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -88,31 +89,60 @@ export function AuthProvider({ children }) {
 
     await user.getIdToken(true);
 
-    const userDocRef = doc(db, "users", user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (userDocSnap.exists()) {
-      clearPendingProfile(user.uid);
-      return {
-        uid: user.uid,
-        ...userDocSnap.data(),
-      };
+    if (profileCreationPromises.has(user.uid)) {
+      return profileCreationPromises.get(user.uid);
     }
 
-    const profile = getFallbackProfile(user);
-    await setDoc(userDocRef, {
-      email: profile.email,
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      createdAt: new Date().toISOString(),
-    });
-    clearPendingProfile(user.uid);
+    const userDocRef = doc(db, "users", user.uid);
+    const profilePromise = (async () => {
+      const userDocSnap = await getDoc(userDocRef);
 
-    return {
-      uid: user.uid,
-      ...profile,
-      createdAt: new Date().toISOString(),
-    };
+      if (userDocSnap.exists()) {
+        clearPendingProfile(user.uid);
+        return {
+          uid: user.uid,
+          ...userDocSnap.data(),
+        };
+      }
+
+      const profile = getFallbackProfile(user);
+      const createdAt = new Date().toISOString();
+
+      try {
+        await setDoc(userDocRef, {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          createdAt,
+        });
+      } catch (error) {
+        if (error.code === "permission-denied") {
+          const retrySnapshot = await getDoc(userDocRef);
+          if (retrySnapshot.exists()) {
+            clearPendingProfile(user.uid);
+            return {
+              uid: user.uid,
+              ...retrySnapshot.data(),
+            };
+          }
+        }
+
+        throw error;
+      }
+
+      clearPendingProfile(user.uid);
+
+      return {
+        uid: user.uid,
+        ...profile,
+        createdAt,
+      };
+    })().finally(() => {
+      profileCreationPromises.delete(user.uid);
+    });
+
+    profileCreationPromises.set(user.uid, profilePromise);
+    return profilePromise;
   }
 
   async function signup(email, password, firstName, lastName) {
