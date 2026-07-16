@@ -9,7 +9,11 @@ import {
   Button,
   IconButton,
 } from "@mui/material";
-import { KeyboardArrowRight, Star, StarBorder } from "@mui/icons-material";
+import {
+  Bookmark,
+  BookmarkBorder,
+  KeyboardArrowRight,
+} from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
@@ -348,9 +352,9 @@ function Competitions() {
                               size="small"
                             >
                               {isCompetitionSaved(competition.id) ? (
-                                <Star fontSize="small" />
+                                <Bookmark fontSize="small" />
                               ) : (
-                                <StarBorder fontSize="small" />
+                                <BookmarkBorder fontSize="small" />
                               )}
                             </IconButton>
                             <KeyboardArrowRight color="action" />
@@ -403,7 +407,7 @@ function Competitions() {
             <Stack spacing={1.25}>
               {savedCompetitions.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  Star competitions from the list to keep them here.
+                  Bookmark competitions from the list to keep them here.
                 </Typography>
               ) : (
                 savedCompetitions.map((competition) => (
@@ -471,7 +475,7 @@ function Competitions() {
                         color="primary"
                         size="small"
                       >
-                        <Star fontSize="small" />
+                        <Bookmark fontSize="small" />
                       </IconButton>
                     </Stack>
                   </Card>
