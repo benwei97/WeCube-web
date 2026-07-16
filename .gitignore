@@ -14,9 +14,8 @@ playwright-report
 test-results
 *.local
 
-# Local planning docs
-docs/launch-plan.md
-docs/email-deliverability-plan.md
+# Internal docs
+docs/
 
 # Environment variables
 .env
