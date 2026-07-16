@@ -135,7 +135,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
     }
 
     if (code === "auth/account-exists-with-different-credential") {
-      return "An account already exists with this email. Log in with the original method first, then link Google later.";
+      return "An account already exists with this email. Try signing in with the original method you used for that account.";
     }
 
     if (code === "auth/unauthorized-domain") {
