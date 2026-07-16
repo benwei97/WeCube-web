@@ -30,12 +30,25 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, resetPassword } = useAuth();
 
   const isLogin = mode === "login";
+  const isResetPassword = mode === "resetPassword";
 
   const getAuthErrorMessage = (authError, attemptedLogin) => {
     const code = authError?.code || "";
+
+    if (isResetPassword) {
+      if (code === "auth/invalid-email") {
+        return "Please enter a valid email address.";
+      }
+
+      if (code === "auth/too-many-requests") {
+        return "Too many attempts. Please wait a moment and try again.";
+      }
+
+      return "Unable to send a password reset email right now. Please try again.";
+    }
 
     if (attemptedLogin) {
       if (
@@ -50,7 +63,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
       }
 
       if (code === "auth/too-many-requests") {
-        return "Too many login attempts. Please wait a moment and try again.";
+        return "Too many attempts. Please wait a moment and try again.";
       }
 
       if (code === "auth/email-not-verified") {
@@ -94,6 +107,21 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
   const switchMode = () => {
     setMode(isLogin ? "signup" : "login");
+    setPassword("");
+    setError("");
+    setSuccess("");
+  };
+
+  const switchToResetPassword = () => {
+    setMode("resetPassword");
+    setPassword("");
+    setError("");
+    setSuccess("");
+  };
+
+  const switchToLogin = () => {
+    setMode("login");
+    setPassword("");
     setError("");
     setSuccess("");
   };
@@ -103,8 +131,15 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
 
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim();
 
-    if (!isLogin && (!trimmedFirstName || !trimmedLastName)) {
+    if (!trimmedEmail) {
+      setError("Enter your email address.");
+      setSuccess("");
+      return;
+    }
+
+    if (!isLogin && !isResetPassword && (!trimmedFirstName || !trimmedLastName)) {
       setError("Enter your first and last name.");
       setSuccess("");
       return;
@@ -115,12 +150,19 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
       setSuccess("");
       setLoading(true);
 
-      if (isLogin) {
-        await login(email, password);
+      if (isResetPassword) {
+        await resetPassword(trimmedEmail);
+        setMode("login");
+        setPassword("");
+        setSuccess(
+          "If an account exists for that email, a password reset link has been sent."
+        );
+      } else if (isLogin) {
+        await login(trimmedEmail, password);
         handleClose();
       } else {
         await signup(
-          email,
+          trimmedEmail,
           password,
           trimmedFirstName,
           trimmedLastName
@@ -156,7 +198,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
     >
       <DialogTitle sx={{ position: "relative" }}>
         <Typography variant="h5" component="div">
-          {isLogin ? "Log In" : "Sign Up"}
+          {isResetPassword ? "Reset Password" : isLogin ? "Log In" : "Sign Up"}
         </Typography>
         <IconButton
           onClick={handleClose}
@@ -180,11 +222,11 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
           )}
 
           {/* Name fields for signup with smooth collapse animation */}
-          <Collapse in={!isLogin} timeout={300}>
+          <Collapse in={!isLogin && !isResetPassword} timeout={300}>
             <Grid container spacing={2} sx={{ mb: 1 }}>
               <Grid>
                 <TextField
-                  autoFocus={!isLogin}
+                  autoFocus={!isLogin && !isResetPassword}
                   margin="normal"
                   label="First Name"
                   type="text"
@@ -196,7 +238,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
                       clampText(e.target.value, INPUT_LIMITS.USER_NAME)
                     )
                   }
-                  required={!isLogin}
+                  required={!isLogin && !isResetPassword}
                   slotProps={{
                     htmlInput: {
                       maxLength: INPUT_LIMITS.USER_NAME,
@@ -218,7 +260,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
                       clampText(e.target.value, INPUT_LIMITS.USER_NAME)
                     )
                   }
-                  required={!isLogin}
+                  required={!isLogin && !isResetPassword}
                   slotProps={{
                     htmlInput: {
                       maxLength: INPUT_LIMITS.USER_NAME,
@@ -231,7 +273,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
           </Collapse>
 
           <TextField
-            autoFocus={isLogin}
+            autoFocus={isLogin || isResetPassword}
             margin="normal"
             label="Email"
             type="email"
@@ -243,30 +285,46 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
             sx={{ mb: 2 }}
           />
 
-          <TextField
-            margin="normal"
-            label="Password"
-            type={showPassword ? "text" : "password"}
-            fullWidth
-            variant="outlined"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            slotProps={{
-              input: {
-                endAdornment: password.length > 0 && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
+          {!isResetPassword && (
+            <>
+              <TextField
+                margin="normal"
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                fullWidth
+                variant="outlined"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                slotProps={{
+                  input: {
+                    endAdornment: password.length > 0 && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+              {isLogin && (
+                <Box sx={{ textAlign: "right", mt: 0.5 }}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={switchToResetPassword}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Forgot password?
+                  </Button>
+                </Box>
+              )}
+            </>
+          )}
         </DialogContent>
 
         <DialogActions
@@ -280,26 +338,41 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
             disabled={loading}
           >
             {loading
-              ? isLogin
+              ? isResetPassword
+                ? "Sending Reset Email..."
+                : isLogin
                 ? "Logging in..."
                 : "Creating Account..."
+              : isResetPassword
+              ? "Send Reset Email"
               : isLogin
               ? "Log In"
               : "Sign Up"}
           </Button>
 
           <Box sx={{ textAlign: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-              {isLogin ? "Need an account?" : "Already have an account?"}{" "}
+            {isResetPassword ? (
               <Button
                 variant="text"
                 size="small"
-                onClick={switchMode}
+                onClick={switchToLogin}
                 sx={{ textTransform: "none" }}
               >
-                {isLogin ? "Sign Up" : "Log In"}
+                Back to Log In
               </Button>
-            </Typography>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                {isLogin ? "Need an account?" : "Already have an account?"}{" "}
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={switchMode}
+                  sx={{ textTransform: "none" }}
+                >
+                  {isLogin ? "Sign Up" : "Log In"}
+                </Button>
+              </Typography>
+            )}
           </Box>
         </DialogActions>
       </form>

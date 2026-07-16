@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
@@ -197,6 +198,10 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   }
 
+  function resetPassword(email) {
+    return sendPasswordResetEmail(auth, email);
+  }
+
   useEffect(() => {
     let unsubscribeUserDoc = null;
 
@@ -262,6 +267,7 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    resetPassword,
   };
 
   return (
