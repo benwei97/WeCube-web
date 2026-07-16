@@ -99,6 +99,24 @@ const SELL_SECTION_SX = {
 const SELL_MEDIA_TILE_SX = {
   width: { xs: "min(42vw, 132px)", sm: 120 },
 };
+const COMPETITION_CHIP_SX = {
+  borderRadius: 1,
+  borderColor: "rgba(100, 108, 255, 0.32)",
+  bgcolor: "rgba(100, 108, 255, 0.08)",
+  color: "primary.main",
+  fontWeight: 600,
+  "& .MuiChip-label": {
+    px: 1,
+  },
+  "& .MuiChip-deleteIcon": {
+    color: "primary.main",
+    opacity: 0.72,
+    "&:hover": {
+      color: "primary.dark",
+      opacity: 1,
+    },
+  },
+};
 
 function Sell() {
   const COMPETITION_BATCH_SIZE = 50;
@@ -1166,9 +1184,10 @@ function Sell() {
                         <Chip
                           {...getTagProps({ index })}
                           key={option.id}
-                          label={`${option.name} - ${option.dateRange}`}
+                          label={option.name}
                           size="small"
                           variant="outlined"
+                          sx={COMPETITION_CHIP_SX}
                         />
                       ))
                     }

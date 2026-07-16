@@ -103,6 +103,24 @@ const BACK_BUTTON_SX = {
     bgcolor: "rgba(100, 108, 255, 0.04)",
   },
 };
+const COMPETITION_CHIP_SX = {
+  borderRadius: 1,
+  borderColor: "rgba(100, 108, 255, 0.32)",
+  bgcolor: "rgba(100, 108, 255, 0.08)",
+  color: "primary.main",
+  fontWeight: 600,
+  "& .MuiChip-label": {
+    px: 1,
+  },
+  "& .MuiChip-deleteIcon": {
+    color: "primary.main",
+    opacity: 0.72,
+    "&:hover": {
+      color: "primary.dark",
+      opacity: 1,
+    },
+  },
+};
 const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const MY_COMPETITIONS_OPTION = {
   id: MY_COMPETITIONS_OPTION_ID,
@@ -2389,9 +2407,10 @@ function ListingDetail() {
                         <Chip
                           {...getTagProps({ index })}
                           key={option.id || option.name}
-                          label={option.displayName || option.name}
+                          label={option.name}
                           size="small"
                           variant="outlined"
+                          sx={COMPETITION_CHIP_SX}
                         />
                       ))
                     }
