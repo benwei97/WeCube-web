@@ -16,6 +16,7 @@ test-results
 
 # Local planning docs
 docs/launch-plan.md
+docs/email-deliverability-plan.md
 
 # Environment variables
 .env
