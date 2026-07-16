@@ -47,6 +47,7 @@ import {
   Restore,
   Save,
   Star,
+  Bookmark,
 } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -102,6 +103,29 @@ const BACK_BUTTON_SX = {
     bgcolor: "rgba(100, 108, 255, 0.04)",
   },
 };
+const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
+const MY_COMPETITIONS_OPTION = {
+  id: MY_COMPETITIONS_OPTION_ID,
+  name: "My competitions",
+  displayName: "My competitions",
+  isMyCompetitionsOption: true,
+};
+
+function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
+  const competitionsById = new Map(
+    currentCompetitions
+      .filter((competition) => !competition.isMyCompetitionsOption)
+      .map((competition) => [competition.id, competition])
+  );
+
+  competitionsToAdd.forEach((competition) => {
+    if (competition?.id && !competitionsById.has(competition.id)) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
+
+  return [...competitionsById.values()];
+}
 
 function FulfillmentInfoTitle({ children }) {
   return (
@@ -164,6 +188,11 @@ function ListingDetail() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllCompetitionMeetups, setShowAllCompetitionMeetups] =
     useState(false);
+  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const competitionOptions =
+    bookmarkedCompetitions.length > 0
+      ? [MY_COMPETITIONS_OPTION, ...competitions]
+      : competitions;
   const [editData, setEditData] = useState({
     title: "",
     price: "",
@@ -529,6 +558,26 @@ function ListingDetail() {
     } catch (error) {
       console.error("Error extending competition list:", error);
     }
+  };
+
+  const handleCompetitionSelectionChange = (_, newValue) => {
+    setEditNotice(null);
+
+    const shouldAddBookmarkedCompetitions = newValue.some(
+      (option) => option.isMyCompetitionsOption
+    );
+
+    if (shouldAddBookmarkedCompetitions) {
+      setSelectedCompetitions((prev) =>
+        mergeCompetitionsById(prev, bookmarkedCompetitions)
+      );
+      setCompetitionSearchInput("");
+      return;
+    }
+
+    setSelectedCompetitions(
+      newValue.filter((option) => !option.isMyCompetitionsOption)
+    );
   };
 
   const handlePriceChange = (event) => {
@@ -2307,7 +2356,7 @@ function ListingDetail() {
                 <Box sx={{ mt: 2 }}>
                   <Autocomplete
                     multiple
-                    options={competitions}
+                    options={competitionOptions}
                     inputValue={competitionSearchInput}
                     getOptionLabel={(option) =>
                       option.displayName || option.name || ""
@@ -2316,10 +2365,7 @@ function ListingDetail() {
                       option.id === value.id
                     }
                     value={selectedCompetitions}
-                    onChange={(_, newValue) => {
-                      setEditNotice(null);
-                      setSelectedCompetitions(newValue);
-                    }}
+                    onChange={handleCompetitionSelectionChange}
                     onInputChange={handleCompetitionSearch}
                     ListboxProps={{
                       onScroll: handleCompetitionListScroll,
@@ -2349,6 +2395,36 @@ function ListingDetail() {
                         />
                       ))
                     }
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} key={option.id}>
+                        {option.isMyCompetitionsOption ? (
+                          <Stack direction="row" spacing={1.25} alignItems="center">
+                            <Bookmark fontSize="small" color="primary" />
+                            <Box>
+                              <Typography variant="body1">
+                                My competitions
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                Add all {bookmarkedCompetitions.length} bookmarked
+                                competitions
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        ) : (
+                          <Box>
+                            <Typography variant="body1">
+                              {option.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {[option.city, option.country]
+                                .filter(Boolean)
+                                .join(", ")}
+                              {option.dateRange ? ` • ${option.dateRange}` : ""}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
                   />
                 </Box>
               )}

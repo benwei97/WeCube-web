@@ -21,7 +21,7 @@ import {
   Snackbar,
   InputAdornment,
 } from "@mui/material";
-import { Upload, Close } from "@mui/icons-material";
+import { Bookmark, Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
@@ -56,6 +56,29 @@ const SUPPORTED_PHOTO_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
+const MY_COMPETITIONS_OPTION = {
+  id: MY_COMPETITIONS_OPTION_ID,
+  name: "My competitions",
+  displayName: "My competitions",
+  isMyCompetitionsOption: true,
+};
+
+function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
+  const competitionsById = new Map(
+    currentCompetitions
+      .filter((competition) => !competition.isMyCompetitionsOption)
+      .map((competition) => [competition.id, competition])
+  );
+
+  competitionsToAdd.forEach((competition) => {
+    if (competition?.id && !competitionsById.has(competition.id)) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
+
+  return [...competitionsById.values()];
+}
 
 const SOFT_FORM_CARD_SX = {
   width: "100%",
@@ -109,6 +132,11 @@ function Sell() {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const { currentUser } = useAuth();
+  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const competitionOptions =
+    bookmarkedCompetitions.length > 0
+      ? [MY_COMPETITIONS_OPTION, ...competitions]
+      : competitions;
 
   useEffect(() => {
     const query = fulfillmentData.meetupLocationLabel.trim();
@@ -295,6 +323,26 @@ function Sell() {
     } catch (error) {
       console.error("Error extending competition list:", error);
     }
+  };
+
+  const handleCompetitionSelectionChange = (_, newValue) => {
+    setSubmitNotice(null);
+
+    const shouldAddBookmarkedCompetitions = newValue.some(
+      (option) => option.isMyCompetitionsOption
+    );
+
+    if (shouldAddBookmarkedCompetitions) {
+      setSelectedCompetitions((prev) =>
+        mergeCompetitionsById(prev, bookmarkedCompetitions)
+      );
+      setCompetitionSearchInput("");
+      return;
+    }
+
+    setSelectedCompetitions(
+      newValue.filter((option) => !option.isMyCompetitionsOption)
+    );
   };
 
   const isDeliveryValid =
@@ -1078,17 +1126,16 @@ function Sell() {
                 <Box sx={{ mt: 2 }}>
                   <Autocomplete
                     multiple
-                    options={competitions}
+                    options={competitionOptions}
                     inputValue={competitionSearchInput}
-                    getOptionLabel={(option) => option.displayName}
+                    getOptionLabel={(option) =>
+                      option.displayName || option.name || ""
+                    }
                     isOptionEqualToValue={(option, value) =>
                       option.id === value.id
                     }
                     value={selectedCompetitions}
-                    onChange={(_, newValue) => {
-                      setSubmitNotice(null);
-                      setSelectedCompetitions(newValue);
-                    }}
+                    onChange={handleCompetitionSelectionChange}
                     onInputChange={handleCompetitionSearch}
                     ListboxProps={{
                       onScroll: handleCompetitionListScroll,
@@ -1127,13 +1174,28 @@ function Sell() {
                     }
                     renderOption={(props, option) => (
                       <Box component="li" {...props} key={option.id}>
-                        <Box>
-                          <Typography variant="body1">{option.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {option.city}, {option.country} •{" "}
-                            {option.dateRange}
-                          </Typography>
-                        </Box>
+                        {option.isMyCompetitionsOption ? (
+                          <Stack direction="row" spacing={1.25} alignItems="center">
+                            <Bookmark fontSize="small" color="primary" />
+                            <Box>
+                              <Typography variant="body1">
+                                My competitions
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                Add all {bookmarkedCompetitions.length} bookmarked
+                                competitions
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        ) : (
+                          <Box>
+                            <Typography variant="body1">{option.name}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {option.city}, {option.country} •{" "}
+                              {option.dateRange}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     )}
                   />
