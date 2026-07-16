@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   onAuthStateChanged,
   updateProfile,
@@ -14,6 +16,10 @@ import { AuthContext } from "./authContextValue";
 
 const PENDING_PROFILE_STORAGE_KEY = "wecubePendingProfiles";
 const profileCreationPromises = new Map();
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: "select_account",
+});
 
 function createAuthFlowError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -194,6 +200,12 @@ export function AuthProvider({ children }) {
     return userCredential;
   }
 
+  async function loginWithGoogle() {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    await ensureVerifiedUserProfile(userCredential.user);
+    return userCredential;
+  }
+
   function logout() {
     return signOut(auth);
   }
@@ -266,6 +278,7 @@ export function AuthProvider({ children }) {
     currentUser,
     signup,
     login,
+    loginWithGoogle,
     logout,
     resetPassword,
   };
