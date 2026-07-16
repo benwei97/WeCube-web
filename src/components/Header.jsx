@@ -126,6 +126,14 @@ function Header() {
     setAnchorEl(null);
     navigate(path);
   };
+
+  const handleMessagesClick = (event) => {
+    if (!currentUser) {
+      event.preventDefault();
+      openAuth("login");
+    }
+  };
+
   return (
     <>
       <AppBar
@@ -180,6 +188,7 @@ function Header() {
               color="inherit"
               component={Link}
               to="/messages"
+              onClick={handleMessagesClick}
               aria-label="Messages"
               sx={{ position: "relative" }}
             >
