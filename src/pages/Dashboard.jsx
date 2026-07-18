@@ -20,6 +20,7 @@ import {
   Stack,
   Tab,
   Tabs,
+  TextField,
   Typography,
 } from "@mui/material";
 import {
@@ -111,6 +112,7 @@ const EMPTY_STATE_SX = {
   py: 3,
   color: "text.secondary",
 };
+
 function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -133,6 +135,22 @@ function Dashboard() {
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionMenu, setActionMenu] = useState({ anchorEl: null, listing: null });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [profileNameForm, setProfileNameForm] = useState({
+    firstName: "",
+    lastName: "",
+  });
+  const [profileNameSaving, setProfileNameSaving] = useState(false);
+  const [profileNameError, setProfileNameError] = useState("");
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    setProfileNameForm({
+      firstName: currentUser.firstName || "",
+      lastName: currentUser.lastName || "",
+    });
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -286,6 +304,61 @@ function Dashboard() {
       alert(error.message || "Failed to update avatar.");
     } finally {
       setAvatarUploading(false);
+    }
+  };
+
+  const handleProfileNameChange = (field) => (event) => {
+    const value = event.target.value.slice(0, 50);
+    setProfileNameError("");
+    setProfileNameForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleStartNameEdit = () => {
+    setProfileNameForm({
+      firstName: currentUser?.firstName || "",
+      lastName: currentUser?.lastName || "",
+    });
+    setProfileNameError("");
+    setIsEditingName(true);
+  };
+
+  const handleCancelNameEdit = () => {
+    setProfileNameForm({
+      firstName: currentUser?.firstName || "",
+      lastName: currentUser?.lastName || "",
+    });
+    setProfileNameError("");
+    setIsEditingName(false);
+  };
+
+  const handleSaveProfileName = async () => {
+    const firstName = profileNameForm.firstName.trim();
+    const lastName = profileNameForm.lastName.trim();
+
+    if (!firstName || !lastName) {
+      setProfileNameError("Enter your first and last name.");
+      return;
+    }
+
+    if (!currentUser?.uid) return;
+
+    setProfileNameSaving(true);
+    setProfileNameError("");
+
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        firstName,
+        lastName,
+      });
+      setIsEditingName(false);
+    } catch (error) {
+      console.error("Error updating profile name:", error);
+      setProfileNameError(error.message || "Failed to update your name.");
+    } finally {
+      setProfileNameSaving(false);
     }
   };
 
@@ -720,36 +793,97 @@ function Dashboard() {
                 </IconButton>
               </Box>
 
-              <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="h5"
-                  fontWeight={700}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/user/${currentUser.uid}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      navigate(`/user/${currentUser.uid}`);
-                    }
-                  }}
-                  sx={{
-                    lineHeight: 1.15,
-                    cursor: "pointer",
-                    width: "fit-content",
-                    "&:hover": {
-                      color: "primary.main",
-                    },
-                    "&:focus-visible": {
-                      outline: "2px solid",
-                      outlineColor: "primary.main",
-                      outlineOffset: 3,
-                      borderRadius: 1,
-                    },
-                  }}
-                >
-                  {userName}
-                </Typography>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                {isEditingName ? (
+                  <Stack spacing={1.25} sx={{ maxWidth: 420 }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                      <TextField
+                        label="First name"
+                        size="small"
+                        value={profileNameForm.firstName}
+                        onChange={handleProfileNameChange("firstName")}
+                        disabled={profileNameSaving}
+                        required
+                        fullWidth
+                        slotProps={{ htmlInput: { maxLength: 50 } }}
+                      />
+                      <TextField
+                        label="Last name"
+                        size="small"
+                        value={profileNameForm.lastName}
+                        onChange={handleProfileNameChange("lastName")}
+                        disabled={profileNameSaving}
+                        required
+                        fullWidth
+                        slotProps={{ htmlInput: { maxLength: 50 } }}
+                      />
+                    </Stack>
+                    {profileNameError && (
+                      <Typography variant="caption" color="error">
+                        {profileNameError}
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleSaveProfileName}
+                        disabled={profileNameSaving}
+                      >
+                        {profileNameSaving ? "Saving..." : "Save"}
+                      </Button>
+                      <Button
+                        variant="text"
+                        size="small"
+                        color="inherit"
+                        onClick={handleCancelNameEdit}
+                        disabled={profileNameSaving}
+                      >
+                        Cancel
+                      </Button>
+                    </Stack>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Typography
+                      variant="h5"
+                      fontWeight={700}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/user/${currentUser.uid}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/user/${currentUser.uid}`);
+                        }
+                      }}
+                      sx={{
+                        lineHeight: 1.15,
+                        cursor: "pointer",
+                        width: "fit-content",
+                        "&:hover": {
+                          color: "primary.main",
+                        },
+                        "&:focus-visible": {
+                          outline: "2px solid",
+                          outlineColor: "primary.main",
+                          outlineOffset: 3,
+                          borderRadius: 1,
+                        },
+                      }}
+                    >
+                      {userName}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      aria-label="Edit profile name"
+                      onClick={handleStartNameEdit}
+                      sx={{ color: "text.secondary" }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                )}
                 <Typography
                   variant="body2"
                   color="text.secondary"
