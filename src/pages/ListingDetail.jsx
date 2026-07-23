@@ -48,10 +48,11 @@ import {
   Save,
   Star,
   Bookmark,
+  Flag,
 } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { deleteDoc, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import {
@@ -128,6 +129,14 @@ const MY_COMPETITIONS_OPTION = {
   displayName: "My competitions",
   isMyCompetitionsOption: true,
 };
+const LISTING_REPORT_REASONS = [
+  { value: "inappropriate_image", label: "Inappropriate image" },
+  { value: "fake_or_misleading", label: "Fake or misleading listing" },
+  { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
+  { value: "harassment_or_hate", label: "Harassment or hate" },
+  { value: "prohibited_item", label: "Prohibited item" },
+  { value: "other", label: "Other" },
+];
 
 function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
   const competitionsById = new Map(
@@ -179,8 +188,13 @@ function ListingDetail() {
   const [messageNotice, setMessageNotice] = useState(null);
   const [messageSnackbar, setMessageSnackbar] = useState(null);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [ownerMenuAnchorEl, setOwnerMenuAnchorEl] = useState(null);
+  const [viewerMenuAnchorEl, setViewerMenuAnchorEl] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [statusConfirmDialog, setStatusConfirmDialog] = useState({
     open: false,
@@ -848,6 +862,94 @@ function ListingDetail() {
     setShowMessageDialog(true);
   };
 
+  const openReportDialog = () => {
+    setViewerMenuAnchorEl(null);
+
+    if (!currentUser) {
+      setMessageSnackbar({
+        severity: "info",
+        message: "Please sign in to report this listing.",
+      });
+      return;
+    }
+
+    if (currentUser.uid === listing.userId) {
+      setMessageSnackbar({
+        severity: "info",
+        message: "You cannot report your own listing.",
+      });
+      return;
+    }
+
+    setReportReason("");
+    setReportDetails("");
+    setShowReportDialog(true);
+  };
+
+  const closeReportDialog = () => {
+    if (submittingReport) return;
+
+    setShowReportDialog(false);
+    setReportReason("");
+    setReportDetails("");
+  };
+
+  const handleSubmitListingReport = async () => {
+    if (!currentUser?.uid || !listing?.id || !reportReason) {
+      return;
+    }
+
+    const reportId = `${currentUser.uid}_${listing.id}`;
+    const reportRef = doc(db, "listingReports", reportId);
+
+    setSubmittingReport(true);
+
+    try {
+      const existingReport = await getDoc(reportRef);
+
+      if (existingReport.exists()) {
+        setShowReportDialog(false);
+        setMessageSnackbar({
+          severity: "info",
+          message: "You have already reported this listing.",
+        });
+        return;
+      }
+
+      const now = new Date();
+      await setDoc(reportRef, {
+        listingId: listing.id,
+        listingTitle: listing.title || "",
+        listingPhotoS3Key: listing.photos?.[0]?.s3Key || "",
+        sellerId: listing.userId,
+        reporterId: currentUser.uid,
+        reporterName:
+          `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim(),
+        reason: reportReason,
+        details: reportDetails.trim(),
+        status: "open",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      setShowReportDialog(false);
+      setReportReason("");
+      setReportDetails("");
+      setMessageSnackbar({
+        severity: "success",
+        message: "Report submitted. We will review this listing.",
+      });
+    } catch (error) {
+      console.error("Error submitting listing report:", error);
+      setMessageSnackbar({
+        severity: "error",
+        message: "Unable to submit this report right now. Please try again.",
+      });
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   const openMarkSoldDialog = useCallback(async () => {
     setOwnerMenuAnchorEl(null);
     setShowMarkSoldDialog(true);
@@ -911,6 +1013,10 @@ function ListingDetail() {
 
   const closeOwnerMenu = () => {
     setOwnerMenuAnchorEl(null);
+  };
+
+  const closeViewerMenu = () => {
+    setViewerMenuAnchorEl(null);
   };
 
   const handleListingStatusUpdate = async (status) => {
@@ -1211,6 +1317,7 @@ function ListingDetail() {
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
   const isOwnerMenuOpen = Boolean(ownerMenuAnchorEl);
+  const isViewerMenuOpen = Boolean(viewerMenuAnchorEl);
   const listedLocationLabel = formatListedLocationLabel(
     listing.meetupLocation,
     listing.meetupLocationLabel || listing.location
@@ -1330,7 +1437,37 @@ function ListingDetail() {
               </MenuItem>
             </Menu>
           </Box>
-        ) : null}
+        ) : (
+          <Box>
+            <IconButton
+              onClick={(event) => setViewerMenuAnchorEl(event.currentTarget)}
+              aria-label="Listing options"
+              aria-controls={isViewerMenuOpen ? "viewer-listing-actions" : undefined}
+              aria-haspopup="true"
+              aria-expanded={isViewerMenuOpen ? "true" : undefined}
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                color: "text.secondary",
+              }}
+            >
+              <MoreVert />
+            </IconButton>
+            <Menu
+              id="viewer-listing-actions"
+              anchorEl={viewerMenuAnchorEl}
+              open={isViewerMenuOpen}
+              onClose={closeViewerMenu}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            >
+              <MenuItem onClick={openReportDialog}>
+                <Flag fontSize="small" sx={{ mr: 1.25 }} />
+                Report listing
+              </MenuItem>
+            </Menu>
+          </Box>
+        )}
       </Box>
 
       <Grid
@@ -2504,6 +2641,72 @@ function ListingDetail() {
           </Alert>
         )}
       </Snackbar>
+
+      <Dialog
+        open={showReportDialog}
+        onClose={closeReportDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Report Listing</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <DialogContentText>
+              Tell us what looks wrong. Reports help us review unsafe,
+              misleading, or inappropriate listings.
+            </DialogContentText>
+            <FormControl fullWidth required>
+              <InputLabel id="listing-report-reason-label">Reason</InputLabel>
+              <Select
+                labelId="listing-report-reason-label"
+                label="Reason"
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value)}
+                disabled={submittingReport}
+              >
+                {LISTING_REPORT_REASONS.map((reason) => (
+                  <MenuItem key={reason.value} value={reason.value}>
+                    {reason.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Details"
+              multiline
+              minRows={4}
+              value={reportDetails}
+              onChange={(event) =>
+                setReportDetails(
+                  clampText(event.target.value, INPUT_LIMITS.REPORT_DETAILS)
+                )
+              }
+              disabled={submittingReport}
+              helperText={characterCountText(
+                reportDetails,
+                INPUT_LIMITS.REPORT_DETAILS
+              )}
+              slotProps={{
+                htmlInput: {
+                  maxLength: INPUT_LIMITS.REPORT_DETAILS,
+                },
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReportDialog} color="inherit" disabled={submittingReport}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitListingReport}
+            variant="contained"
+            disabled={submittingReport || !reportReason}
+          >
+            {submittingReport ? "Submitting..." : "Submit Report"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Message Request Dialog */}
       <Dialog

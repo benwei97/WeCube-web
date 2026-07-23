@@ -372,6 +372,43 @@ service cloud.firestore {
         && isOptionalStringField(request.resource.data, "comment", 1000);
     }
 
+    function validListingReportCreate(reportId, data) {
+      let listing = listingData(data.listingId);
+      return signedIn()
+        && data.keys().hasOnly([
+          "listingId",
+          "listingTitle",
+          "listingPhotoS3Key",
+          "sellerId",
+          "reporterId",
+          "reporterName",
+          "reason",
+          "details",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ])
+        && reportId == data.reporterId + "_" + data.listingId
+        && data.reporterId == request.auth.uid
+        && data.listingId is string
+        && listingExists(data.listingId)
+        && data.sellerId == listing.userId
+        && data.sellerId != request.auth.uid
+        && data.reason in [
+          "inappropriate_image",
+          "fake_or_misleading",
+          "scam_or_unsafe",
+          "harassment_or_hate",
+          "prohibited_item",
+          "other"
+        ]
+        && isOptionalStringField(data, "listingTitle", 80)
+        && isOptionalStringField(data, "listingPhotoS3Key", 512)
+        && isOptionalStringField(data, "reporterName", 120)
+        && isOptionalStringField(data, "details", 1000)
+        && data.status == "open";
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if validUserProfileCreate(request.resource.data, userId);
@@ -406,6 +443,12 @@ service cloud.firestore {
       allow create: if validReviewCreate(reviewId, request.resource.data);
       allow update: if validReviewUpdate();
       allow delete: if false;
+    }
+
+    match /listingReports/{reportId} {
+      allow read: if signedIn() && resource.data.reporterId == request.auth.uid;
+      allow create: if validListingReportCreate(reportId, request.resource.data);
+      allow update, delete: if false;
     }
   }
 }
