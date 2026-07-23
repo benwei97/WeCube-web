@@ -905,17 +905,6 @@ function ListingDetail() {
     setSubmittingReport(true);
 
     try {
-      const existingReport = await getDoc(reportRef);
-
-      if (existingReport.exists()) {
-        setShowReportDialog(false);
-        setMessageSnackbar({
-          severity: "info",
-          message: "You have already reported this listing.",
-        });
-        return;
-      }
-
       const now = new Date();
       await setDoc(reportRef, {
         listingId: listing.id,
@@ -942,8 +931,11 @@ function ListingDetail() {
     } catch (error) {
       console.error("Error submitting listing report:", error);
       setMessageSnackbar({
-        severity: "error",
-        message: "Unable to submit this report right now. Please try again.",
+        severity: error.code === "permission-denied" ? "info" : "error",
+        message:
+          error.code === "permission-denied"
+            ? "This report could not be submitted. You may have already reported this listing."
+            : "Unable to submit this report right now. Please try again.",
       });
     } finally {
       setSubmittingReport(false);
