@@ -257,6 +257,10 @@ export function getPrimaryFulfillmentOption(listing = {}, options = {}) {
 }
 
 export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
+  if (isListingModerationHidden(listing)) {
+    return false;
+  }
+
   if (listing.status !== "sold") {
     return true;
   }
@@ -275,6 +279,18 @@ export function isSoldListingPubliclyVisible(listing = {}, now = new Date()) {
 
   const visibilityWindowMs = SOLD_VISIBILITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   return now.getTime() - soldDate.getTime() <= visibilityWindowMs;
+}
+
+export function isListingModerationHidden(listing = {}) {
+  return Boolean(listing.hiddenAt) || listing.moderationStatus === "hidden";
+}
+
+export function canViewModerationHiddenListing(listing = {}, user = null) {
+  return Boolean(
+    listing &&
+      user &&
+      (user.isAdmin || user.uid === listing.userId)
+  );
 }
 
 export function sortListingsByAvailabilityAndDate(listings = []) {

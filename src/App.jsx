@@ -13,6 +13,7 @@ import Sell from "./pages/Sell";
 import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
 import SellerProfile from "./pages/SellerProfile";
+import AdminReports from "./pages/AdminReports";
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
               <Route path="/user/:userId" element={<SellerProfile />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/my-listings" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-purchases" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-reviews" element={<Navigate to="/dashboard" replace />} />

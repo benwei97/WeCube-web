@@ -6,6 +6,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -187,6 +191,24 @@ service cloud.firestore {
           "saleEventId",
           "archivedAt"
         ]);
+    }
+
+    function validAdminListingModerationUpdate() {
+      let data = request.resource.data;
+      return isAdmin()
+        && data.userId == resource.data.userId
+        && data.listingId == resource.data.listingId
+        && data.createdAt == resource.data.createdAt
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          "moderationStatus",
+          "hiddenAt",
+          "hiddenBy",
+          "hiddenReason",
+          "updatedAt"
+        ])
+        && data.moderationStatus in ["hidden"]
+        && data.hiddenBy == request.auth.uid
+        && isOptionalStringField(data, "hiddenReason", 120);
     }
 
     function validUserProfileCreate(data, userId) {
@@ -409,6 +431,20 @@ service cloud.firestore {
         && data.status == "open";
     }
 
+    function validListingReportAdminUpdate() {
+      return isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "actionTaken",
+          "reviewedBy",
+          "reviewedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.status in ["reviewed", "dismissed"]
+        && request.resource.data.reviewedBy == request.auth.uid
+        && isOptionalStringField(request.resource.data, "actionTaken", 120);
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if validUserProfileCreate(request.resource.data, userId);
@@ -419,7 +455,7 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
       allow create: if signedIn() && validListingCreate(request.resource.data);
-      allow update: if validOwnerListingUpdate() || validBuyerSoldUpdate();
+      allow update: if validOwnerListingUpdate() || validBuyerSoldUpdate() || validAdminListingModerationUpdate();
       allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
@@ -446,9 +482,10 @@ service cloud.firestore {
     }
 
     match /listingReports/{reportId} {
-      allow read: if signedIn() && resource.data.reporterId == request.auth.uid;
+      allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
       allow create: if validListingReportCreate(reportId, request.resource.data);
-      allow update, delete: if false;
+      allow update: if validListingReportAdminUpdate();
+      allow delete: if false;
     }
   }
 }

@@ -29,6 +29,7 @@ import {
   formatListingPrice,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
+  isListingModerationHidden,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -109,6 +110,7 @@ function CompetitionListings() {
 
         const cubesForCompetition = allListings.filter(
           (listing) =>
+            !isListingModerationHidden(listing) &&
             isSoldListingPubliclyVisible(listing) &&
             (
               listing.meetupCompetitionTags?.some((comp) => comp.id === competitionId) ||

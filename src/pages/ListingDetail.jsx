@@ -78,6 +78,8 @@ import {
   getListingCompetitionPayload,
   getNormalizedFulfillmentFields,
   getShippingPriceFromListing,
+  canViewModerationHiddenListing,
+  isListingModerationHidden,
   normalizeConditionValue,
   parseNonNegativeCurrencyAmount,
   parsePositiveCurrencyAmount,
@@ -1310,6 +1312,11 @@ function ListingDetail() {
   const isOwner = currentUser && currentUser.uid === listing.userId;
   const isOwnerMenuOpen = Boolean(ownerMenuAnchorEl);
   const isViewerMenuOpen = Boolean(viewerMenuAnchorEl);
+  const isHiddenByModeration = isListingModerationHidden(listing);
+  const canViewHiddenListing = canViewModerationHiddenListing(
+    listing,
+    currentUser
+  );
   const listedLocationLabel = formatListedLocationLabel(
     listing.meetupLocation,
     listing.meetupLocationLabel || listing.location
@@ -1334,6 +1341,17 @@ function ListingDetail() {
   const ownerPrimaryActionText = listing.status === "sold"
     ? "Mark as Available"
     : "Mark as Sold";
+
+  if (isHiddenByModeration && !canViewHiddenListing) {
+    return (
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+        <Typography variant="h4">Listing not found</Typography>
+        <Button onClick={() => navigate(-1)} variant="outlined" sx={{ mt: 2, ...BACK_BUTTON_SX }}>
+          Back
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -1461,6 +1479,12 @@ function ListingDetail() {
           </Box>
         )}
       </Box>
+
+      {isHiddenByModeration && canViewHiddenListing && (
+        <Alert severity="warning" sx={{ mb: { xs: 2, lg: 1.25 }, flexShrink: 0 }}>
+          This listing is hidden from public listing surfaces.
+        </Alert>
+      )}
 
       <Grid
         container

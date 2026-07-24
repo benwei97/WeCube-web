@@ -20,6 +20,7 @@ import { db } from "../../firebase";
 import {
   formatListingPrice,
   getPrimaryFulfillmentOption,
+  isListingModerationHidden,
 } from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
@@ -85,10 +86,12 @@ function SellerProfile() {
     const unsubscribeListings = onSnapshot(
       query(collection(db, "listings"), where("userId", "==", userId)),
       (snapshot) => {
-        const listings = snapshot.docs.map((listingDoc) => ({
-          id: listingDoc.id,
-          ...listingDoc.data(),
-        }));
+        const listings = snapshot.docs
+          .map((listingDoc) => ({
+            id: listingDoc.id,
+            ...listingDoc.data(),
+          }))
+          .filter((listing) => !isListingModerationHidden(listing));
         listings.sort((a, b) => {
           const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
           const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();

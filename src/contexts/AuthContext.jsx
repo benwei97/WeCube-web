@@ -9,6 +9,7 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  getIdTokenResult,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
@@ -226,12 +227,15 @@ export function AuthProvider({ children }) {
       if (user) {
         try {
           await ensureVerifiedUserProfile(user);
+          const tokenResult = await getIdTokenResult(user);
+          const isAdmin = tokenResult.claims.admin === true;
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
 
           if (userDocSnap.exists()) {
             setCurrentUser({
               uid: user.uid,
+              isAdmin,
               ...userDocSnap.data(),
             });
 
@@ -241,6 +245,7 @@ export function AuthProvider({ children }) {
                 if (snapshot.exists()) {
                   setCurrentUser({
                     uid: user.uid,
+                    isAdmin,
                     ...snapshot.data(),
                   });
                 }

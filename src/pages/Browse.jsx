@@ -40,6 +40,7 @@ import {
   formatListingPrice,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
+  isListingModerationHidden,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -371,7 +372,7 @@ function Browse() {
         const listingsData = listingsSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })).filter((listing) => !isListingModerationHidden(listing));
 
         setAllListings(listingsData);
         setLoading(false);
