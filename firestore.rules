@@ -445,6 +445,51 @@ service cloud.firestore {
         && isOptionalStringField(request.resource.data, "actionTaken", 120);
     }
 
+    function validUserReportCreate(reportId, data) {
+      return signedIn()
+        && data.keys().hasOnly([
+          "reportedUserId",
+          "reportedUserName",
+          "reporterId",
+          "reporterName",
+          "reason",
+          "details",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ])
+        && reportId == data.reporterId + "_" + data.reportedUserId
+        && data.reporterId == request.auth.uid
+        && data.reportedUserId is string
+        && exists(/databases/$(database)/documents/users/$(data.reportedUserId))
+        && data.reportedUserId != request.auth.uid
+        && data.reason in [
+          "scam_or_unsafe",
+          "harassment_or_abuse",
+          "fake_identity",
+          "suspicious_activity",
+          "other"
+        ]
+        && isOptionalStringField(data, "reportedUserName", 120)
+        && isOptionalStringField(data, "reporterName", 120)
+        && isOptionalStringField(data, "details", 1000)
+        && data.status == "open";
+    }
+
+    function validUserReportAdminUpdate() {
+      return isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "actionTaken",
+          "reviewedBy",
+          "reviewedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.status in ["reviewed", "dismissed"]
+        && request.resource.data.reviewedBy == request.auth.uid
+        && isOptionalStringField(request.resource.data, "actionTaken", 120);
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if validUserProfileCreate(request.resource.data, userId);
@@ -485,6 +530,13 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
       allow create: if validListingReportCreate(reportId, request.resource.data);
       allow update: if validListingReportAdminUpdate();
+      allow delete: if false;
+    }
+
+    match /userReports/{reportId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
+      allow create: if validUserReportCreate(reportId, request.resource.data);
+      allow update: if validUserReportAdminUpdate();
       allow delete: if false;
     }
   }

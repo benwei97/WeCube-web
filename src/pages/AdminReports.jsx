@@ -15,6 +15,8 @@ import {
   DialogTitle,
   Divider,
   Stack,
+  Tab,
+  Tabs,
   Typography,
 } from "@mui/material";
 import {
@@ -44,6 +46,13 @@ const REPORT_REASON_LABELS = {
   prohibited_item: "Prohibited item",
   other: "Other",
 };
+const USER_REPORT_REASON_LABELS = {
+  scam_or_unsafe: "Scam or unsafe behavior",
+  harassment_or_abuse: "Harassment or abusive behavior",
+  fake_identity: "Fake identity or impersonation",
+  suspicious_activity: "Suspicious listings or messages",
+  other: "Other",
+};
 
 function formatTimestamp(value) {
   if (!value) return "Unknown";
@@ -55,13 +64,19 @@ function getReportReasonLabel(reason) {
   return REPORT_REASON_LABELS[reason] || reason || "Report";
 }
 
+function getUserReportReasonLabel(reason) {
+  return USER_REPORT_REASON_LABELS[reason] || reason || "Report";
+}
+
 export default function AdminReports() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
+  const [userReports, setUserReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [activeTab, setActiveTab] = useState("listings");
 
   useEffect(() => {
     if (!currentUser?.isAdmin) {
@@ -69,12 +84,24 @@ export default function AdminReports() {
       return undefined;
     }
 
+    let loadedListingReports = false;
+    let loadedUserReports = false;
+    const markLoaded = () => {
+      if (loadedListingReports && loadedUserReports) {
+        setLoading(false);
+      }
+    };
+
     const reportsQuery = query(
       collection(db, "listingReports"),
       orderBy("createdAt", "desc")
     );
+    const userReportsQuery = query(
+      collection(db, "userReports"),
+      orderBy("createdAt", "desc")
+    );
 
-    const unsubscribe = onSnapshot(
+    const unsubscribeListingReports = onSnapshot(
       reportsQuery,
       (snapshot) => {
         setReports(
@@ -83,29 +110,62 @@ export default function AdminReports() {
             ...reportDoc.data(),
           }))
         );
-        setLoading(false);
+        loadedListingReports = true;
+        markLoaded();
       },
       (error) => {
         console.error("Error loading listing reports:", error);
-        setLoading(false);
+        loadedListingReports = true;
+        markLoaded();
       }
     );
 
-    return () => unsubscribe();
+    const unsubscribeUserReports = onSnapshot(
+      userReportsQuery,
+      (snapshot) => {
+        setUserReports(
+          snapshot.docs.map((reportDoc) => ({
+            id: reportDoc.id,
+            ...reportDoc.data(),
+          }))
+        );
+        loadedUserReports = true;
+        markLoaded();
+      },
+      (error) => {
+        console.error("Error loading user reports:", error);
+        loadedUserReports = true;
+        markLoaded();
+      }
+    );
+
+    return () => {
+      unsubscribeListingReports();
+      unsubscribeUserReports();
+    };
   }, [currentUser?.isAdmin]);
 
   const openReports = useMemo(
     () => reports.filter((report) => report.status === "open"),
     [reports]
   );
+  const openUserReports = useMemo(
+    () => userReports.filter((report) => report.status === "open"),
+    [userReports]
+  );
 
-  const updateReportStatus = async (report, status, actionTaken) => {
+  const updateReportStatus = async (
+    collectionName,
+    report,
+    status,
+    actionTaken
+  ) => {
     if (!currentUser?.uid) return;
 
     setActionLoadingId(report.id);
     try {
       const now = new Date();
-      await updateDoc(doc(db, "listingReports", report.id), {
+      await updateDoc(doc(db, collectionName, report.id), {
         status,
         actionTaken,
         reviewedBy: currentUser.uid,
@@ -133,7 +193,12 @@ export default function AdminReports() {
         hiddenReason: report.reason,
         updatedAt: now,
       });
-      await updateReportStatus(report, "reviewed", "listing_hidden");
+      await updateReportStatus(
+        "listingReports",
+        report,
+        "reviewed",
+        "listing_hidden"
+      );
     } catch (error) {
       console.error("Error hiding listing:", error);
       alert("Unable to hide this listing right now.");
@@ -145,21 +210,27 @@ export default function AdminReports() {
   const confirmActionCopy = useMemo(() => {
     if (!confirmAction?.report) return null;
 
-    const listingTitle = confirmAction.report.listingTitle || "this listing";
+    const reportTarget =
+      confirmAction.report.listingTitle ||
+      confirmAction.report.reportedUserName ||
+      "this report";
 
     if (confirmAction.type === "hide") {
       return {
         title: "Hide Listing",
-        body: `Hide "${listingTitle}" from public listing surfaces? The owner and admins may still be able to view it.`,
+        body: `Hide "${reportTarget}" from public listing surfaces? The owner and admins may still be able to view it.`,
         confirmLabel: "Hide Listing",
         color: "error",
       };
     }
 
-    if (confirmAction.type === "review") {
+    if (
+      confirmAction.type === "reviewListing" ||
+      confirmAction.type === "reviewUser"
+    ) {
       return {
         title: "Mark Report Reviewed",
-        body: `Close the report for "${listingTitle}" without changing the listing?`,
+        body: `Close the report for "${reportTarget}" without taking additional action?`,
         confirmLabel: "Mark Reviewed",
         color: "primary",
       };
@@ -175,8 +246,20 @@ export default function AdminReports() {
 
     if (type === "hide") {
       await hideReportedListing(report);
-    } else if (type === "review") {
-      await updateReportStatus(report, "reviewed", "reviewed_no_listing_change");
+    } else if (type === "reviewListing") {
+      await updateReportStatus(
+        "listingReports",
+        report,
+        "reviewed",
+        "reviewed_no_listing_change"
+      );
+    } else if (type === "reviewUser") {
+      await updateReportStatus(
+        "userReports",
+        report,
+        "reviewed",
+        "reviewed_no_user_change"
+      );
     }
 
     setConfirmAction(null);
@@ -201,18 +284,36 @@ export default function AdminReports() {
             Reports
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {openReports.length} open report{openReports.length === 1 ? "" : "s"}
+            {openReports.length + openUserReports.length} open report
+            {openReports.length + openUserReports.length === 1 ? "" : "s"}
           </Typography>
         </Box>
+
+        <Tabs
+          value={activeTab}
+          onChange={(_, value) => setActiveTab(value)}
+          sx={{ borderBottom: 1, borderColor: "divider" }}
+        >
+          <Tab
+            label={`Listings (${openReports.length})`}
+            value="listings"
+          />
+          <Tab
+            label={`Users (${openUserReports.length})`}
+            value="users"
+          />
+        </Tabs>
 
         {loading ? (
           <Stack direction="row" spacing={1} alignItems="center">
             <CircularProgress size={20} />
             <Typography variant="body2">Loading reports...</Typography>
           </Stack>
-        ) : reports.length === 0 ? (
+        ) : activeTab === "listings" && reports.length === 0 ? (
           <Alert severity="success">No listing reports yet.</Alert>
-        ) : (
+        ) : activeTab === "users" && userReports.length === 0 ? (
+          <Alert severity="success">No user reports yet.</Alert>
+        ) : activeTab === "listings" ? (
           <Stack spacing={1.5}>
             {reports.map((report) => {
               const isLoading = actionLoadingId === report.id;
@@ -318,12 +419,113 @@ export default function AdminReports() {
                               variant="outlined"
                               disabled={isLoading}
                               onClick={() =>
-                                setConfirmAction({ type: "review", report })
+                                setConfirmAction({ type: "reviewListing", report })
                               }
                             >
                               Mark Reviewed
                             </Button>
                           </Stack>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
+        ) : (
+          <Stack spacing={1.5}>
+            {userReports.map((report) => {
+              const isLoading = actionLoadingId === report.id;
+
+              return (
+                <Card key={report.id} variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" fontWeight={700}>
+                            {report.reportedUserName || "Reported user"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Reported {formatTimestamp(report.createdAt)}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={report.status || "open"}
+                          color={report.status === "open" ? "success" : "default"}
+                          size="small"
+                          sx={{ borderRadius: 1, textTransform: "capitalize" }}
+                        />
+                      </Stack>
+
+                      <Box
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          p: 1.5,
+                          bgcolor: "grey.50",
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={0.5}
+                            justifyContent="space-between"
+                          >
+                            <Typography variant="body2" fontWeight={700}>
+                              {getUserReportReasonLabel(report.reason)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Reporter: {report.reporterName || report.reporterId}
+                            </Typography>
+                          </Stack>
+                          {report.details ? (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ whiteSpace: "pre-wrap" }}
+                            >
+                              {report.details}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              No additional details provided.
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.25}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "stretch", md: "center" }}
+                      >
+                        <Button
+                          variant="contained"
+                          onClick={() => navigate(`/seller/${report.reportedUserId}`)}
+                          sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
+                        >
+                          View Profile
+                        </Button>
+                        {report.status === "open" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={isLoading}
+                            onClick={() =>
+                              setConfirmAction({ type: "reviewUser", report })
+                            }
+                          >
+                            Mark Reviewed
+                          </Button>
                         )}
                       </Stack>
                     </Stack>

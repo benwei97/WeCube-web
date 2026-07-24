@@ -8,15 +8,34 @@ import {
   CardContent,
   Chip,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  Menu,
+  MenuItem,
+  Select,
+  Snackbar,
   Stack,
+  TextField,
   Typography,
+  Alert,
 } from "@mui/material";
-import { ArrowBack, Close, Star } from "@mui/icons-material";
-import { collection, doc, getDoc, onSnapshot, query, where } from "firebase/firestore";
+import { ArrowBack, Close, Flag, MoreVert, Star } from "@mui/icons-material";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import { db } from "../../firebase";
+import { useAuth } from "../contexts/useAuth";
 import {
   formatListingPrice,
   getPrimaryFulfillmentOption,
@@ -25,6 +44,11 @@ import {
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { getS3PublicUrl } from "../utils/s3";
+import {
+  characterCountText,
+  clampText,
+  INPUT_LIMITS,
+} from "../utils/inputLimits";
 
 const SECTION_SX = {
   py: 2.25,
@@ -56,10 +80,18 @@ const BACK_BUTTON_SX = {
     bgcolor: "rgba(100, 108, 255, 0.04)",
   },
 };
+const USER_REPORT_REASONS = [
+  { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
+  { value: "harassment_or_abuse", label: "Harassment or abusive behavior" },
+  { value: "fake_identity", label: "Fake identity or impersonation" },
+  { value: "suspicious_activity", label: "Suspicious listings or messages" },
+  { value: "other", label: "Other" },
+];
 
 function SellerProfile() {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [seller, setSeller] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewerProfiles, setReviewerProfiles] = useState({});
@@ -67,6 +99,13 @@ function SellerProfile() {
   const [selectedReview, setSelectedReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllActiveListings, setShowAllActiveListings] = useState(false);
+  const [profileMenuAnchorEl, setProfileMenuAnchorEl] = useState(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSnackbar, setReportSnackbar] = useState(null);
+  const isProfileMenuOpen = Boolean(profileMenuAnchorEl);
 
   useEffect(() => {
     setLoading(true);
@@ -191,6 +230,84 @@ function SellerProfile() {
     };
   };
 
+  const openReportDialog = () => {
+    setProfileMenuAnchorEl(null);
+
+    if (!currentUser) {
+      setReportSnackbar({
+        severity: "info",
+        message: "Please sign in to report this user.",
+      });
+      return;
+    }
+
+    if (currentUser.uid === userId) {
+      setReportSnackbar({
+        severity: "info",
+        message: "You cannot report your own profile.",
+      });
+      return;
+    }
+
+    setReportReason("");
+    setReportDetails("");
+    setShowReportDialog(true);
+  };
+
+  const closeReportDialog = () => {
+    if (submittingReport) return;
+
+    setShowReportDialog(false);
+    setReportReason("");
+    setReportDetails("");
+  };
+
+  const handleSubmitUserReport = async () => {
+    if (!currentUser?.uid || !userId || !reportReason) {
+      return;
+    }
+
+    const reportId = `${currentUser.uid}_${userId}`;
+    const reportRef = doc(db, "userReports", reportId);
+
+    setSubmittingReport(true);
+
+    try {
+      const now = new Date();
+      await setDoc(reportRef, {
+        reportedUserId: userId,
+        reportedUserName: sellerName,
+        reporterId: currentUser.uid,
+        reporterName:
+          `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim(),
+        reason: reportReason,
+        details: reportDetails.trim(),
+        status: "open",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      setShowReportDialog(false);
+      setReportReason("");
+      setReportDetails("");
+      setReportSnackbar({
+        severity: "success",
+        message: "Report submitted. We will review this user.",
+      });
+    } catch (error) {
+      console.error("Error submitting user report:", error);
+      setReportSnackbar({
+        severity: error.code === "permission-denied" ? "info" : "error",
+        message:
+          error.code === "permission-denied"
+            ? "This report could not be submitted. You may have already reported this user."
+            : "Unable to submit this report right now. Please try again.",
+      });
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -227,38 +344,76 @@ function SellerProfile() {
           pb: 2,
         }}
       >
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }}>
-          <Avatar src={seller.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
-            {sellerName.charAt(0).toUpperCase()}
-          </Avatar>
-          <Box>
-            <Typography variant="h4" fontWeight="bold">
-              {sellerName}
-            </Typography>
-            {reviewSummary.reviewCount > 0 ? (
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          justifyContent="space-between"
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Avatar src={seller.avatarUrl || undefined} sx={{ width: 72, height: 72 }}>
+              {sellerName.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                {sellerName}
+              </Typography>
+              {reviewSummary.reviewCount > 0 ? (
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}
+                >
+                  <Star fontSize="inherit" />
+                  {reviewSummary.averageRating
+                    ? reviewSummary.averageRating.toFixed(1)
+                    : "0.0"}{" "}
+                  · {reviewSummary.reviewCount} review
+                  {reviewSummary.reviewCount === 1 ? "" : "s"}
+                </Typography>
+              ) : (
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                  No reviews yet
+                </Typography>
+              )}
+              {seller.createdAt && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Member since {formatDate(seller.createdAt)}
+                </Typography>
+              )}
+            </Box>
+          </Stack>
+          {currentUser?.uid !== userId && (
+            <Box>
+              <IconButton
+                onClick={(event) => setProfileMenuAnchorEl(event.currentTarget)}
+                aria-label="Profile options"
+                aria-controls={isProfileMenuOpen ? "seller-profile-actions" : undefined}
+                aria-haspopup="true"
+                aria-expanded={isProfileMenuOpen ? "true" : undefined}
+                sx={{
+                  border: 1,
+                  borderColor: "divider",
+                  color: "text.secondary",
+                }}
               >
-                <Star fontSize="inherit" />
-                {reviewSummary.averageRating
-                  ? reviewSummary.averageRating.toFixed(1)
-                  : "0.0"}{" "}
-                · {reviewSummary.reviewCount} review
-                {reviewSummary.reviewCount === 1 ? "" : "s"}
-              </Typography>
-            ) : (
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                No reviews yet
-              </Typography>
-            )}
-            {seller.createdAt && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Member since {formatDate(seller.createdAt)}
-              </Typography>
-            )}
-          </Box>
+                <MoreVert />
+              </IconButton>
+              <Menu
+                id="seller-profile-actions"
+                anchorEl={profileMenuAnchorEl}
+                open={isProfileMenuOpen}
+                onClose={() => setProfileMenuAnchorEl(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+              >
+                <MenuItem onClick={openReportDialog}>
+                  <Flag fontSize="small" sx={{ mr: 1.25 }} />
+                  Report user
+                </MenuItem>
+              </Menu>
+            </Box>
+          )}
         </Stack>
 
       </Box>
@@ -631,6 +786,88 @@ function SellerProfile() {
             );
           })()}
         </Dialog>
+        <Dialog
+          open={showReportDialog}
+          onClose={closeReportDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Report User</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <DialogContentText>
+                Tell us what looks wrong. Reports help us review unsafe or
+                abusive marketplace behavior.
+              </DialogContentText>
+              <FormControl fullWidth required>
+                <InputLabel id="user-report-reason-label">Reason</InputLabel>
+                <Select
+                  labelId="user-report-reason-label"
+                  label="Reason"
+                  value={reportReason}
+                  onChange={(event) => setReportReason(event.target.value)}
+                  disabled={submittingReport}
+                >
+                  {USER_REPORT_REASONS.map((reason) => (
+                    <MenuItem key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                label="Details"
+                multiline
+                minRows={4}
+                value={reportDetails}
+                onChange={(event) =>
+                  setReportDetails(
+                    clampText(event.target.value, INPUT_LIMITS.REPORT_DETAILS)
+                  )
+                }
+                disabled={submittingReport}
+                helperText={characterCountText(
+                  reportDetails,
+                  INPUT_LIMITS.REPORT_DETAILS
+                )}
+                slotProps={{
+                  htmlInput: {
+                    maxLength: INPUT_LIMITS.REPORT_DETAILS,
+                  },
+                }}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeReportDialog} color="inherit" disabled={submittingReport}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitUserReport}
+              variant="contained"
+              disabled={submittingReport || !reportReason}
+            >
+              {submittingReport ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Snackbar
+          open={Boolean(reportSnackbar)}
+          autoHideDuration={3600}
+          onClose={() => setReportSnackbar(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          {reportSnackbar && (
+            <Alert
+              onClose={() => setReportSnackbar(null)}
+              severity={reportSnackbar.severity}
+              variant="filled"
+              sx={{ width: "100%" }}
+            >
+              {reportSnackbar.message}
+            </Alert>
+          )}
+        </Snackbar>
     </Box>
   );
 }
