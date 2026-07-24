@@ -41,6 +41,14 @@ function Header() {
   const activeConversationId = location.pathname.startsWith("/messages/")
     ? location.pathname.split("/")[2] || null
     : null;
+  const primaryNavItems = [
+    { label: "Browse", path: "/" },
+    { label: "Competitions", path: "/competitions" },
+    { label: "Sell", path: "/sell" },
+    ...(currentUser?.isAdmin
+      ? [{ label: "Admin", path: "/admin/reports" }]
+      : []),
+  ];
 
   useEffect(() => {
     if (currentUser) {
@@ -170,15 +178,11 @@ function Header() {
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: { xs: "none", md: "flex" }, gap: 3, mr: 3 }}>
-            <Button component={Link} to="/" color="inherit">
-              Browse
-            </Button>
-            <Button component={Link} to="/competitions" color="inherit">
-              Competitions
-            </Button>
-            <Button component={Link} to="/sell" color="inherit">
-              Sell
-            </Button>
+            {primaryNavItems.map((item) => (
+              <Button key={item.path} component={Link} to={item.path} color="inherit">
+                {item.label}
+              </Button>
+            ))}
           </Box>
 
           <Box sx={{ display: { xs: "none", md: "block" }, flexGrow: 1 }} />
@@ -266,17 +270,13 @@ function Header() {
           aria-label="Primary navigation"
           sx={{
             display: { xs: "grid", md: "none" },
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gridTemplateColumns: `repeat(${primaryNavItems.length}, minmax(0, 1fr))`,
             borderTop: "1px solid rgba(148, 163, 184, 0.14)",
             px: 1,
             pb: 0.5,
           }}
         >
-          {[
-            { label: "Browse", path: "/" },
-            { label: "Competitions", path: "/competitions" },
-            { label: "Sell", path: "/sell" },
-          ].map((item) => {
+          {primaryNavItems.map((item) => {
             const isActive =
               item.path === "/"
                 ? location.pathname === "/"
