@@ -22,10 +22,13 @@ import {
 import {
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   updateDoc,
+  where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
@@ -207,6 +210,50 @@ export default function AdminReports() {
     }
   };
 
+  const hideReportedUserListings = async (report) => {
+    if (!report?.reportedUserId || !currentUser?.uid) return;
+
+    setActionLoadingId(report.id);
+    try {
+      const now = new Date();
+      const listingsQuery = query(
+        collection(db, "listings"),
+        where("userId", "==", report.reportedUserId)
+      );
+      const snapshot = await getDocs(listingsQuery);
+      const listingsToHide = snapshot.docs.filter((listingDoc) => {
+        const listing = listingDoc.data();
+        return listing.status !== "sold" && listing.moderationStatus !== "hidden";
+      });
+
+      if (listingsToHide.length > 0) {
+        const batch = writeBatch(db);
+        listingsToHide.forEach((listingDoc) => {
+          batch.update(listingDoc.ref, {
+            moderationStatus: "hidden",
+            hiddenAt: now,
+            hiddenBy: currentUser.uid,
+            hiddenReason: report.reason,
+            updatedAt: now,
+          });
+        });
+        await batch.commit();
+      }
+
+      await updateReportStatus(
+        "userReports",
+        report,
+        "reviewed",
+        "reported_user_listings_hidden"
+      );
+    } catch (error) {
+      console.error("Error hiding reported user listings:", error);
+      alert("Unable to hide this user's listings right now.");
+    } finally {
+      setActionLoadingId("");
+    }
+  };
+
   const confirmActionCopy = useMemo(() => {
     if (!confirmAction?.report) return null;
 
@@ -220,6 +267,15 @@ export default function AdminReports() {
         title: "Hide Listing",
         body: `Hide "${reportTarget}" from public listing surfaces? The owner and admins may still be able to view it.`,
         confirmLabel: "Hide Listing",
+        color: "error",
+      };
+    }
+
+    if (confirmAction.type === "hideUserListings") {
+      return {
+        title: "Hide User Listings",
+        body: `Hide all active and pending listings from "${reportTarget}"? Sold listings will not be changed.`,
+        confirmLabel: "Hide Listings",
         color: "error",
       };
     }
@@ -246,6 +302,8 @@ export default function AdminReports() {
 
     if (type === "hide") {
       await hideReportedListing(report);
+    } else if (type === "hideUserListings") {
+      await hideReportedUserListings(report);
     } else if (type === "reviewListing") {
       await updateReportStatus(
         "listingReports",
@@ -516,16 +574,38 @@ export default function AdminReports() {
                           View Profile
                         </Button>
                         {report.status === "open" && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            disabled={isLoading}
-                            onClick={() =>
-                              setConfirmAction({ type: "reviewUser", report })
-                            }
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            flexWrap="wrap"
+                            useFlexGap
+                            alignItems={{ xs: "stretch", sm: "center" }}
                           >
-                            Mark Reviewed
-                          </Button>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="error"
+                              disabled={isLoading}
+                              onClick={() =>
+                                setConfirmAction({
+                                  type: "hideUserListings",
+                                  report,
+                                })
+                              }
+                            >
+                              Hide User Listings
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled={isLoading}
+                              onClick={() =>
+                                setConfirmAction({ type: "reviewUser", report })
+                              }
+                            >
+                              Mark Reviewed
+                            </Button>
+                          </Stack>
                         )}
                       </Stack>
                     </Stack>
