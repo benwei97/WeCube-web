@@ -14,6 +14,8 @@ import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
 import SellerProfile from "./pages/SellerProfile";
 import AdminReports from "./pages/AdminReports";
+import SafetyGuidelines from "./pages/SafetyGuidelines";
+import Terms from "./pages/Terms";
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
               <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/safety" element={<SafetyGuidelines />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/my-listings" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-purchases" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-reviews" element={<Navigate to="/dashboard" replace />} />

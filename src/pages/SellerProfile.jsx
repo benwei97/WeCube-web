@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Avatar,
   Box,
@@ -855,7 +855,11 @@ function SellerProfile() {
             <Stack spacing={2} sx={{ mt: 1 }}>
               <DialogContentText>
                 Tell us what looks wrong. Reports help us review unsafe or
-                abusive marketplace behavior.
+                abusive marketplace behavior. Review the{" "}
+                <Box component={Link} to="/safety" sx={{ color: "primary.main" }}>
+                  safety guidelines
+                </Box>
+                .
               </DialogContentText>
               <FormControl fullWidth required>
                 <InputLabel id="user-report-reason-label">Reason</InputLabel>

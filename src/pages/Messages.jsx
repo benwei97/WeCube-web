@@ -35,7 +35,7 @@ import {
   Star,
 } from "@mui/icons-material";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import {
   subscribeToUserConversations,
@@ -1766,7 +1766,11 @@ function Messages() {
           <Stack spacing={2} sx={{ mt: 1 }}>
             <DialogContentText>
               Tell us what happened. Reports help us review unsafe or abusive
-              marketplace conversations.
+              marketplace conversations. Review the{" "}
+              <Box component={Link} to="/safety" sx={{ color: "primary.main" }}>
+                safety guidelines
+              </Box>
+              .
             </DialogContentText>
             <FormControl fullWidth required>
               <InputLabel id="conversation-report-reason-label">Reason</InputLabel>

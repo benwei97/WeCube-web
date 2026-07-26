@@ -45,6 +45,16 @@ function Header() {
     { label: "Browse", path: "/" },
     { label: "Competitions", path: "/competitions" },
     { label: "Sell", path: "/sell" },
+  ];
+  const desktopNavItems = [
+    ...primaryNavItems,
+    { label: "Policies", path: "/safety" },
+    ...(currentUser?.isAdmin
+      ? [{ label: "Admin", path: "/admin/reports" }]
+      : []),
+  ];
+  const mobileNavItems = [
+    ...primaryNavItems,
     ...(currentUser?.isAdmin
       ? [{ label: "Admin", path: "/admin/reports" }]
       : []),
@@ -178,7 +188,7 @@ function Header() {
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: { xs: "none", md: "flex" }, gap: 3, mr: 3 }}>
-            {primaryNavItems.map((item) => (
+            {desktopNavItems.map((item) => (
               <Button key={item.path} component={Link} to={item.path} color="inherit">
                 {item.label}
               </Button>
@@ -270,13 +280,13 @@ function Header() {
           aria-label="Primary navigation"
           sx={{
             display: { xs: "grid", md: "none" },
-            gridTemplateColumns: `repeat(${primaryNavItems.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `repeat(${mobileNavItems.length}, minmax(0, 1fr))`,
             borderTop: "1px solid rgba(148, 163, 184, 0.14)",
             px: 1,
             pb: 0.5,
           }}
         >
-          {primaryNavItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const isActive =
               item.path === "/"
                 ? location.pathname === "/"

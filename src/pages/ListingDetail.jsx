@@ -51,7 +51,7 @@ import {
   Flag,
 } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
@@ -2672,7 +2672,11 @@ function ListingDetail() {
           <Stack spacing={2} sx={{ mt: 1 }}>
             <DialogContentText>
               Tell us what looks wrong. Reports help us review unsafe,
-              misleading, or inappropriate listings.
+              misleading, or inappropriate listings. Review the{" "}
+              <Box component={Link} to="/safety" sx={{ color: "primary.main" }}>
+                safety guidelines
+              </Box>
+              .
             </DialogContentText>
             <FormControl fullWidth required>
               <InputLabel id="listing-report-reason-label">Reason</InputLabel>
