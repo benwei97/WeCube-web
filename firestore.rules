@@ -255,11 +255,18 @@ service cloud.firestore {
           "avatarUrl",
           "avatarS3Key",
           "attendingCompetitions",
+          "acceptedPoliciesAt",
+          "acceptedPolicyVersion",
+          "acceptedTermsVersion",
+          "acceptedPrivacyVersion",
           "firstName",
           "lastName"
         ])
         && isOptionalStringField(request.resource.data, "avatarUrl", 500)
         && isOptionalStringField(request.resource.data, "avatarS3Key", 512)
+        && isOptionalStringField(request.resource.data, "acceptedPolicyVersion", 40)
+        && isOptionalStringField(request.resource.data, "acceptedTermsVersion", 40)
+        && isOptionalStringField(request.resource.data, "acceptedPrivacyVersion", 40)
         && isNonEmptyString(request.resource.data.firstName, 50)
         && isNonEmptyString(request.resource.data.lastName, 50);
     }

@@ -5,6 +5,7 @@ import "./App.css";
 import theme from "./theme";
 import { AuthProvider } from "./contexts/AuthContext";
 import Header from "./components/Header";
+import PolicyAcceptanceGate from "./components/PolicyAcceptanceGate";
 import Dashboard from "./pages/Dashboard";
 import Browse from "./pages/Browse";
 import Competitions from "./pages/Competitions";
@@ -24,6 +25,7 @@ function App() {
       <AuthProvider>
         <Router>
           <Header />
+          <PolicyAcceptanceGate />
           <Box
             component="main"
             sx={{
