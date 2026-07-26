@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 const POLICY_TABS = [
   { label: "Safety Guidelines", path: "/safety" },
   { label: "Terms & Conditions", path: "/terms" },
+  { label: "Privacy Policy", path: "/privacy" },
 ];
 
 export default function PolicyTabs() {
@@ -20,6 +21,8 @@ export default function PolicyTabs() {
       <Box
         sx={{
           display: "inline-flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
           borderBottom: "1px solid",
           borderColor: "divider",
         }}
@@ -37,7 +40,7 @@ export default function PolicyTabs() {
               size="small"
               sx={{
                 minWidth: 0,
-                width: { xs: 142, sm: 170 },
+                width: { xs: 112, sm: 170 },
                 borderRadius: 0,
                 borderBottom: "2px solid",
                 borderColor: isActive ? "primary.main" : "transparent",

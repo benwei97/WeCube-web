@@ -35,6 +35,13 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Messaging Safety",
+    items: [
+      "Do not share passwords, verification codes, full payment credentials, bank account details, Social Security numbers, or other sensitive personal information through WeCube messages.",
+      "Keep communication focused on the listing, fulfillment details, and public meetup coordination.",
+    ],
+  },
+  {
     title: "Meetup Safety",
     items: [
       "Meet in a public place when possible.",

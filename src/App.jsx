@@ -16,6 +16,7 @@ import SellerProfile from "./pages/SellerProfile";
 import AdminReports from "./pages/AdminReports";
 import SafetyGuidelines from "./pages/SafetyGuidelines";
 import Terms from "./pages/Terms";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/safety" element={<SafetyGuidelines />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/my-listings" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-purchases" element={<Navigate to="/dashboard" replace />} />
               <Route path="/my-reviews" element={<Navigate to="/dashboard" replace />} />
