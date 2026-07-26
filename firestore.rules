@@ -38,6 +38,15 @@ service cloud.firestore {
       return get(conversationPath(conversationId)).data;
     }
 
+    function userBlockPath(blockerId, blockedUserId) {
+      return /databases/$(database)/documents/userBlocks/$(blockerId + "_" + blockedUserId);
+    }
+
+    function isBlockedBetween(firstUserId, secondUserId) {
+      return exists(userBlockPath(firstUserId, secondUserId)) ||
+        exists(userBlockPath(secondUserId, firstUserId));
+    }
+
     function isConversationParticipantByData(data) {
       return signedIn() &&
         (data.buyerId == request.auth.uid || data.sellerId == request.auth.uid);
@@ -262,6 +271,7 @@ service cloud.firestore {
         && data.lastMessageSenderId == request.auth.uid
         && isNonEmptyString(data.lastMessage, 2000)
         && data.initialMessage == data.lastMessage
+        && !isBlockedBetween(data.buyerId, data.sellerId)
         && listingExists(data.listingId)
         && listingData(data.listingId).status == "active"
         && listingData(data.listingId).userId == data.sellerId;
@@ -309,6 +319,13 @@ service cloud.firestore {
           data.type != "message" ||
           !("closedReason" in conversationData(data.conversationId)) ||
           conversationData(data.conversationId).closedReason != "listing_deleted"
+        )
+        && (
+          data.type != "message" ||
+          !isBlockedBetween(
+            conversationData(data.conversationId).buyerId,
+            conversationData(data.conversationId).sellerId
+          )
         )
         && isConversationParticipantByData(conversationData(data.conversationId))
         && data.senderId == request.auth.uid
@@ -443,6 +460,20 @@ service cloud.firestore {
         && request.resource.data.status in ["reviewed", "dismissed"]
         && request.resource.data.reviewedBy == request.auth.uid
         && isOptionalStringField(request.resource.data, "actionTaken", 120);
+    }
+
+    function validUserBlockCreate(blockId, data) {
+      return signedIn()
+        && data.keys().hasOnly([
+          "blockerId",
+          "blockedUserId",
+          "createdAt"
+        ])
+        && blockId == data.blockerId + "_" + data.blockedUserId
+        && data.blockerId == request.auth.uid
+        && data.blockedUserId is string
+        && data.blockedUserId != request.auth.uid
+        && exists(/databases/$(database)/documents/users/$(data.blockedUserId));
     }
 
     function validUserReportCreate(reportId, data) {
@@ -601,6 +632,16 @@ service cloud.firestore {
       allow create: if validConversationReportCreate(reportId, request.resource.data);
       allow update: if validConversationReportAdminUpdate();
       allow delete: if false;
+    }
+
+    match /userBlocks/{blockId} {
+      allow read: if isAdmin() ||
+        (signedIn() &&
+          (resource.data.blockerId == request.auth.uid ||
+           resource.data.blockedUserId == request.auth.uid));
+      allow create: if validUserBlockCreate(blockId, request.resource.data);
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.blockerId == request.auth.uid;
     }
   }
 }

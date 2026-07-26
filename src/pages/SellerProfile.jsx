@@ -24,7 +24,7 @@ import {
   Typography,
   Alert,
 } from "@mui/material";
-import { ArrowBack, Close, Flag, MoreVert, Star } from "@mui/icons-material";
+import { ArrowBack, Block, Close, Flag, MoreVert, Star } from "@mui/icons-material";
 import {
   collection,
   doc,
@@ -42,6 +42,7 @@ import {
   isListingModerationHidden,
 } from "../utils/listingUtils";
 import { subscribeToSellerReviews } from "../utils/reviews";
+import { blockUser } from "../utils/messaging";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import { getS3PublicUrl } from "../utils/s3";
 import {
@@ -105,6 +106,8 @@ function SellerProfile() {
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSnackbar, setReportSnackbar] = useState(null);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockingUser, setBlockingUser] = useState(false);
   const isProfileMenuOpen = Boolean(profileMenuAnchorEl);
 
   useEffect(() => {
@@ -308,6 +311,57 @@ function SellerProfile() {
     }
   };
 
+  const openBlockDialog = () => {
+    setProfileMenuAnchorEl(null);
+
+    if (!currentUser) {
+      setReportSnackbar({
+        severity: "info",
+        message: "Please sign in to block this user.",
+      });
+      return;
+    }
+
+    if (currentUser.uid === userId) {
+      setReportSnackbar({
+        severity: "info",
+        message: "You cannot block your own profile.",
+      });
+      return;
+    }
+
+    setBlockDialogOpen(true);
+  };
+
+  const closeBlockDialog = () => {
+    if (blockingUser) return;
+    setBlockDialogOpen(false);
+  };
+
+  const handleBlockUser = async () => {
+    if (!currentUser?.uid || !userId) {
+      return;
+    }
+
+    setBlockingUser(true);
+    try {
+      await blockUser(currentUser.uid, userId);
+      setBlockDialogOpen(false);
+      setReportSnackbar({
+        severity: "success",
+        message: "User blocked. They can no longer message you.",
+      });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      setReportSnackbar({
+        severity: "error",
+        message: "Unable to block this user right now. Please try again.",
+      });
+    } finally {
+      setBlockingUser(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
@@ -410,6 +464,10 @@ function SellerProfile() {
                 <MenuItem onClick={openReportDialog}>
                   <Flag fontSize="small" sx={{ mr: 1.25 }} />
                   Report user
+                </MenuItem>
+                <MenuItem onClick={openBlockDialog} sx={{ color: "error.main" }}>
+                  <Block fontSize="small" sx={{ mr: 1.25 }} />
+                  Block user
                 </MenuItem>
               </Menu>
             </Box>
@@ -848,6 +906,33 @@ function SellerProfile() {
               disabled={submittingReport || !reportReason}
             >
               {submittingReport ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
+          open={blockDialogOpen}
+          onClose={closeBlockDialog}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Block User</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Block {sellerName}? They will not be able to start or continue
+              conversations with you.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeBlockDialog} color="inherit" disabled={blockingUser}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBlockUser}
+              color="error"
+              variant="contained"
+              disabled={blockingUser}
+            >
+              {blockingUser ? "Blocking..." : "Block User"}
             </Button>
           </DialogActions>
         </Dialog>

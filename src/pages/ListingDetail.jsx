@@ -845,7 +845,10 @@ function ListingDetail() {
       console.error("Error sending message:", error);
       setMessageSnackbar({
         severity: "error",
-        message: "Unable to send your message right now. Please try again.",
+        message:
+          error.message === "Messaging is not available between these accounts."
+            ? "Messaging is not available between these accounts."
+            : "Unable to send your message right now. Please try again.",
       });
     } finally {
       setSendingMessage(false);

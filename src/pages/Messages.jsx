@@ -41,8 +41,11 @@ import {
   subscribeToUserConversations,
   subscribeToMessages,
   addMessage,
+  blockUser,
+  getUserBlock,
   markConversationAsRead,
   isConversationUnread,
+  unblockUser,
 } from "../utils/messaging";
 import { submitTransactionReview } from "../utils/reviews";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -211,8 +214,15 @@ function Messages() {
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSnackbar, setReportSnackbar] = useState(null);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockingUser, setBlockingUser] = useState(false);
+  const [blockedConversationIds, setBlockedConversationIds] = useState({});
+  const [blockedByCurrentUserIds, setBlockedByCurrentUserIds] = useState({});
   const messagesScrollRef = useRef(null);
   const isConversationMenuOpen = Boolean(conversationMenuAnchorEl);
+  const currentConversationBlockedByMe =
+    Boolean(selectedConversation) &&
+    Boolean(blockedByCurrentUserIds[selectedConversation.id]);
 
   const getReviewPromptResponseKey = (messageId) =>
     currentUserId && messageId ? `${currentUserId}:${messageId}` : null;
@@ -482,6 +492,43 @@ function Messages() {
     markConversationReadLocally,
   ]);
 
+  useEffect(() => {
+    if (!currentUserId || !selectedConversation) {
+      return undefined;
+    }
+
+    let active = true;
+    const otherUserId = getConversationCounterpartId(selectedConversation);
+
+    const loadBlockState = async () => {
+      try {
+        const [currentUserBlock, otherUserBlock] = await Promise.all([
+          getUserBlock(currentUserId, otherUserId),
+          getUserBlock(otherUserId, currentUserId),
+        ]);
+
+        if (!active) return;
+
+        setBlockedByCurrentUserIds((prev) => ({
+          ...prev,
+          [selectedConversation.id]: Boolean(currentUserBlock),
+        }));
+        setBlockedConversationIds((prev) => ({
+          ...prev,
+          [selectedConversation.id]: Boolean(currentUserBlock || otherUserBlock),
+        }));
+      } catch (error) {
+        console.error("Error loading block state:", error);
+      }
+    };
+
+    loadBlockState();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId, selectedConversation]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
     if (selectedConversation.closedReason === "listing_deleted") return;
@@ -497,7 +544,13 @@ function Messages() {
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
-      alert("Failed to send message");
+      setReportSnackbar({
+        severity: "error",
+        message:
+          error.message === "Messaging is not available between these accounts."
+            ? "Messaging is not available between these accounts."
+            : "Failed to send message",
+      });
     } finally {
       setSendingMessage(false);
     }
@@ -638,6 +691,89 @@ function Messages() {
       });
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const openBlockDialog = () => {
+    setConversationMenuAnchorEl(null);
+
+    if (!selectedConversation || !currentUserId) {
+      return;
+    }
+
+    setBlockDialogOpen(true);
+  };
+
+  const closeBlockDialog = () => {
+    if (blockingUser) return;
+    setBlockDialogOpen(false);
+  };
+
+  const handleBlockUser = async () => {
+    if (!currentUser?.uid || !selectedConversation) {
+      return;
+    }
+
+    const blockedUserId = getConversationCounterpartId(selectedConversation);
+
+    setBlockingUser(true);
+    try {
+      await blockUser(currentUser.uid, blockedUserId);
+      setBlockedConversationIds((prev) => ({
+        ...prev,
+        [selectedConversation.id]: true,
+      }));
+      setBlockedByCurrentUserIds((prev) => ({
+        ...prev,
+        [selectedConversation.id]: true,
+      }));
+      setBlockDialogOpen(false);
+      setReportSnackbar({
+        severity: "success",
+        message: "User blocked. They can no longer message you.",
+      });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      setReportSnackbar({
+        severity: "error",
+        message: "Unable to block this user right now. Please try again.",
+      });
+    } finally {
+      setBlockingUser(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!currentUser?.uid || !selectedConversation) {
+      return;
+    }
+
+    const blockedUserId = getConversationCounterpartId(selectedConversation);
+
+    setBlockingUser(true);
+    try {
+      await unblockUser(currentUser.uid, blockedUserId);
+      setBlockedConversationIds((prev) => ({
+        ...prev,
+        [selectedConversation.id]: false,
+      }));
+      setBlockedByCurrentUserIds((prev) => ({
+        ...prev,
+        [selectedConversation.id]: false,
+      }));
+      setBlockDialogOpen(false);
+      setReportSnackbar({
+        severity: "success",
+        message: "User unblocked. You can message each other again.",
+      });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      setReportSnackbar({
+        severity: "error",
+        message: "Unable to unblock this user right now. Please try again.",
+      });
+    } finally {
+      setBlockingUser(false);
     }
   };
 
@@ -1158,6 +1294,17 @@ function Messages() {
                     <Flag fontSize="small" sx={{ mr: 1.25 }} />
                     Report conversation
                   </MenuItem>
+                  <MenuItem
+                    onClick={openBlockDialog}
+                    sx={{
+                      color: currentConversationBlockedByMe
+                        ? "text.primary"
+                        : "error.main",
+                    }}
+                  >
+                    <Person fontSize="small" sx={{ mr: 1.25 }} />
+                    {currentConversationBlockedByMe ? "Unblock user" : "Block user"}
+                  </MenuItem>
                 </Menu>
               </Box>
 
@@ -1416,6 +1563,22 @@ function Messages() {
                     This listing was deleted, so the conversation is closed.
                   </Alert>
                 </Box>
+              ) : blockedConversationIds[selectedConversation.id] ? (
+                <Box
+                  sx={{
+                    px: { xs: 1, md: 2 },
+                    pt: { xs: 0.75, md: 2 },
+                    pb: { xs: 0, md: 2 },
+                    borderTop: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Alert severity="info" variant="outlined">
+                    {currentConversationBlockedByMe
+                      ? "You blocked this user, so this conversation is closed for messaging."
+                      : "Messaging is not available between these accounts."}
+                  </Alert>
+                </Box>
               ) : selectedConversation.status !== "rejected" && (
                 <Box
                   sx={{
@@ -1654,6 +1817,50 @@ function Messages() {
             disabled={submittingReport || !reportReason}
           >
             {submittingReport ? "Submitting..." : "Submit Report"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={blockDialogOpen}
+        onClose={closeBlockDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {currentConversationBlockedByMe ? "Unblock User" : "Block User"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {currentConversationBlockedByMe ? "Unblock " : "Block "}
+            {selectedConversation
+              ? getConversationCounterpartName(selectedConversation)
+              : "this user"}
+            ?{" "}
+            {currentConversationBlockedByMe
+              ? "You will be able to message each other again."
+              : "They will not be able to start or continue conversations with you."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeBlockDialog} color="inherit" disabled={blockingUser}>
+            Cancel
+          </Button>
+          <Button
+            onClick={
+              currentConversationBlockedByMe ? handleUnblockUser : handleBlockUser
+            }
+            color={currentConversationBlockedByMe ? "primary" : "error"}
+            variant="contained"
+            disabled={blockingUser}
+          >
+            {blockingUser
+              ? currentConversationBlockedByMe
+                ? "Unblocking..."
+                : "Blocking..."
+              : currentConversationBlockedByMe
+                ? "Unblock User"
+                : "Block User"}
           </Button>
         </DialogActions>
       </Dialog>

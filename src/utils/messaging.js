@@ -2,8 +2,10 @@ import {
   collection,
   doc,
   addDoc,
+  deleteDoc,
   getDocs,
   getDoc,
+  setDoc,
   updateDoc,
   query,
   where,
@@ -13,6 +15,55 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getExistingReview } from "./reviews";
+
+function getUserBlockId(blockerId, blockedUserId) {
+  return `${blockerId}_${blockedUserId}`;
+}
+
+export async function blockUser(blockerId, blockedUserId) {
+  if (!blockerId || !blockedUserId || blockerId === blockedUserId) {
+    throw new Error("Invalid user block");
+  }
+
+  await setDoc(doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId)), {
+    blockerId,
+    blockedUserId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getUserBlock(blockerId, blockedUserId) {
+  if (!blockerId || !blockedUserId) {
+    return null;
+  }
+
+  const blockDoc = await getDoc(
+    doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId))
+  );
+
+  return blockDoc.exists() ? { id: blockDoc.id, ...blockDoc.data() } : null;
+}
+
+export async function unblockUser(blockerId, blockedUserId) {
+  if (!blockerId || !blockedUserId || blockerId === blockedUserId) {
+    throw new Error("Invalid user unblock");
+  }
+
+  await deleteDoc(doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId)));
+}
+
+export async function isUserBlockedBetween(firstUserId, secondUserId) {
+  if (!firstUserId || !secondUserId) {
+    return false;
+  }
+
+  const [firstBlocksSecond, secondBlocksFirst] = await Promise.all([
+    getDoc(doc(db, "userBlocks", getUserBlockId(firstUserId, secondUserId))),
+    getDoc(doc(db, "userBlocks", getUserBlockId(secondUserId, firstUserId))),
+  ]);
+
+  return firstBlocksSecond.exists() || secondBlocksFirst.exists();
+}
 
 /**
  * Firestore Collections Schema:
@@ -59,6 +110,10 @@ export async function createConversation(
     );
     if (existingConversation) {
       throw new Error("You already have a conversation for this listing");
+    }
+
+    if (await isUserBlockedBetween(buyerId, sellerId)) {
+      throw new Error("Messaging is not available between these accounts.");
     }
 
     // Create new conversation
@@ -255,6 +310,12 @@ export async function addMessage(
     }
     if (type === "message" && conversation.closedReason === "listing_deleted") {
       throw new Error("This listing was deleted, so the conversation is closed.");
+    }
+    if (
+      type === "message" &&
+      (await isUserBlockedBetween(conversation.buyerId, conversation.sellerId))
+    ) {
+      throw new Error("Messaging is not available between these accounts.");
     }
 
     // Add message
