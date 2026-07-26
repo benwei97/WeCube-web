@@ -15,10 +15,25 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  FormControl,
+  InputLabel,
+  Menu,
+  MenuItem,
+  Select,
+  Snackbar,
   Alert,
 } from "@mui/material";
-import { ArrowBack, CheckCircle, Send, Person, Star } from "@mui/icons-material";
+import {
+  ArrowBack,
+  CheckCircle,
+  Flag,
+  MoreVert,
+  Send,
+  Person,
+  Star,
+} from "@mui/icons-material";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
@@ -30,7 +45,7 @@ import {
   isConversationUnread,
 } from "../utils/messaging";
 import { submitTransactionReview } from "../utils/reviews";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getS3PublicUrl } from "../utils/s3";
 import {
@@ -41,6 +56,13 @@ import {
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 const REVIEW_PROMPT_RESPONSE_STORAGE_KEY = "wecubeReviewPromptResponses";
+const CONVERSATION_REPORT_REASONS = [
+  { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
+  { value: "harassment_or_abuse", label: "Harassment or abusive behavior" },
+  { value: "payment_or_shipping_issue", label: "Payment or shipping concern" },
+  { value: "suspicious_messages", label: "Suspicious messages" },
+  { value: "other", label: "Other" },
+];
 
 function getTimestampDate(timestamp) {
   if (!timestamp) {
@@ -183,7 +205,14 @@ function Messages() {
   });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewPromptResponses, setReviewPromptResponses] = useState({});
+  const [conversationMenuAnchorEl, setConversationMenuAnchorEl] = useState(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSnackbar, setReportSnackbar] = useState(null);
   const messagesScrollRef = useRef(null);
+  const isConversationMenuOpen = Boolean(conversationMenuAnchorEl);
 
   const getReviewPromptResponseKey = (messageId) =>
     currentUserId && messageId ? `${currentUserId}:${messageId}` : null;
@@ -540,6 +569,75 @@ function Messages() {
       alert(error.message || "Failed to submit review");
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  const openReportDialog = () => {
+    setConversationMenuAnchorEl(null);
+
+    if (!selectedConversation || !currentUserId) {
+      return;
+    }
+
+    setReportReason("");
+    setReportDetails("");
+    setReportDialogOpen(true);
+  };
+
+  const closeReportDialog = () => {
+    if (submittingReport) return;
+
+    setReportDialogOpen(false);
+    setReportReason("");
+    setReportDetails("");
+  };
+
+  const handleSubmitConversationReport = async () => {
+    if (!currentUser || !selectedConversation || !reportReason) {
+      return;
+    }
+
+    const reportedUserId = getConversationCounterpartId(selectedConversation);
+    const reportId = `${currentUser.uid}_${selectedConversation.id}`;
+    const reportRef = doc(db, "conversationReports", reportId);
+
+    setSubmittingReport(true);
+    try {
+      const now = new Date();
+      await setDoc(reportRef, {
+        conversationId: selectedConversation.id,
+        listingId: selectedConversation.listingId,
+        listingTitle: getListingTitle(selectedConversation.listingId),
+        reportedUserId,
+        reportedUserName: getConversationCounterpartName(selectedConversation),
+        reporterId: currentUser.uid,
+        reporterName:
+          `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim(),
+        reason: reportReason,
+        details: reportDetails.trim(),
+        status: "open",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      setReportDialogOpen(false);
+      setReportReason("");
+      setReportDetails("");
+      setReportSnackbar({
+        severity: "success",
+        message: "Report submitted. We will review this conversation.",
+      });
+    } catch (error) {
+      console.error("Error submitting conversation report:", error);
+      setReportSnackbar({
+        severity: error.code === "permission-denied" ? "info" : "error",
+        message:
+          error.code === "permission-denied"
+            ? "This report could not be submitted. You may have already reported this conversation."
+            : "Unable to submit this report right now. Please try again.",
+      });
+    } finally {
+      setSubmittingReport(false);
     }
   };
 
@@ -1029,6 +1127,38 @@ function Messages() {
                         : "Your inquiry"}
                   </Typography>
                 </Box>
+                <IconButton
+                  onClick={(event) =>
+                    setConversationMenuAnchorEl(event.currentTarget)
+                  }
+                  aria-label="Conversation options"
+                  aria-controls={
+                    isConversationMenuOpen ? "conversation-actions" : undefined
+                  }
+                  aria-haspopup="true"
+                  aria-expanded={isConversationMenuOpen ? "true" : undefined}
+                  sx={{
+                    border: 1,
+                    borderColor: "divider",
+                    color: "text.secondary",
+                    flexShrink: 0,
+                  }}
+                >
+                  <MoreVert />
+                </IconButton>
+                <Menu
+                  id="conversation-actions"
+                  anchorEl={conversationMenuAnchorEl}
+                  open={isConversationMenuOpen}
+                  onClose={() => setConversationMenuAnchorEl(null)}
+                  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                  transformOrigin={{ vertical: "top", horizontal: "right" }}
+                >
+                  <MenuItem onClick={openReportDialog}>
+                    <Flag fontSize="small" sx={{ mr: 1.25 }} />
+                    Report conversation
+                  </MenuItem>
+                </Menu>
               </Box>
 
               {/* Messages */}
@@ -1461,6 +1591,90 @@ function Messages() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={reportDialogOpen}
+        onClose={closeReportDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Report Conversation</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <DialogContentText>
+              Tell us what happened. Reports help us review unsafe or abusive
+              marketplace conversations.
+            </DialogContentText>
+            <FormControl fullWidth required>
+              <InputLabel id="conversation-report-reason-label">Reason</InputLabel>
+              <Select
+                labelId="conversation-report-reason-label"
+                label="Reason"
+                value={reportReason}
+                onChange={(event) => setReportReason(event.target.value)}
+                disabled={submittingReport}
+              >
+                {CONVERSATION_REPORT_REASONS.map((reason) => (
+                  <MenuItem key={reason.value} value={reason.value}>
+                    {reason.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Details"
+              multiline
+              minRows={4}
+              value={reportDetails}
+              onChange={(event) =>
+                setReportDetails(
+                  clampText(event.target.value, INPUT_LIMITS.REPORT_DETAILS)
+                )
+              }
+              disabled={submittingReport}
+              helperText={characterCountText(
+                reportDetails,
+                INPUT_LIMITS.REPORT_DETAILS
+              )}
+              slotProps={{
+                htmlInput: {
+                  maxLength: INPUT_LIMITS.REPORT_DETAILS,
+                },
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReportDialog} color="inherit" disabled={submittingReport}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitConversationReport}
+            variant="contained"
+            disabled={submittingReport || !reportReason}
+          >
+            {submittingReport ? "Submitting..." : "Submit Report"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={Boolean(reportSnackbar)}
+        autoHideDuration={3600}
+        onClose={() => setReportSnackbar(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {reportSnackbar && (
+          <Alert
+            onClose={() => setReportSnackbar(null)}
+            severity={reportSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {reportSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
     </Box>
   );
 }

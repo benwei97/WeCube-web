@@ -490,6 +490,62 @@ service cloud.firestore {
         && isOptionalStringField(request.resource.data, "actionTaken", 120);
     }
 
+    function validConversationReportCreate(reportId, data) {
+      let conversation = conversationData(data.conversationId);
+      return signedIn()
+        && data.keys().hasOnly([
+          "conversationId",
+          "listingId",
+          "listingTitle",
+          "reportedUserId",
+          "reportedUserName",
+          "reporterId",
+          "reporterName",
+          "reason",
+          "details",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ])
+        && reportId == data.reporterId + "_" + data.conversationId
+        && data.reporterId == request.auth.uid
+        && data.conversationId is string
+        && conversationExists(data.conversationId)
+        && isConversationParticipantByData(conversation)
+        && data.listingId == conversation.listingId
+        && (
+          (request.auth.uid == conversation.buyerId && data.reportedUserId == conversation.sellerId) ||
+          (request.auth.uid == conversation.sellerId && data.reportedUserId == conversation.buyerId)
+        )
+        && data.reportedUserId != request.auth.uid
+        && data.reason in [
+          "scam_or_unsafe",
+          "harassment_or_abuse",
+          "payment_or_shipping_issue",
+          "suspicious_messages",
+          "other"
+        ]
+        && isOptionalStringField(data, "listingTitle", 80)
+        && isOptionalStringField(data, "reportedUserName", 120)
+        && isOptionalStringField(data, "reporterName", 120)
+        && isOptionalStringField(data, "details", 1000)
+        && data.status == "open";
+    }
+
+    function validConversationReportAdminUpdate() {
+      return isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "actionTaken",
+          "reviewedBy",
+          "reviewedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.status in ["reviewed", "dismissed"]
+        && request.resource.data.reviewedBy == request.auth.uid
+        && isOptionalStringField(request.resource.data, "actionTaken", 120);
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if validUserProfileCreate(request.resource.data, userId);
@@ -537,6 +593,13 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
       allow create: if validUserReportCreate(reportId, request.resource.data);
       allow update: if validUserReportAdminUpdate();
+      allow delete: if false;
+    }
+
+    match /conversationReports/{reportId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
+      allow create: if validConversationReportCreate(reportId, request.resource.data);
+      allow update: if validConversationReportAdminUpdate();
       allow delete: if false;
     }
   }

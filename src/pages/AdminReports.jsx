@@ -56,6 +56,13 @@ const USER_REPORT_REASON_LABELS = {
   suspicious_activity: "Suspicious listings or messages",
   other: "Other",
 };
+const CONVERSATION_REPORT_REASON_LABELS = {
+  scam_or_unsafe: "Scam or unsafe behavior",
+  harassment_or_abuse: "Harassment or abusive behavior",
+  payment_or_shipping_issue: "Payment or shipping concern",
+  suspicious_messages: "Suspicious messages",
+  other: "Other",
+};
 
 function formatTimestamp(value) {
   if (!value) return "Unknown";
@@ -71,11 +78,16 @@ function getUserReportReasonLabel(reason) {
   return USER_REPORT_REASON_LABELS[reason] || reason || "Report";
 }
 
+function getConversationReportReasonLabel(reason) {
+  return CONVERSATION_REPORT_REASON_LABELS[reason] || reason || "Report";
+}
+
 export default function AdminReports() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [userReports, setUserReports] = useState([]);
+  const [conversationReports, setConversationReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
@@ -89,8 +101,13 @@ export default function AdminReports() {
 
     let loadedListingReports = false;
     let loadedUserReports = false;
+    let loadedConversationReports = false;
     const markLoaded = () => {
-      if (loadedListingReports && loadedUserReports) {
+      if (
+        loadedListingReports &&
+        loadedUserReports &&
+        loadedConversationReports
+      ) {
         setLoading(false);
       }
     };
@@ -101,6 +118,10 @@ export default function AdminReports() {
     );
     const userReportsQuery = query(
       collection(db, "userReports"),
+      orderBy("createdAt", "desc")
+    );
+    const conversationReportsQuery = query(
+      collection(db, "conversationReports"),
       orderBy("createdAt", "desc")
     );
 
@@ -142,9 +163,29 @@ export default function AdminReports() {
       }
     );
 
+    const unsubscribeConversationReports = onSnapshot(
+      conversationReportsQuery,
+      (snapshot) => {
+        setConversationReports(
+          snapshot.docs.map((reportDoc) => ({
+            id: reportDoc.id,
+            ...reportDoc.data(),
+          }))
+        );
+        loadedConversationReports = true;
+        markLoaded();
+      },
+      (error) => {
+        console.error("Error loading conversation reports:", error);
+        loadedConversationReports = true;
+        markLoaded();
+      }
+    );
+
     return () => {
       unsubscribeListingReports();
       unsubscribeUserReports();
+      unsubscribeConversationReports();
     };
   }, [currentUser?.isAdmin]);
 
@@ -155,6 +196,10 @@ export default function AdminReports() {
   const openUserReports = useMemo(
     () => userReports.filter((report) => report.status === "open"),
     [userReports]
+  );
+  const openConversationReports = useMemo(
+    () => conversationReports.filter((report) => report.status === "open"),
+    [conversationReports]
   );
 
   const updateReportStatus = async (
@@ -282,7 +327,8 @@ export default function AdminReports() {
 
     if (
       confirmAction.type === "reviewListing" ||
-      confirmAction.type === "reviewUser"
+      confirmAction.type === "reviewUser" ||
+      confirmAction.type === "reviewConversation"
     ) {
       return {
         title: "Mark Report Reviewed",
@@ -318,6 +364,13 @@ export default function AdminReports() {
         "reviewed",
         "reviewed_no_user_change"
       );
+    } else if (type === "reviewConversation") {
+      await updateReportStatus(
+        "conversationReports",
+        report,
+        "reviewed",
+        "reviewed_no_conversation_change"
+      );
     }
 
     setConfirmAction(null);
@@ -342,8 +395,15 @@ export default function AdminReports() {
             Reports
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {openReports.length + openUserReports.length} open report
-            {openReports.length + openUserReports.length === 1 ? "" : "s"}
+            {openReports.length +
+              openUserReports.length +
+              openConversationReports.length} open report
+            {openReports.length +
+              openUserReports.length +
+              openConversationReports.length ===
+            1
+              ? ""
+              : "s"}
           </Typography>
         </Box>
 
@@ -360,6 +420,10 @@ export default function AdminReports() {
             label={`Users (${openUserReports.length})`}
             value="users"
           />
+          <Tab
+            label={`Messages (${openConversationReports.length})`}
+            value="messages"
+          />
         </Tabs>
 
         {loading ? (
@@ -371,6 +435,8 @@ export default function AdminReports() {
           <Alert severity="success">No listing reports yet.</Alert>
         ) : activeTab === "users" && userReports.length === 0 ? (
           <Alert severity="success">No user reports yet.</Alert>
+        ) : activeTab === "messages" && conversationReports.length === 0 ? (
+          <Alert severity="success">No message reports yet.</Alert>
         ) : activeTab === "listings" ? (
           <Stack spacing={1.5}>
             {reports.map((report) => {
@@ -491,7 +557,7 @@ export default function AdminReports() {
               );
             })}
           </Stack>
-        ) : (
+        ) : activeTab === "users" ? (
           <Stack spacing={1.5}>
             {userReports.map((report) => {
               const isLoading = actionLoadingId === report.id;
@@ -606,6 +672,126 @@ export default function AdminReports() {
                               Mark Reviewed
                             </Button>
                           </Stack>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
+        ) : (
+          <Stack spacing={1.5}>
+            {conversationReports.map((report) => {
+              const isLoading = actionLoadingId === report.id;
+
+              return (
+                <Card key={report.id} variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" fontWeight={700}>
+                            {report.reportedUserName || "Reported user"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Reported {formatTimestamp(report.createdAt)}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={report.status || "open"}
+                          color={report.status === "open" ? "success" : "default"}
+                          size="small"
+                          sx={{ borderRadius: 1, textTransform: "capitalize" }}
+                        />
+                      </Stack>
+
+                      <Box
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          p: 1.5,
+                          bgcolor: "grey.50",
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={0.5}
+                            justifyContent="space-between"
+                          >
+                            <Typography variant="body2" fontWeight={700}>
+                              {getConversationReportReasonLabel(report.reason)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Reporter: {report.reporterName || report.reporterId}
+                            </Typography>
+                          </Stack>
+                          {report.listingTitle && (
+                            <Typography variant="caption" color="text.secondary">
+                              Listing: {report.listingTitle}
+                            </Typography>
+                          )}
+                          {report.details ? (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ whiteSpace: "pre-wrap" }}
+                            >
+                              {report.details}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              No additional details provided.
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Box>
+
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.25}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "stretch", md: "center" }}
+                      >
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                          <Button
+                            variant="contained"
+                            onClick={() =>
+                              navigate(`/messages/${report.conversationId}`)
+                            }
+                          >
+                            View Conversation
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={() =>
+                              navigate(`/seller/${report.reportedUserId}`)
+                            }
+                          >
+                            View Profile
+                          </Button>
+                        </Stack>
+                        {report.status === "open" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={isLoading}
+                            onClick={() =>
+                              setConfirmAction({
+                                type: "reviewConversation",
+                                report,
+                              })
+                            }
+                          >
+                            Mark Reviewed
+                          </Button>
                         )}
                       </Stack>
                     </Stack>
