@@ -23,6 +23,8 @@ import {
   getUserConversations,
   subscribeToUserConversations,
 } from "../utils/messaging";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../../firebase";
 import logo from "../assets/wecube-logo.png";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
@@ -33,6 +35,7 @@ function Header() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [unreadConversationCount, setUnreadConversationCount] = useState(0);
+  const [openReportCount, setOpenReportCount] = useState(0);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,16 +52,8 @@ function Header() {
   const desktopNavItems = [
     ...primaryNavItems,
     { label: "Policies", path: "/safety" },
-    ...(currentUser?.isAdmin
-      ? [{ label: "Admin", path: "/admin/reports" }]
-      : []),
   ];
-  const mobileNavItems = [
-    ...primaryNavItems,
-    ...(currentUser?.isAdmin
-      ? [{ label: "Admin", path: "/admin/reports" }]
-      : []),
-  ];
+  const mobileNavItems = primaryNavItems;
 
   useEffect(() => {
     if (currentUser) {
@@ -102,6 +97,49 @@ function Header() {
       setUnreadConversationCount(0);
     }
   }, [currentUser, activeConversationId]);
+
+  useEffect(() => {
+    if (!currentUser?.isAdmin) {
+      setOpenReportCount(0);
+      return undefined;
+    }
+
+    const reportCollections = [
+      "listingReports",
+      "userReports",
+      "conversationReports",
+    ];
+    const countsByCollection = Object.fromEntries(
+      reportCollections.map((collectionName) => [collectionName, 0])
+    );
+    const updateOpenReportCount = () => {
+      setOpenReportCount(
+        Object.values(countsByCollection).reduce((sum, count) => sum + count, 0)
+      );
+    };
+
+    const unsubscribers = reportCollections.map((collectionName) =>
+      onSnapshot(
+        query(
+          collection(db, collectionName),
+          where("status", "==", "open")
+        ),
+        (snapshot) => {
+          countsByCollection[collectionName] = snapshot.size;
+          updateOpenReportCount();
+        },
+        (error) => {
+          console.error(`Error loading ${collectionName} count:`, error);
+          countsByCollection[collectionName] = 0;
+          updateOpenReportCount();
+        }
+      )
+    );
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [currentUser?.isAdmin]);
 
   const openAuth = (mode = "login") => {
     setAuthMode(mode);
@@ -233,16 +271,28 @@ function Header() {
                 px: 1,
               }}
             >
-              {currentUser?.avatarUrl ? (
-                <Avatar
-                  src={currentUser.avatarUrl}
-                  sx={{ width: 28, height: 28 }}
-                >
-                  {currentUser?.firstName?.charAt(0)?.toUpperCase()}
-                </Avatar>
-              ) : (
-                <PersonOutlineIcon />
-              )}
+              <Badge
+                badgeContent={openReportCount}
+                color="error"
+                overlap="circular"
+                sx={{
+                  "& .MuiBadge-badge": {
+                    right: currentUser?.avatarUrl ? 1 : 0,
+                    top: currentUser?.avatarUrl ? 2 : 3,
+                  },
+                }}
+              >
+                {currentUser?.avatarUrl ? (
+                  <Avatar
+                    src={currentUser.avatarUrl}
+                    sx={{ width: 28, height: 28 }}
+                  >
+                    {currentUser?.firstName?.charAt(0)?.toUpperCase()}
+                  </Avatar>
+                ) : (
+                  <PersonOutlineIcon />
+                )}
+              </Badge>
               {currentUser && (
                 <Typography
                   variant="body2"
@@ -268,6 +318,31 @@ function Header() {
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
               </MenuItem>
+              {currentUser?.isAdmin && (
+                <MenuItem onClick={() => handleMenuNavigation("/admin/reports")}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 2,
+                      width: "100%",
+                    }}
+                  >
+                    <Box component="span">Admin Reports</Box>
+                    <Badge
+                      badgeContent={openReportCount}
+                      color="error"
+                      sx={{
+                        "& .MuiBadge-badge": {
+                          position: "static",
+                          transform: "none",
+                        },
+                      }}
+                    />
+                  </Box>
+                </MenuItem>
+              )}
               <MenuItem onClick={handleLogoutClick} sx={{ color: "error.main" }}>
                 Sign Out
               </MenuItem>
