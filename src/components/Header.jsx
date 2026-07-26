@@ -318,6 +318,9 @@ function Header() {
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
               </MenuItem>
+              <MenuItem onClick={() => handleMenuNavigation("/safety")}>
+                Policies
+              </MenuItem>
               {currentUser?.isAdmin && (
                 <MenuItem onClick={() => handleMenuNavigation("/admin/reports")}>
                   <Box
