@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import {
   collection,
+  deleteField,
   doc,
   getDocs,
   onSnapshot,
@@ -88,6 +89,7 @@ export default function AdminReports() {
   const [reports, setReports] = useState([]);
   const [userReports, setUserReports] = useState([]);
   const [conversationReports, setConversationReports] = useState([]);
+  const [hiddenListings, setHiddenListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
@@ -102,11 +104,13 @@ export default function AdminReports() {
     let loadedListingReports = false;
     let loadedUserReports = false;
     let loadedConversationReports = false;
+    let loadedHiddenListings = false;
     const markLoaded = () => {
       if (
         loadedListingReports &&
         loadedUserReports &&
-        loadedConversationReports
+        loadedConversationReports &&
+        loadedHiddenListings
       ) {
         setLoading(false);
       }
@@ -123,6 +127,11 @@ export default function AdminReports() {
     const conversationReportsQuery = query(
       collection(db, "conversationReports"),
       orderBy("createdAt", "desc")
+    );
+    const hiddenListingsQuery = query(
+      collection(db, "listings"),
+      where("moderationStatus", "==", "hidden"),
+      orderBy("hiddenAt", "desc")
     );
 
     const unsubscribeListingReports = onSnapshot(
@@ -182,10 +191,30 @@ export default function AdminReports() {
       }
     );
 
+    const unsubscribeHiddenListings = onSnapshot(
+      hiddenListingsQuery,
+      (snapshot) => {
+        setHiddenListings(
+          snapshot.docs.map((listingDoc) => ({
+            id: listingDoc.id,
+            ...listingDoc.data(),
+          }))
+        );
+        loadedHiddenListings = true;
+        markLoaded();
+      },
+      (error) => {
+        console.error("Error loading hidden listings:", error);
+        loadedHiddenListings = true;
+        markLoaded();
+      }
+    );
+
     return () => {
       unsubscribeListingReports();
       unsubscribeUserReports();
       unsubscribeConversationReports();
+      unsubscribeHiddenListings();
     };
   }, [currentUser?.isAdmin]);
 
@@ -299,12 +328,33 @@ export default function AdminReports() {
     }
   };
 
+  const restoreHiddenListing = async (listing) => {
+    if (!listing?.id) return;
+
+    setActionLoadingId(listing.id);
+    try {
+      await updateDoc(doc(db, "listings", listing.id), {
+        moderationStatus: deleteField(),
+        hiddenAt: deleteField(),
+        hiddenBy: deleteField(),
+        hiddenReason: deleteField(),
+        updatedAt: new Date(),
+      });
+    } catch (error) {
+      console.error("Error restoring hidden listing:", error);
+      alert("Unable to restore this listing right now.");
+    } finally {
+      setActionLoadingId("");
+    }
+  };
+
   const confirmActionCopy = useMemo(() => {
-    if (!confirmAction?.report) return null;
+    if (!confirmAction?.report && !confirmAction?.listing) return null;
 
     const reportTarget =
-      confirmAction.report.listingTitle ||
-      confirmAction.report.reportedUserName ||
+      confirmAction.report?.listingTitle ||
+      confirmAction.report?.reportedUserName ||
+      confirmAction.listing?.title ||
       "this report";
 
     if (confirmAction.type === "hide") {
@@ -338,13 +388,22 @@ export default function AdminReports() {
       };
     }
 
+    if (confirmAction.type === "restoreListing") {
+      return {
+        title: "Restore Listing",
+        body: `Restore "${reportTarget}" to public listing surfaces?`,
+        confirmLabel: "Restore Listing",
+        color: "primary",
+      };
+    }
+
     return null;
   }, [confirmAction]);
 
   const handleConfirmedAction = async () => {
-    if (!confirmAction?.report) return;
+    if (!confirmAction?.report && !confirmAction?.listing) return;
 
-    const { report, type } = confirmAction;
+    const { report, listing, type } = confirmAction;
 
     if (type === "hide") {
       await hideReportedListing(report);
@@ -371,6 +430,8 @@ export default function AdminReports() {
         "reviewed",
         "reviewed_no_conversation_change"
       );
+    } else if (type === "restoreListing") {
+      await restoreHiddenListing(listing);
     }
 
     setConfirmAction(null);
@@ -424,6 +485,10 @@ export default function AdminReports() {
             label={`Messages (${openConversationReports.length})`}
             value="messages"
           />
+          <Tab
+            label={`Hidden (${hiddenListings.length})`}
+            value="hidden"
+          />
         </Tabs>
 
         {loading ? (
@@ -437,6 +502,8 @@ export default function AdminReports() {
           <Alert severity="success">No user reports yet.</Alert>
         ) : activeTab === "messages" && conversationReports.length === 0 ? (
           <Alert severity="success">No message reports yet.</Alert>
+        ) : activeTab === "hidden" && hiddenListings.length === 0 ? (
+          <Alert severity="success">No hidden listings.</Alert>
         ) : activeTab === "listings" ? (
           <Stack spacing={1.5}>
             {reports.map((report) => {
@@ -680,7 +747,7 @@ export default function AdminReports() {
               );
             })}
           </Stack>
-        ) : (
+        ) : activeTab === "messages" ? (
           <Stack spacing={1.5}>
             {conversationReports.map((report) => {
               const isLoading = actionLoadingId === report.id;
@@ -793,6 +860,99 @@ export default function AdminReports() {
                             Mark Reviewed
                           </Button>
                         )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
+        ) : (
+          <Stack spacing={1.5}>
+            {hiddenListings.map((listing) => {
+              const isLoading = actionLoadingId === listing.id;
+
+              return (
+                <Card key={listing.id} variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" fontWeight={700}>
+                            {listing.title || "Hidden listing"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Hidden {formatTimestamp(listing.hiddenAt)}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label="hidden"
+                          color="warning"
+                          size="small"
+                          sx={{ borderRadius: 1, textTransform: "capitalize" }}
+                        />
+                      </Stack>
+
+                      <Box
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          p: 1.5,
+                          bgcolor: "grey.50",
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={0.5}
+                            justifyContent="space-between"
+                          >
+                            <Typography variant="body2" fontWeight={700}>
+                              {getReportReasonLabel(listing.hiddenReason)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Seller: {listing.userId || "Unknown"}
+                            </Typography>
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary">
+                            This listing is currently hidden from public listing
+                            surfaces.
+                          </Typography>
+                        </Stack>
+                      </Box>
+
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.25}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "stretch", md: "center" }}
+                      >
+                        <Button
+                          variant="contained"
+                          onClick={() => navigate(`/listing/${listing.id}`)}
+                          sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
+                        >
+                          View Listing
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={isLoading}
+                          onClick={() =>
+                            setConfirmAction({
+                              type: "restoreListing",
+                              listing,
+                            })
+                          }
+                        >
+                          Restore Listing
+                        </Button>
                       </Stack>
                     </Stack>
                   </CardContent>

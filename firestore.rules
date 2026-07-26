@@ -220,6 +220,26 @@ service cloud.firestore {
         && isOptionalStringField(data, "hiddenReason", 120);
     }
 
+    function validAdminListingModerationRestore() {
+      let data = request.resource.data;
+      return isAdmin()
+        && resource.data.moderationStatus == "hidden"
+        && data.userId == resource.data.userId
+        && data.listingId == resource.data.listingId
+        && data.createdAt == resource.data.createdAt
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          "moderationStatus",
+          "hiddenAt",
+          "hiddenBy",
+          "hiddenReason",
+          "updatedAt"
+        ])
+        && !("moderationStatus" in data)
+        && !("hiddenAt" in data)
+        && !("hiddenBy" in data)
+        && !("hiddenReason" in data);
+    }
+
     function validUserProfileCreate(data, userId) {
       return data.keys().hasOnly(["email", "firstName", "lastName", "createdAt"])
         && data.email is string
@@ -587,7 +607,7 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
       allow create: if signedIn() && validListingCreate(request.resource.data);
-      allow update: if validOwnerListingUpdate() || validBuyerSoldUpdate() || validAdminListingModerationUpdate();
+      allow update: if validOwnerListingUpdate() || validBuyerSoldUpdate() || validAdminListingModerationUpdate() || validAdminListingModerationRestore();
       allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
