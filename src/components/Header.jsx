@@ -51,6 +51,7 @@ function Header() {
   ];
   const desktopNavItems = [
     ...primaryNavItems,
+    { label: "About", path: "/about" },
     { label: "Policies", path: "/safety" },
   ];
   const mobileNavItems = primaryNavItems;
@@ -317,6 +318,9 @@ function Header() {
             >
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
+              </MenuItem>
+              <MenuItem onClick={() => handleMenuNavigation("/about")}>
+                About
               </MenuItem>
               <MenuItem onClick={() => handleMenuNavigation("/safety")}>
                 Policies

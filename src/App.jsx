@@ -15,6 +15,7 @@ import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
 import SellerProfile from "./pages/SellerProfile";
 import AdminReports from "./pages/AdminReports";
+import About from "./pages/About";
 import SafetyGuidelines from "./pages/SafetyGuidelines";
 import Terms from "./pages/Terms";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -52,6 +53,7 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
               <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/about" element={<About />} />
               <Route path="/safety" element={<SafetyGuidelines />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
