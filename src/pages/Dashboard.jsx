@@ -36,12 +36,14 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   updateDoc,
   where,
 } from "firebase/firestore";
-import { db } from "../../firebase";
+import { deleteUser } from "firebase/auth";
+import { auth, db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import {
   subscribeToReceivedReviews,
@@ -112,6 +114,8 @@ const EMPTY_STATE_SX = {
   py: 3,
   color: "text.secondary",
 };
+const ACCOUNT_DELETE_CONFIRMATION = "DELETE";
+const ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
 function Dashboard() {
   const { currentUser } = useAuth();
@@ -142,6 +146,10 @@ function Dashboard() {
   });
   const [profileNameSaving, setProfileNameSaving] = useState(false);
   const [profileNameError, setProfileNameError] = useState("");
+  const [accountDeleteDialogOpen, setAccountDeleteDialogOpen] = useState(false);
+  const [accountDeleteConfirmText, setAccountDeleteConfirmText] = useState("");
+  const [accountDeleteLoading, setAccountDeleteLoading] = useState(false);
+  const [accountDeleteError, setAccountDeleteError] = useState("");
 
   useEffect(() => {
     if (!currentUser) return;
@@ -472,6 +480,113 @@ function Dashboard() {
       alert(`Failed to delete listing: ${error.message}`);
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const openAccountDeleteDialog = () => {
+    setAccountDeleteConfirmText("");
+    setAccountDeleteError("");
+    setAccountDeleteDialogOpen(true);
+  };
+
+  const closeAccountDeleteDialog = () => {
+    if (accountDeleteLoading) return;
+    setAccountDeleteDialogOpen(false);
+    setAccountDeleteConfirmText("");
+    setAccountDeleteError("");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser?.uid) return;
+    if (accountDeleteConfirmText !== ACCOUNT_DELETE_CONFIRMATION) {
+      setAccountDeleteError("Type DELETE to confirm account deletion.");
+      return;
+    }
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.uid !== currentUser.uid) {
+      setAccountDeleteError("Unable to confirm your signed-in session. Please sign in again.");
+      return;
+    }
+
+    const lastSignInAt = Date.parse(firebaseUser.metadata?.lastSignInTime || "");
+    const hasRecentLogin =
+      Number.isFinite(lastSignInAt) &&
+      Date.now() - lastSignInAt <= ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS;
+
+    if (!hasRecentLogin) {
+      setAccountDeleteError(
+        "For security, sign out and sign back in, then try deleting your account again."
+      );
+      return;
+    }
+
+    setAccountDeleteLoading(true);
+    setAccountDeleteError("");
+
+    try {
+      const userListingsSnapshot = await getDocs(
+        query(collection(db, "listings"), where("userId", "==", currentUser.uid))
+      );
+
+      for (const listingDoc of userListingsSnapshot.docs) {
+        const listing = { id: listingDoc.id, ...listingDoc.data() };
+        const s3Keys = (listing.photos || [])
+          .map((photo) => photo.s3Key)
+          .filter(Boolean);
+
+        if (s3Keys.length) {
+          try {
+            await deleteMultipleImages(s3Keys);
+          } catch (cleanupError) {
+            console.error("Error deleting listing images during account deletion:", cleanupError);
+          }
+        }
+
+        try {
+          await closeListingConversationsForDeletedListing(
+            listing.id,
+            listing.userId,
+            listing.title || "this listing"
+          );
+        } catch (conversationError) {
+          console.error("Error closing listing conversations during account deletion:", conversationError);
+        }
+
+        await deleteDoc(doc(db, "listings", listing.id));
+      }
+
+      if (currentUser.avatarS3Key) {
+        try {
+          await deleteImageFromS3(currentUser.avatarS3Key);
+        } catch (cleanupError) {
+          console.error("Error deleting avatar during account deletion:", cleanupError);
+        }
+      }
+
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        firstName: "Deleted",
+        lastName: "User",
+        avatarUrl: "",
+        avatarS3Key: "",
+        attendingCompetitions: [],
+        deletedAt: new Date(),
+        deletedByUser: true,
+      });
+
+      await deleteUser(firebaseUser);
+      navigate("/");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      if (error.code === "auth/requires-recent-login") {
+        setAccountDeleteError(
+          "For security, sign out and sign back in, then try deleting your account again."
+        );
+      } else {
+        setAccountDeleteError(error.message || "Unable to delete your account right now.");
+      }
+    } finally {
+      setAccountDeleteLoading(false);
     }
   };
 
@@ -980,6 +1095,35 @@ function Dashboard() {
             </>
           )}
         </Box>
+
+        <Box sx={{ pt: 3, pb: 1 }}>
+          <Divider sx={{ mb: 2 }} />
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Account
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 620 }}>
+                Delete your sign-in, listings, listing photos, and profile image. Messages, reviews,
+                and reports may be retained where needed for safety and marketplace integrity.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Delete />}
+              onClick={openAccountDeleteDialog}
+              sx={{ flexShrink: 0 }}
+            >
+              Delete Account
+            </Button>
+          </Stack>
+        </Box>
       </Box>
 
       <Dialog
@@ -1040,6 +1184,51 @@ function Dashboard() {
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleteLoading}>
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={accountDeleteDialogOpen}
+        onClose={closeAccountDeleteDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Account</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 0.5 }}>
+            <DialogContentText>
+              This permanently deletes your sign-in and removes your listings. Your public profile
+              will be shown as Deleted User, and messages, reviews, and reports may be retained for
+              safety, moderation, abuse prevention, and service integrity.
+            </DialogContentText>
+            <TextField
+              label="Type DELETE to confirm"
+              value={accountDeleteConfirmText}
+              onChange={(event) => {
+                setAccountDeleteConfirmText(event.target.value);
+                setAccountDeleteError("");
+              }}
+              disabled={accountDeleteLoading}
+              fullWidth
+            />
+            {accountDeleteError && <Alert severity="error">{accountDeleteError}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAccountDeleteDialog} color="inherit" disabled={accountDeleteLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteAccount}
+            color="error"
+            variant="contained"
+            disabled={
+              accountDeleteLoading ||
+              accountDeleteConfirmText !== ACCOUNT_DELETE_CONFIRMATION
+            }
+          >
+            {accountDeleteLoading ? "Deleting..." : "Delete Account"}
           </Button>
         </DialogActions>
       </Dialog>

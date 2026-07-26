@@ -260,13 +260,17 @@ service cloud.firestore {
           "acceptedTermsVersion",
           "acceptedPrivacyVersion",
           "firstName",
-          "lastName"
+          "lastName",
+          "deletedAt",
+          "deletedByUser"
         ])
         && isOptionalStringField(request.resource.data, "avatarUrl", 500)
         && isOptionalStringField(request.resource.data, "avatarS3Key", 512)
         && isOptionalStringField(request.resource.data, "acceptedPolicyVersion", 40)
         && isOptionalStringField(request.resource.data, "acceptedTermsVersion", 40)
         && isOptionalStringField(request.resource.data, "acceptedPrivacyVersion", 40)
+        && (!("deletedAt" in request.resource.data) || request.resource.data.deletedAt is timestamp)
+        && (!("deletedByUser" in request.resource.data) || request.resource.data.deletedByUser is bool)
         && isNonEmptyString(request.resource.data.firstName, 50)
         && isNonEmptyString(request.resource.data.lastName, 50);
     }

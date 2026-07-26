@@ -32,7 +32,7 @@ const SECTIONS = [
   },
   {
     title: "Data Controls",
-    body: "You can edit parts of your profile, delete your listings, block users, and contact support about account or data concerns. Some records may be retained where needed for safety, moderation, abuse prevention, or service integrity.",
+    body: "You can edit parts of your profile, delete your listings, block users, delete your account from the dashboard, and contact support about account or data concerns. Some records may be retained where needed for safety, moderation, abuse prevention, or service integrity.",
   },
   {
     title: "Security",
