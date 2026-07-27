@@ -252,6 +252,7 @@ service cloud.firestore {
     function validUserProfileUpdate(userId) {
       return isSelf(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "email",
           "avatarUrl",
           "avatarS3Key",
           "attendingCompetitions",
@@ -264,6 +265,7 @@ service cloud.firestore {
           "deletedAt",
           "deletedByUser"
         ])
+        && isOptionalStringField(request.resource.data, "email", 320)
         && isOptionalStringField(request.resource.data, "avatarUrl", 500)
         && isOptionalStringField(request.resource.data, "avatarS3Key", 512)
         && isOptionalStringField(request.resource.data, "acceptedPolicyVersion", 40)
