@@ -319,10 +319,16 @@ function Header() {
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
               </MenuItem>
-              <MenuItem onClick={() => handleMenuNavigation("/about")}>
+              <MenuItem
+                onClick={() => handleMenuNavigation("/about")}
+                sx={{ display: { xs: "flex", md: "none" } }}
+              >
                 About
               </MenuItem>
-              <MenuItem onClick={() => handleMenuNavigation("/safety")}>
+              <MenuItem
+                onClick={() => handleMenuNavigation("/safety")}
+                sx={{ display: { xs: "flex", md: "none" } }}
+              >
                 Policies
               </MenuItem>
               {currentUser?.isAdmin && (
