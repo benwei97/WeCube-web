@@ -181,3 +181,14 @@ export async function closeListingConversationsForDeletedListing(
     });
   }
 }
+
+export async function updateReviewPromptResponse(messageId, userId, response) {
+  if (!messageId || !userId) {
+    throw new Error("Missing review prompt context");
+  }
+
+  await updateDoc(doc(db, "messages", messageId), {
+    [`reviewResponses.${userId}`]: response,
+    updatedAt: serverTimestamp(),
+  });
+}

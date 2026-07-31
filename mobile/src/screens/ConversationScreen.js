@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -24,7 +25,9 @@ import {
   subscribeToUserBlock,
   subscribeToConversationMessages,
   unblockUser,
+  updateReviewPromptResponse,
 } from "../utils/messaging";
+import { submitTransactionReview } from "../utils/reviews";
 
 const CONVERSATION_REPORT_REASONS = [
   { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
@@ -34,7 +37,26 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 
-function MessageBubble({ message, isMine }) {
+function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
+  if (reviewPromptState?.hidden) return null;
+
+  if (reviewPromptState) {
+    return (
+      <View style={styles.reviewPromptCard}>
+        <Text style={styles.reviewPromptText}>{message.text}</Text>
+        {reviewPromptState.response ? (
+          <Text style={styles.reviewPromptDone}>You already reviewed this user.</Text>
+        ) : reviewPromptState.closed ? (
+          <Text style={styles.reviewPromptClosed}>Review request closed.</Text>
+        ) : (
+          <Pressable style={styles.reviewPromptButton} onPress={() => onReviewPress(message)}>
+            <Text style={styles.reviewPromptButtonText}>Write review</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+
   const isSystem = message.type === "system";
 
   return (
@@ -70,6 +92,11 @@ export default function ConversationScreen({ route }) {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   useEffect(() => {
     if (!conversationId) {
@@ -159,6 +186,20 @@ export default function ConversationScreen({ route }) {
     `${otherUser?.firstName || ""} ${otherUser?.lastName || ""}`.trim() ||
     "this user";
 
+  function getReviewPromptState(message) {
+    const isReviewPrompt = message.type === "review_prompt" || message.reviewPrompt;
+    if (!isReviewPrompt || !currentUser?.uid) return null;
+
+    const response = message.reviewResponses?.[currentUser.uid] || null;
+    const closed = conversation?.activeSaleEventId !== message.saleEventId;
+
+    return {
+      response,
+      closed,
+      hidden: !response && closed,
+    };
+  }
+
   async function handleSend() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || !currentUser?.uid || sending) return;
@@ -237,6 +278,63 @@ export default function ConversationScreen({ route }) {
     }
   }
 
+  function openReviewModal(message) {
+    setReviewMessage(message);
+    setReviewRating(5);
+    setReviewComment("");
+    setReviewOpen(true);
+  }
+
+  function closeReviewModal() {
+    if (reviewSubmitting) return;
+    setReviewOpen(false);
+    setReviewMessage(null);
+    setReviewRating(5);
+    setReviewComment("");
+  }
+
+  async function submitReview() {
+    if (!currentUser?.uid || !conversation?.id || !listing?.id || !reviewMessage || !otherUserId) {
+      return;
+    }
+
+    const recipientRole = currentUser.uid === conversation.sellerId ? "buyer" : "seller";
+    const reviewListing = {
+      id: conversation.listingId,
+      ...listing,
+      title: listing.title || "Listing",
+      userId: conversation.sellerId,
+      buyerId: conversation.buyerId,
+      saleEventId:
+        reviewMessage.saleEventId ||
+        conversation.activeSaleEventId ||
+        listing.saleEventId ||
+        null,
+    };
+
+    setReviewSubmitting(true);
+    try {
+      await submitTransactionReview({
+        listing: reviewListing,
+        reviewer: currentUser,
+        rating: reviewRating,
+        comment: reviewComment,
+        recipientId: otherUserId,
+        recipientName: otherUserName,
+        recipientRole,
+        saleEventId: reviewMessage.saleEventId || conversation.activeSaleEventId || null,
+      });
+      await updateReviewPromptResponse(reviewMessage.id, currentUser.uid, "reviewed");
+      closeReviewModal();
+      Alert.alert("Review submitted", "Your review has been added.");
+    } catch (reviewError) {
+      console.error("Error submitting mobile review:", reviewError);
+      Alert.alert("Unable to submit review", reviewError.message || "Please try again.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -279,7 +377,12 @@ export default function ConversationScreen({ route }) {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <MessageBubble message={item} isMine={item.senderId === currentUser?.uid} />
+            <MessageBubble
+              message={item}
+              isMine={item.senderId === currentUser?.uid}
+              reviewPromptState={getReviewPromptState(item)}
+              onReviewPress={openReviewModal}
+            />
           )}
           contentContainerStyle={styles.messageList}
         />
@@ -380,6 +483,63 @@ export default function ConversationScreen({ route }) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={reviewOpen} transparent animationType="fade" onRequestClose={closeReviewModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rate your experience</Text>
+            <Text style={styles.modalBody}>Share how it went with {otherUserName}.</Text>
+            <Text style={styles.modalLabel}>Rating</Text>
+            <View style={styles.ratingRow}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.ratingButton,
+                    value <= reviewRating && styles.ratingButtonSelected,
+                  ]}
+                  onPress={() => setReviewRating(value)}
+                  disabled={reviewSubmitting}
+                >
+                  <Text
+                    style={[
+                      styles.ratingButtonText,
+                      value <= reviewRating && styles.ratingButtonTextSelected,
+                    ]}
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.modalLabel}>Review</Text>
+            <TextInput
+              value={reviewComment}
+              onChangeText={(value) => setReviewComment(value.slice(0, 1000))}
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Share how the experience went."
+              maxLength={1000}
+              multiline
+              editable={!reviewSubmitting}
+            />
+            <Text style={styles.characterCount}>{reviewComment.length}/1000</Text>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelButton} onPress={closeReviewModal}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitButton, reviewSubmitting && styles.modalSubmitButtonDisabled]}
+                onPress={submitReview}
+                disabled={reviewSubmitting}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {reviewSubmitting ? "Submitting..." : "Submit"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -431,6 +591,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
+  },
+  reviewPromptCard: {
+    alignSelf: "center",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    maxWidth: "88%",
+    padding: 12,
+  },
+  reviewPromptText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  reviewPromptButton: {
+    borderColor: colors.primary,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  reviewPromptButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  reviewPromptDone: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 8,
+  },
+  reviewPromptClosed: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 8,
   },
   composer: {
     alignItems: "flex-end",
@@ -566,6 +767,38 @@ const styles = StyleSheet.create({
   modalTextArea: {
     minHeight: 96,
     textAlignVertical: "top",
+  },
+  ratingRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  ratingButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  ratingButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  ratingButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  ratingButtonTextSelected: {
+    color: "#fff",
+  },
+  characterCount: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: "right",
   },
   modalActions: {
     flexDirection: "row",
