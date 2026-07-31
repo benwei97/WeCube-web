@@ -106,3 +106,40 @@ export async function getListing(listingId) {
   const listingDoc = await getDoc(doc(db, "listings", listingId));
   return listingDoc.exists() ? { id: listingDoc.id, ...listingDoc.data() } : null;
 }
+
+export async function closeListingConversationsForDeletedListing(
+  listingId,
+  sellerId,
+  listingTitle = "this listing"
+) {
+  const conversationsQuery = query(
+    collection(db, "conversations"),
+    where("listingId", "==", listingId),
+    where("sellerId", "==", sellerId)
+  );
+  const snapshot = await getDocs(conversationsQuery);
+  const deletedMessage = `The seller deleted "${listingTitle}".`;
+
+  for (const conversationDoc of snapshot.docs) {
+    const conversation = conversationDoc.data();
+    if (conversation.status === "rejected") continue;
+
+    await addDoc(collection(db, "messages"), {
+      conversationId: conversationDoc.id,
+      senderId: sellerId,
+      text: deletedMessage,
+      type: "system",
+      createdAt: serverTimestamp(),
+    });
+
+    await updateDoc(doc(db, "conversations", conversationDoc.id), {
+      closedAt: serverTimestamp(),
+      closedReason: "listing_deleted",
+      lastMessage: deletedMessage,
+      lastMessageType: "system",
+      lastMessageAt: serverTimestamp(),
+      lastMessageSenderId: sellerId,
+      updatedAt: serverTimestamp(),
+    });
+  }
+}

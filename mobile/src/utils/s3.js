@@ -3,6 +3,7 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "../lib/firebase";
 
 const createSignedS3Upload = httpsCallable(functions, "createSignedS3Upload");
+const deleteS3Objects = httpsCallable(functions, "deleteS3Objects");
 
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -86,4 +87,11 @@ export async function uploadImageAssetToS3(asset, listingId) {
     s3Key,
     uploadedAt: new Date(),
   };
+}
+
+export async function deleteMultipleImages(s3Keys) {
+  const filteredKeys = (s3Keys || []).filter(Boolean);
+  if (!filteredKeys.length) return;
+
+  await deleteS3Objects({ s3Keys: filteredKeys });
 }
