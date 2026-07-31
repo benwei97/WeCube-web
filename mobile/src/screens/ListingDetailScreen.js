@@ -15,6 +15,7 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { formatListingPrice } from "../utils/listingUtils";
+import { createConversation } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
 
 function formatShipping(listing) {
@@ -33,13 +34,14 @@ function formatFulfillment(listing) {
   return options.filter(Boolean);
 }
 
-export default function ListingDetailScreen({ route }) {
+export default function ListingDetailScreen({ navigation, route }) {
   const { currentUser } = useAuth();
   const { listingId } = route.params || {};
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [creatingConversation, setCreatingConversation] = useState(false);
 
   useEffect(() => {
     if (!listingId) {
@@ -86,7 +88,7 @@ export default function ListingDetailScreen({ route }) {
     setPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
   }
 
-  function handleMessageSeller() {
+  async function handleMessageSeller() {
     if (!currentUser) {
       Alert.alert("Sign in required", "Sign in to message sellers.");
       return;
@@ -97,7 +99,28 @@ export default function ListingDetailScreen({ route }) {
       return;
     }
 
-    Alert.alert("Coming next", "Messaging from mobile will be connected in the next pass.");
+    setCreatingConversation(true);
+    try {
+      const conversationId = await createConversation({
+        listingId: listing.id,
+        sellerId: listing.userId,
+        buyerId: currentUser.uid,
+        initialMessage: `Hi, I'm interested in ${listing.title || "this listing"}.`,
+      });
+
+      navigation.getParent()?.navigate("Messages", {
+        screen: "Conversation",
+        params: { conversationId },
+      });
+    } catch (conversationError) {
+      console.error("Error creating mobile conversation:", conversationError);
+      Alert.alert(
+        "Unable to message seller",
+        conversationError.message || "Please try again."
+      );
+    } finally {
+      setCreatingConversation(false);
+    }
   }
 
   if (loading) {
@@ -174,9 +197,13 @@ export default function ListingDetailScreen({ route }) {
           </Text>
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={handleMessageSeller}>
+        <Pressable
+          style={[styles.primaryButton, creatingConversation && styles.primaryButtonDisabled]}
+          onPress={handleMessageSeller}
+          disabled={creatingConversation}
+        >
           <Text style={styles.primaryButtonText}>
-            {isOwnListing ? "Your listing" : "Message seller"}
+            {creatingConversation ? "Opening..." : isOwnListing ? "Your listing" : "Message seller"}
           </Text>
         </Pressable>
       </ScrollView>
@@ -285,6 +312,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 16,
     paddingVertical: 14,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     color: "#fff",
