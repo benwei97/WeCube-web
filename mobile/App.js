@@ -14,12 +14,14 @@ import SellScreen from "./src/screens/SellScreen";
 import MessagesScreen from "./src/screens/MessagesScreen";
 import ConversationScreen from "./src/screens/ConversationScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import InfoScreen from "./src/screens/InfoScreen";
 import AuthScreen from "./src/screens/AuthScreen";
 import { colors } from "./src/theme/colors";
 
 const Tab = createBottomTabNavigator();
 const BrowseStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
 
 function ProtectedScreen({ children }) {
   const { currentUser, loading } = useAuth();
@@ -86,6 +88,27 @@ function MessagesNavigator() {
   );
 }
 
+function ProfileNavigator() {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerTitleStyle: { fontWeight: "700" },
+      }}
+    >
+      <ProfileStack.Screen
+        name="ProfileHome"
+        component={ProfileScreen}
+        options={{ title: "Profile" }}
+      />
+      <ProfileStack.Screen
+        name="Info"
+        component={InfoScreen}
+        options={{ title: "About & Policies" }}
+      />
+    </ProfileStack.Navigator>
+  );
+}
+
 function AppTabs() {
   return (
     <Tab.Navigator
@@ -134,11 +157,14 @@ function AppTabs() {
       </Tab.Screen>
       <Tab.Screen
         name="Profile"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>P</Text> }}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Text style={{ color }}>P</Text>,
+        }}
       >
         {() => (
           <ProtectedScreen>
-            <ProfileScreen />
+            <ProfileNavigator />
           </ProtectedScreen>
         )}
       </Tab.Screen>

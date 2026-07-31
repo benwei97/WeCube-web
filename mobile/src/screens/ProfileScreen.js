@@ -93,7 +93,7 @@ function ListingRow({ listing, onStatusChange, onDelete, loading }) {
   );
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { currentUser, logout } = useAuth();
   const [listings, setListings] = useState([]);
   const [loadingListings, setLoadingListings] = useState(true);
@@ -468,6 +468,10 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Sign out</Text>
         </Pressable>
 
+        <Pressable style={styles.infoButton} onPress={() => navigation.navigate("Info")}>
+          <Text style={styles.infoText}>About & policies</Text>
+        </Pressable>
+
         <Pressable style={styles.deleteAccountButton} onPress={() => setDeleteAccountOpen(true)}>
           <Text style={styles.deleteAccountText}>Delete account</Text>
         </Pressable>
@@ -756,6 +760,18 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: colors.danger,
+    fontWeight: "800",
+  },
+  infoButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  infoText: {
+    color: colors.text,
     fontWeight: "800",
   },
   deleteAccountButton: {
