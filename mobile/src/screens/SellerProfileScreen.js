@@ -86,8 +86,10 @@ export default function SellerProfileScreen({ navigation, route }) {
   const { userId } = route.params || {};
   const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingListings, setLoadingListings] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(true);
   const [error, setError] = useState("");
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -98,6 +100,15 @@ export default function SellerProfileScreen({ navigation, route }) {
 
   const isOwnProfile = Boolean(currentUser?.uid && currentUser.uid === userId);
   const displayName = useMemo(() => getDisplayName(profile), [profile]);
+  const reviewSummary = useMemo(() => {
+    const reviewCount = reviews.length;
+    const averageRating =
+      reviewCount > 0
+        ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          reviewCount
+        : null;
+    return { reviewCount, averageRating };
+  }, [reviews]);
 
   useEffect(() => {
     if (!userId) {
@@ -122,6 +133,37 @@ export default function SellerProfileScreen({ navigation, route }) {
         console.error("Error loading mobile seller profile:", profileError);
         setError("Unable to load this seller.");
         setLoadingProfile(false);
+      }
+    );
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoadingReviews(false);
+      return undefined;
+    }
+
+    const reviewsQuery = query(
+      collection(db, "reviews"),
+      where("recipientId", "==", userId)
+    );
+
+    return onSnapshot(
+      reviewsQuery,
+      (snapshot) => {
+        const nextReviews = snapshot.docs
+          .map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }))
+          .sort(
+            (a, b) =>
+              getDateTime(b.updatedAt || b.createdAt) -
+              getDateTime(a.updatedAt || a.createdAt)
+          );
+        setReviews(nextReviews);
+        setLoadingReviews(false);
+      },
+      (reviewError) => {
+        console.error("Error loading mobile seller reviews:", reviewError);
+        setLoadingReviews(false);
       }
     );
   }, [userId]);
@@ -289,6 +331,11 @@ export default function SellerProfileScreen({ navigation, route }) {
           <View style={styles.headerText}>
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.joined}>{getJoinedDate(profile)}</Text>
+            <Text style={styles.reviewSummary}>
+              {reviewSummary.reviewCount > 0
+                ? `${reviewSummary.averageRating.toFixed(1)} stars · ${reviewSummary.reviewCount} review${reviewSummary.reviewCount === 1 ? "" : "s"}`
+                : "No reviews yet"}
+            </Text>
           </View>
         </View>
 
@@ -334,6 +381,58 @@ export default function SellerProfileScreen({ navigation, route }) {
               <Text style={styles.emptyText}>This seller has no active listings right now.</Text>
             }
           />
+        )}
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Reviews</Text>
+          <Text style={styles.sectionCount}>{reviews.length}</Text>
+        </View>
+
+        {loadingReviews ? (
+          <View style={styles.listLoading}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : reviews.length === 0 ? (
+          <Text style={styles.emptyText}>This seller has no reviews yet.</Text>
+        ) : (
+          <View style={styles.reviewsList}>
+            {reviews.map((review) => {
+              const reviewerName = review.reviewerName || "Reviewer";
+              const reviewTimestamp = getDateTime(review.updatedAt || review.createdAt);
+              const reviewDate = reviewTimestamp
+                ? new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(reviewTimestamp))
+                : null;
+
+              return (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewAvatar}>
+                      <Text style={styles.reviewAvatarText}>
+                        {reviewerName.slice(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewInfo}>
+                      <Text style={styles.reviewerName} numberOfLines={1}>
+                        {reviewerName}
+                      </Text>
+                      <Text style={styles.reviewMeta} numberOfLines={1}>
+                        {Number(review.rating || 0).toFixed(1)} stars
+                        {review.listingTitle ? ` · ${review.listingTitle}` : ""}
+                        {reviewDate ? ` · ${reviewDate}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                  {review.comment ? (
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
         )}
       </ScrollView>
 
@@ -452,6 +551,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  reviewSummary: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 7,
+  },
   actionRow: {
     flexDirection: "row",
     gap: 10,
@@ -558,6 +663,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     paddingVertical: 14,
+  },
+  reviewsList: {
+    gap: 10,
+  },
+  reviewCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  reviewHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  reviewAvatar: {
+    alignItems: "center",
+    backgroundColor: "#eff6ff",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  reviewAvatarText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  reviewInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  reviewMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  reviewComment: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
   },
   modalBackdrop: {
     alignItems: "center",
