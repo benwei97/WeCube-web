@@ -3,13 +3,15 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -17,6 +19,15 @@ import { colors } from "../theme/colors";
 import { formatListingPrice } from "../utils/listingUtils";
 import { createConversation } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
+
+const LISTING_REPORT_REASONS = [
+  { value: "inappropriate_image", label: "Inappropriate image" },
+  { value: "fake_or_misleading", label: "Fake or misleading listing" },
+  { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
+  { value: "harassment_or_hate", label: "Harassment or hate" },
+  { value: "prohibited_item", label: "Prohibited item" },
+  { value: "other", label: "Other" },
+];
 
 function formatShipping(listing) {
   if (!listing?.shippingAvailable) return null;
@@ -42,6 +53,10 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [error, setError] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
   const [creatingConversation, setCreatingConversation] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   useEffect(() => {
     if (!listingId) {
@@ -120,6 +135,59 @@ export default function ListingDetailScreen({ navigation, route }) {
       );
     } finally {
       setCreatingConversation(false);
+    }
+  }
+
+  function openReportModal() {
+    if (!currentUser) {
+      Alert.alert("Sign in required", "Sign in to report listings.");
+      return;
+    }
+
+    if (isOwnListing) {
+      Alert.alert("Your listing", "You cannot report your own listing.");
+      return;
+    }
+
+    setReportReason("");
+    setReportDetails("");
+    setReportOpen(true);
+  }
+
+  function closeReportModal() {
+    if (submittingReport) return;
+    setReportOpen(false);
+    setReportReason("");
+    setReportDetails("");
+  }
+
+  async function submitListingReport() {
+    if (!currentUser?.uid || !listing?.id || !reportReason) return;
+
+    setSubmittingReport(true);
+    try {
+      const now = new Date();
+      await setDoc(doc(db, "listingReports", `${currentUser.uid}_${listing.id}`), {
+        listingId: listing.id,
+        listingTitle: listing.title || "",
+        listingPhotoS3Key: listing.photos?.[0]?.s3Key || "",
+        sellerId: listing.userId,
+        reporterId: currentUser.uid,
+        reporterName: `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim(),
+        reason: reportReason,
+        details: reportDetails.trim(),
+        status: "open",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      closeReportModal();
+      Alert.alert("Report submitted", "We will review this listing.");
+    } catch (reportError) {
+      console.error("Error submitting mobile listing report:", reportError);
+      Alert.alert("Unable to submit report", reportError.message || "Please try again.");
+    } finally {
+      setSubmittingReport(false);
     }
   }
 
@@ -206,7 +274,77 @@ export default function ListingDetailScreen({ navigation, route }) {
             {creatingConversation ? "Opening..." : isOwnListing ? "Your listing" : "Message seller"}
           </Text>
         </Pressable>
+        {!isOwnListing && (
+          <Pressable style={styles.reportButton} onPress={openReportModal}>
+            <Text style={styles.reportText}>Report listing</Text>
+          </Pressable>
+        )}
       </ScrollView>
+
+      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Report listing</Text>
+            <Text style={styles.modalBody}>
+              Reports help WeCube review suspicious, unsafe, misleading, or inappropriate listings.
+            </Text>
+            <Text style={styles.modalLabel}>Reason</Text>
+            <View style={styles.reasonList}>
+              {LISTING_REPORT_REASONS.map((reason) => (
+                <Pressable
+                  key={reason.value}
+                  style={[
+                    styles.reasonOption,
+                    reportReason === reason.value && styles.reasonOptionSelected,
+                  ]}
+                  onPress={() => setReportReason(reason.value)}
+                  disabled={submittingReport}
+                >
+                  <Text
+                    style={[
+                      styles.reasonText,
+                      reportReason === reason.value && styles.reasonTextSelected,
+                    ]}
+                  >
+                    {reason.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.modalLabel}>Details</Text>
+            <TextInput
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Add context for the admin review"
+              maxLength={1000}
+              multiline
+              editable={!submittingReport}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeReportModal}
+                disabled={submittingReport}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalSubmitButton,
+                  (!reportReason || submittingReport) && styles.modalSubmitButtonDisabled,
+                ]}
+                onPress={submitListingReport}
+                disabled={!reportReason || submittingReport}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {submittingReport ? "Submitting..." : "Submit"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -319,6 +457,116 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "800",
+  },
+  reportButton: {
+    alignItems: "center",
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  reportText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.46)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    maxHeight: "86%",
+    padding: 18,
+    width: "100%",
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  modalBody: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  modalLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 14,
+  },
+  reasonList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  reasonOption: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  reasonOptionSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  reasonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reasonTextSelected: {
+    color: "#fff",
+  },
+  modalInput: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 15,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  modalTextArea: {
+    minHeight: 96,
+    textAlignVertical: "top",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+    marginTop: 16,
+  },
+  modalCancelButton: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  modalSubmitButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalSubmitButtonDisabled: {
+    opacity: 0.45,
+  },
+  modalSubmitText: {
+    color: "#fff",
     fontWeight: "800",
   },
   error: {
