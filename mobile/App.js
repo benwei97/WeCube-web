@@ -7,6 +7,7 @@ import { AuthProvider } from "./src/contexts/AuthContext";
 import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
+import CompetitionsScreen from "./src/screens/CompetitionsScreen";
 import ListingDetailScreen from "./src/screens/ListingDetailScreen";
 import SellerProfileScreen from "./src/screens/SellerProfileScreen";
 import SellScreen from "./src/screens/SellScreen";
@@ -102,6 +103,11 @@ function AppTabs() {
           headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ color }}>B</Text>,
         }}
+      />
+      <Tab.Screen
+        name="Competitions"
+        component={CompetitionsScreen}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>C</Text> }}
       />
       <Tab.Screen
         name="Sell"
