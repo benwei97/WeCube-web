@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { deleteUser } from "firebase/auth";
 import {
   collection,
@@ -29,7 +30,11 @@ import { auth, db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { formatListingPrice, getDateTime } from "../utils/listingUtils";
 import { closeListingConversationsForDeletedListing } from "../utils/messaging";
-import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
+import {
+  deleteMultipleImages,
+  getS3PublicUrl,
+  uploadAvatarAssetToS3,
+} from "../utils/s3";
 
 const ACCOUNT_DELETE_CONFIRMATION = "DELETE";
 const ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS = 5 * 60 * 1000;
@@ -96,7 +101,13 @@ export default function ProfileScreen() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountText, setDeleteAccountText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [firstNameDraft, setFirstNameDraft] = useState("");
+  const [lastNameDraft, setLastNameDraft] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
+  const avatarUrl = currentUser?.avatarUrl || "";
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -142,6 +153,104 @@ export default function ProfileScreen() {
       await logout();
     } catch (error) {
       Alert.alert("Unable to sign out", error.message || "Please try again.");
+    }
+  }
+
+  function openEditProfileModal() {
+    setFirstNameDraft(currentUser?.firstName || "");
+    setLastNameDraft(currentUser?.lastName || "");
+    setEditProfileOpen(true);
+  }
+
+  function closeEditProfileModal() {
+    if (savingProfile || avatarUploading) return;
+    setEditProfileOpen(false);
+    setFirstNameDraft("");
+    setLastNameDraft("");
+  }
+
+  async function saveProfileName() {
+    const firstName = firstNameDraft.trim();
+    const lastName = lastNameDraft.trim();
+
+    if (!firstName || !lastName || !currentUser?.uid) {
+      Alert.alert("Check name", "Enter a first and last name.");
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        firstName,
+        lastName,
+      });
+      setEditProfileOpen(false);
+    } catch (error) {
+      console.error("Error updating mobile profile name:", error);
+      Alert.alert("Unable to save profile", error.message || "Please try again.");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function pickAvatar() {
+    if (!currentUser?.uid) return;
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Photo access needed", "Allow photo access to update your profile photo.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ["images"],
+      quality: 0.85,
+      selectionLimit: 1,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setAvatarUploading(true);
+    try {
+      const uploadedAvatar = await uploadAvatarAssetToS3(result.assets[0], currentUser.uid);
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        avatarUrl: uploadedAvatar.url,
+        avatarS3Key: uploadedAvatar.s3Key,
+      });
+
+      if (currentUser.avatarS3Key) {
+        try {
+          await deleteMultipleImages([currentUser.avatarS3Key]);
+        } catch (cleanupError) {
+          console.error("Error deleting previous mobile avatar:", cleanupError);
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading mobile avatar:", error);
+      Alert.alert("Unable to update avatar", error.message || "Please try again.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  async function removeAvatar() {
+    if (!currentUser?.uid || !currentUser.avatarS3Key) return;
+
+    setAvatarUploading(true);
+    try {
+      const previousAvatarKey = currentUser.avatarS3Key;
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        avatarUrl: "",
+        avatarS3Key: "",
+      });
+      await deleteMultipleImages([previousAvatarKey]);
+    } catch (error) {
+      console.error("Error removing mobile avatar:", error);
+      Alert.alert("Unable to remove avatar", error.message || "Please try again.");
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -329,11 +438,18 @@ export default function ProfileScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase() || "W"}</Text>
-          </View>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase() || "W"}</Text>
+            </View>
+          )}
           <Text style={styles.name}>{displayName || "WeCube member"}</Text>
           {currentUser?.email ? <Text style={styles.email}>{currentUser.email}</Text> : null}
+          <Pressable style={styles.editProfileButton} onPress={openEditProfileModal}>
+            <Text style={styles.editProfileText}>Edit profile</Text>
+          </Pressable>
         </View>
 
         {loadingListings ? (
@@ -404,6 +520,88 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={editProfileOpen}
+        onRequestClose={closeEditProfileModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit profile</Text>
+            <View style={styles.avatarEditor}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarPreview} />
+              ) : (
+                <View style={styles.avatarPreviewPlaceholder}>
+                  <Text style={styles.avatarPreviewText}>
+                    {displayName.charAt(0).toUpperCase() || "W"}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.avatarActions}>
+                <Pressable
+                  style={[styles.smallActionButton, avatarUploading && styles.disabledButton]}
+                  onPress={pickAvatar}
+                  disabled={avatarUploading}
+                >
+                  <Text style={styles.smallActionText}>
+                    {avatarUploading ? "Uploading..." : "Change photo"}
+                  </Text>
+                </Pressable>
+                {currentUser?.avatarS3Key ? (
+                  <Pressable
+                    style={styles.removeAvatarButton}
+                    onPress={removeAvatar}
+                    disabled={avatarUploading}
+                  >
+                    <Text style={styles.removeAvatarText}>Remove photo</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={styles.modalLabel}>First name</Text>
+            <TextInput
+              value={firstNameDraft}
+              onChangeText={setFirstNameDraft}
+              style={styles.input}
+              maxLength={50}
+              editable={!savingProfile}
+            />
+            <Text style={styles.modalLabel}>Last name</Text>
+            <TextInput
+              value={lastNameDraft}
+              onChangeText={setLastNameDraft}
+              style={styles.input}
+              maxLength={50}
+              editable={!savingProfile}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeEditProfileModal}
+                disabled={savingProfile || avatarUploading}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalSaveButton,
+                  (savingProfile || avatarUploading) && styles.modalSaveButtonDisabled,
+                ]}
+                onPress={saveProfileName}
+                disabled={savingProfile || avatarUploading}
+              >
+                <Text style={styles.modalSaveText}>
+                  {savingProfile ? "Saving..." : "Save"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -429,6 +627,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 72,
   },
+  avatarImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 36,
+    height: 72,
+    width: 72,
+  },
   avatarText: {
     color: "#fff",
     fontSize: 28,
@@ -444,6 +648,19 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     marginTop: 4,
+  },
+  editProfileButton: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  editProfileText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
   },
   loadingBlock: {
     padding: 24,
@@ -575,6 +792,64 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 8,
   },
+  avatarEditor: {
+    alignItems: "center",
+    marginTop: 16,
+  },
+  avatarPreview: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 44,
+    height: 88,
+    width: 88,
+  },
+  avatarPreviewPlaceholder: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 44,
+    height: 88,
+    justifyContent: "center",
+    width: 88,
+  },
+  avatarPreviewText: {
+    color: "#fff",
+    fontSize: 30,
+    fontWeight: "900",
+  },
+  avatarActions: {
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  smallActionButton: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smallActionText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  removeAvatarButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  removeAvatarText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  disabledButton: {
+    opacity: 0.55,
+  },
+  modalLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 14,
+  },
   input: {
     borderColor: colors.border,
     borderRadius: 6,
@@ -612,6 +887,19 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalDeleteText: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+  modalSaveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.45,
+  },
+  modalSaveText: {
     color: "#fff",
     fontWeight: "800",
   },

@@ -89,6 +89,52 @@ export async function uploadImageAssetToS3(asset, listingId) {
   };
 }
 
+export async function uploadAvatarAssetToS3(asset, userId) {
+  if (!asset?.uri || !userId) {
+    throw new Error("Select an avatar image to upload.");
+  }
+
+  const contentType = getImageType(asset);
+  if (!SUPPORTED_IMAGE_TYPES.has(contentType)) {
+    throw new Error("Upload a JPG, PNG, or WebP image.");
+  }
+
+  const fileName = asset.fileName || asset.uri.split("/").pop() || "avatar.jpg";
+  const fileSize = asset.fileSize || 1;
+  const { data } = await createSignedS3Upload({
+    uploadType: "avatar",
+    userId,
+    fileName,
+    contentType,
+    fileExtension: getFileExtension(fileName, contentType),
+    fileSize,
+  });
+
+  const { uploadUrl, s3Key } = data || {};
+  if (!uploadUrl || !s3Key) {
+    throw new Error("Failed to prepare avatar upload.");
+  }
+
+  const imageResponse = await fetch(asset.uri);
+  const imageBlob = await imageResponse.blob();
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": contentType,
+    },
+    body: imageBlob,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Avatar upload failed with status ${uploadResponse.status}.`);
+  }
+
+  return {
+    s3Key,
+    url: getS3PublicUrl(s3Key),
+  };
+}
+
 export async function deleteMultipleImages(s3Keys) {
   const filteredKeys = (s3Keys || []).filter(Boolean);
   if (!filteredKeys.length) return;
