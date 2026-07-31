@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -8,10 +9,47 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+
+function getUserBlockId(blockerId, blockedUserId) {
+  return `${blockerId}_${blockedUserId}`;
+}
+
+export async function blockUser(blockerId, blockedUserId) {
+  if (!blockerId || !blockedUserId || blockerId === blockedUserId) {
+    throw new Error("Invalid user block");
+  }
+
+  await setDoc(doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId)), {
+    blockerId,
+    blockedUserId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function unblockUser(blockerId, blockedUserId) {
+  if (!blockerId || !blockedUserId || blockerId === blockedUserId) {
+    throw new Error("Invalid user unblock");
+  }
+
+  await deleteDoc(doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId)));
+}
+
+export function subscribeToUserBlock(blockerId, blockedUserId, onNext, onError) {
+  if (!blockerId || !blockedUserId) {
+    return () => {};
+  }
+
+  return onSnapshot(
+    doc(db, "userBlocks", getUserBlockId(blockerId, blockedUserId)),
+    (snapshot) => onNext(snapshot.exists()),
+    onError
+  );
+}
 
 export async function getExistingConversation(listingId, buyerId) {
   const conversationsQuery = query(
