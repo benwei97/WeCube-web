@@ -4,16 +4,20 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { deleteUser } from "firebase/auth";
 import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   updateDoc,
@@ -21,11 +25,14 @@ import {
 } from "firebase/firestore";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { formatListingPrice, getDateTime } from "../utils/listingUtils";
 import { closeListingConversationsForDeletedListing } from "../utils/messaging";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
+
+const ACCOUNT_DELETE_CONFIRMATION = "DELETE";
+const ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
 function statusLabel(status) {
   if (status === "archived") return "Pending";
@@ -86,6 +93,9 @@ export default function ProfileScreen() {
   const [listings, setListings] = useState([]);
   const [loadingListings, setLoadingListings] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteAccountText, setDeleteAccountText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
 
   useEffect(() => {
@@ -202,6 +212,93 @@ export default function ProfileScreen() {
     }
   }
 
+  function closeDeleteAccountModal() {
+    if (deletingAccount) return;
+    setDeleteAccountOpen(false);
+    setDeleteAccountText("");
+  }
+
+  async function deleteAccount() {
+    if (deleteAccountText !== ACCOUNT_DELETE_CONFIRMATION || !currentUser?.uid) return;
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.uid !== currentUser.uid) {
+      Alert.alert("Sign in again", "Unable to confirm your signed-in session. Please sign in again.");
+      return;
+    }
+
+    const lastSignInAt = Date.parse(firebaseUser.metadata?.lastSignInTime || "");
+    const hasRecentLogin =
+      Number.isFinite(lastSignInAt) &&
+      Date.now() - lastSignInAt <= ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS;
+
+    if (!hasRecentLogin) {
+      Alert.alert(
+        "Sign in again",
+        "For security, sign out and sign back in, then try deleting your account again."
+      );
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const listingsSnapshot = await getDocs(
+        query(collection(db, "listings"), where("userId", "==", currentUser.uid))
+      );
+
+      for (const listingDoc of listingsSnapshot.docs) {
+        const listing = { id: listingDoc.id, ...listingDoc.data() };
+        const s3Keys = (listing.photos || []).map((photo) => photo.s3Key).filter(Boolean);
+        if (s3Keys.length) {
+          try {
+            await deleteMultipleImages(s3Keys);
+          } catch (cleanupError) {
+            console.error("Error deleting listing images during mobile account deletion:", cleanupError);
+          }
+        }
+
+        try {
+          await closeListingConversationsForDeletedListing(
+            listing.id,
+            listing.userId,
+            listing.title || "this listing"
+          );
+        } catch (conversationError) {
+          console.error("Error closing conversations during mobile account deletion:", conversationError);
+        }
+
+        await deleteDoc(doc(db, "listings", listing.id));
+      }
+
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        email: "",
+        firstName: "Deleted",
+        lastName: "User",
+        avatarUrl: "",
+        avatarS3Key: "",
+        attendingCompetitions: [],
+        deletedAt: new Date(),
+        deletedByUser: true,
+      });
+
+      await deleteUser(firebaseUser);
+      setDeleteAccountText("");
+      setDeleteAccountOpen(false);
+    } catch (error) {
+      console.error("Error deleting mobile account:", error);
+      if (error.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "Sign in again",
+          "For security, sign out and sign back in, then try deleting your account again."
+        );
+      } else {
+        Alert.alert("Unable to delete account", error.message || "Please try again.");
+      }
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
   function renderListingSection(title, data) {
     return (
       <View style={styles.section}>
@@ -254,7 +351,59 @@ export default function ProfileScreen() {
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Sign out</Text>
         </Pressable>
+
+        <Pressable style={styles.deleteAccountButton} onPress={() => setDeleteAccountOpen(true)}>
+          <Text style={styles.deleteAccountText}>Delete account</Text>
+        </Pressable>
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={deleteAccountOpen}
+        onRequestClose={closeDeleteAccountModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete account</Text>
+            <Text style={styles.modalBody}>
+              This permanently deletes your sign-in and removes your listings. Your public profile
+              will be shown as Deleted User, and messages, reviews, and reports may be retained for
+              safety and service integrity.
+            </Text>
+            <TextInput
+              value={deleteAccountText}
+              onChangeText={setDeleteAccountText}
+              style={styles.input}
+              placeholder="Type DELETE to confirm"
+              autoCapitalize="characters"
+              editable={!deletingAccount}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeDeleteAccountModal}
+                disabled={deletingAccount}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalDeleteButton,
+                  (deleteAccountText !== ACCOUNT_DELETE_CONFIRMATION || deletingAccount) &&
+                    styles.modalDeleteButtonDisabled,
+                ]}
+                onPress={deleteAccount}
+                disabled={deleteAccountText !== ACCOUNT_DELETE_CONFIRMATION || deletingAccount}
+              >
+                <Text style={styles.modalDeleteText}>
+                  {deletingAccount ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -390,6 +539,80 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: colors.danger,
+    fontWeight: "800",
+  },
+  deleteAccountButton: {
+    alignItems: "center",
+    marginTop: 14,
+    paddingVertical: 10,
+  },
+  deleteAccountText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.42)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 18,
+    width: "100%",
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  modalBody: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  input: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+    marginTop: 16,
+  },
+  modalCancelButton: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  modalDeleteButton: {
+    backgroundColor: colors.danger,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalDeleteButtonDisabled: {
+    opacity: 0.45,
+  },
+  modalDeleteText: {
+    color: "#fff",
     fontWeight: "800",
   },
 });
