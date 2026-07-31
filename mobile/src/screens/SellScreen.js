@@ -28,6 +28,29 @@ const CONDITIONS = [
 ];
 const PUZZLE_TYPES = ["3x3", "2x2", "4x4", "5x5", "Pyraminx", "Megaminx", "Skewb", "Other"];
 
+function getListingCompetitionPayload(competition = {}, options = {}) {
+  const payload = {
+    id: competition.id || "",
+    name: competition.name || "",
+    city: competition.city || "",
+    country: competition.country || competition.countryIso2 || "",
+    latitude:
+      typeof competition.latitude === "number" ? competition.latitude : null,
+    longitude:
+      typeof competition.longitude === "number" ? competition.longitude : null,
+    displayName:
+      competition.displayName || competition.name || "Competition meetup",
+    dateRange: competition.dateRange || "",
+  };
+
+  if (options.includeSchedule) {
+    payload.startDate = competition.startDate || null;
+    payload.endDate = competition.endDate || null;
+  }
+
+  return payload;
+}
+
 function SegmentOptions({ options, value, onChange }) {
   return (
     <View style={styles.segmentWrap}>
@@ -63,8 +86,15 @@ export default function SellScreen() {
   const [shippingCost, setShippingCost] = useState("0.00");
   const [localMeetupAvailable, setLocalMeetupAvailable] = useState(false);
   const [meetupLocationLabel, setMeetupLocationLabel] = useState("");
+  const [competitionMeetupAvailable, setCompetitionMeetupAvailable] = useState(false);
+  const [selectedCompetitionIds, setSelectedCompetitionIds] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [publishing, setPublishing] = useState(false);
+
+  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const selectedCompetitions = bookmarkedCompetitions.filter((competition) =>
+    selectedCompetitionIds.includes(competition.id)
+  );
 
   async function pickPhotos() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -105,15 +135,33 @@ export default function SellScreen() {
     if (!Number.isFinite(parsedShippingCost) || parsedShippingCost < 0 || parsedShippingCost > 999.99) {
       return "Enter a valid shipping price.";
     }
-    if (!shippingAvailable && !localMeetupAvailable) {
-      return "Select shipping or local meetup.";
+    if (!shippingAvailable && !localMeetupAvailable && !competitionMeetupAvailable) {
+      return "Select shipping, local meetup, or competition meetup.";
     }
     if (localMeetupAvailable && !meetupLocationLabel.trim()) {
       return "Enter a meetup location.";
     }
+    if (competitionMeetupAvailable && selectedCompetitions.length === 0) {
+      return "Select at least one bookmarked competition.";
+    }
     if (photos.length < 1) return "Add at least one photo.";
 
     return null;
+  }
+
+  function handleCompetitionMeetupChange(value) {
+    setCompetitionMeetupAvailable(value);
+    if (!value) {
+      setSelectedCompetitionIds([]);
+    }
+  }
+
+  function toggleCompetition(competitionId) {
+    setSelectedCompetitionIds((prev) =>
+      prev.includes(competitionId)
+        ? prev.filter((id) => id !== competitionId)
+        : [...prev, competitionId]
+    );
   }
 
   async function publishListing() {
@@ -146,9 +194,13 @@ export default function SellScreen() {
         shippingIncluded: shippingAvailable && parsedShippingCost === 0,
         shippingCost: parsedShippingCost,
         localMeetupAvailable,
-        competitionMeetupAvailable: false,
-        competitions: [],
-        meetupCompetitionTags: [],
+        competitionMeetupAvailable,
+        competitions: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition, { includeSchedule: true })
+        ),
+        meetupCompetitionTags: selectedCompetitions.map((competition) =>
+          getListingCompetitionPayload(competition)
+        ),
         status: "active",
         createdAt: new Date(),
         soldAt: null,
@@ -166,6 +218,8 @@ export default function SellScreen() {
       setShippingCost("0.00");
       setLocalMeetupAvailable(false);
       setMeetupLocationLabel("");
+      setCompetitionMeetupAvailable(false);
+      setSelectedCompetitionIds([]);
       setPhotos([]);
       Alert.alert("Listing published", "Your listing is now active.");
     } catch (error) {
@@ -266,6 +320,61 @@ export default function SellScreen() {
                 placeholder="City, venue, or general area"
               />
             </>
+          )}
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Competition meetup</Text>
+              <Text style={styles.helper}>Offer pickup at bookmarked competitions.</Text>
+            </View>
+            <Switch
+              value={competitionMeetupAvailable}
+              onValueChange={handleCompetitionMeetupChange}
+            />
+          </View>
+          {competitionMeetupAvailable && (
+            <View style={styles.competitionPanel}>
+              {bookmarkedCompetitions.length === 0 ? (
+                <Text style={styles.emptyCompetitionText}>
+                  Bookmark competitions on web first, then they will appear here.
+                </Text>
+              ) : (
+                bookmarkedCompetitions.map((competition) => {
+                  const selected = selectedCompetitionIds.includes(competition.id);
+                  return (
+                    <Pressable
+                      key={competition.id}
+                      style={[
+                        styles.competitionPill,
+                        selected && styles.competitionPillSelected,
+                      ]}
+                      onPress={() => toggleCompetition(competition.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.competitionName,
+                          selected && styles.competitionNameSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {competition.displayName || competition.name}
+                      </Text>
+                      {[competition.city, competition.country].filter(Boolean).length > 0 && (
+                        <Text
+                          style={[
+                            styles.competitionMeta,
+                            selected && styles.competitionMetaSelected,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {[competition.city, competition.country].filter(Boolean).join(", ")}
+                        </Text>
+                      )}
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
           )}
 
           <Pressable
@@ -383,10 +492,51 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
   },
+  switchText: {
+    flex: 1,
+    paddingRight: 12,
+  },
   switchLabel: {
     color: colors.text,
     fontSize: 15,
     fontWeight: "800",
+  },
+  competitionPanel: {
+    gap: 8,
+    marginTop: 10,
+  },
+  competitionPill: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  competitionPillSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+  },
+  competitionName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  competitionNameSelected: {
+    color: colors.primary,
+  },
+  competitionMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  competitionMetaSelected: {
+    color: colors.primary,
+  },
+  emptyCompetitionText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   primaryButton: {
     alignItems: "center",

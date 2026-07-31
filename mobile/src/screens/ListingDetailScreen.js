@@ -41,7 +41,27 @@ function formatFulfillment(listing) {
   const options = [];
   if (listing?.shippingAvailable) options.push(formatShipping(listing));
   if (listing?.localMeetupAvailable) options.push("Local meetup");
-  if (listing?.competitionMeetupAvailable) options.push("Competition meetup");
+  if (listing?.competitionMeetupAvailable) {
+    const competitionTags = [
+      ...(listing.meetupCompetitionTags || []),
+      ...(listing.competitions || []),
+    ];
+    const uniqueCompetitions = competitionTags.filter(
+      (competition, index, allCompetitions) =>
+        competition?.id &&
+        allCompetitions.findIndex((item) => item.id === competition.id) === index
+    );
+
+    if (uniqueCompetitions.length > 0) {
+      uniqueCompetitions.forEach((competition) => {
+        options.push(
+          `Competition meetup: ${competition.displayName || competition.name || "Competition"}`
+        );
+      });
+    } else {
+      options.push("Competition meetup");
+    }
+  }
   return options.filter(Boolean);
 }
 
