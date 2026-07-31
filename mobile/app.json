@@ -5,10 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "wecube",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "app.wecube.ios",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "WeCube needs photo library access so you can add listing photos and profile pictures."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,6 +24,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "WeCube needs photo library access so you can add listing photos and profile pictures."
+        }
+      ]
+    ]
   }
 }

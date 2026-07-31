@@ -26,7 +26,11 @@
     "ios:lan": "expo start --ios --lan --clear",
     "ios:tunnel": "expo start --ios --tunnel --clear",
     "ios:port": "expo start --ios --localhost --port 19000 --clear",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export:ios": "expo export --platform ios",
+    "build:ios:dev": "eas build --platform ios --profile development",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "build:ios:production": "eas build --platform ios --profile production"
   },
   "private": true
 }
