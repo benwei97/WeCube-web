@@ -20,13 +20,13 @@ import { getS3PublicUrl } from "../utils/s3";
 import { formatListingPrice, getDateTime } from "../utils/listingUtils";
 import { colors } from "../theme/colors";
 
-function ListingCard({ listing }) {
+function ListingCard({ listing, onPress }) {
   const thumbnailUrl = listing.photos?.[0]?.s3Key
     ? getS3PublicUrl(listing.photos[0].s3Key)
     : null;
 
   return (
-    <Pressable style={styles.card}>
+    <Pressable style={styles.card} onPress={onPress}>
       {thumbnailUrl ? (
         <Image source={{ uri: thumbnailUrl }} style={styles.image} />
       ) : (
@@ -47,7 +47,7 @@ function ListingCard({ listing }) {
   );
 }
 
-export default function BrowseScreen() {
+export default function BrowseScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,7 +99,12 @@ export default function BrowseScreen() {
       <FlatList
         data={listings}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ListingCard listing={item} />}
+        renderItem={({ item }) => (
+          <ListingCard
+            listing={item}
+            onPress={() => navigation.navigate("ListingDetail", { listingId: item.id })}
+          />
+        )}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.centerState}>
@@ -109,7 +114,7 @@ export default function BrowseScreen() {
         }
       />
     );
-  }, [error, listings, loading]);
+  }, [error, listings, loading, navigation]);
 
   return <Screen>{content}</Screen>;
 }

@@ -1,10 +1,12 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Text, View } from "react-native";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
+import ListingDetailScreen from "./src/screens/ListingDetailScreen";
 import SellScreen from "./src/screens/SellScreen";
 import MessagesScreen from "./src/screens/MessagesScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
@@ -12,6 +14,7 @@ import AuthScreen from "./src/screens/AuthScreen";
 import { colors } from "./src/theme/colors";
 
 const Tab = createBottomTabNavigator();
+const BrowseStack = createNativeStackNavigator();
 
 function ProtectedScreen({ children }) {
   const { currentUser, loading } = useAuth();
@@ -31,6 +34,27 @@ function ProtectedScreen({ children }) {
   return children;
 }
 
+function BrowseNavigator() {
+  return (
+    <BrowseStack.Navigator
+      screenOptions={{
+        headerTitleStyle: { fontWeight: "700" },
+      }}
+    >
+      <BrowseStack.Screen
+        name="BrowseList"
+        component={BrowseScreen}
+        options={{ title: "Browse" }}
+      />
+      <BrowseStack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={{ title: "Listing" }}
+      />
+    </BrowseStack.Navigator>
+  );
+}
+
 function AppTabs() {
   return (
     <Tab.Navigator
@@ -43,8 +67,11 @@ function AppTabs() {
     >
       <Tab.Screen
         name="Browse"
-        component={BrowseScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>B</Text> }}
+        component={BrowseNavigator}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Text style={{ color }}>B</Text>,
+        }}
       />
       <Tab.Screen
         name="Sell"
