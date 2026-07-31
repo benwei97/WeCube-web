@@ -17,7 +17,7 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { formatListingPrice } from "../utils/listingUtils";
-import { createConversation } from "../utils/messaging";
+import { createConversation, getUserProfile } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
 
 const LISTING_REPORT_REASONS = [
@@ -53,6 +53,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [error, setError] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
   const [creatingConversation, setCreatingConversation] = useState(false);
+  const [seller, setSeller] = useState(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
@@ -86,6 +87,31 @@ export default function ListingDetailScreen({ navigation, route }) {
 
     return unsubscribe;
   }, [listingId]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSeller() {
+      if (!listing?.userId) {
+        setSeller(null);
+        return;
+      }
+
+      try {
+        const sellerProfile = await getUserProfile(listing.userId);
+        if (active) setSeller(sellerProfile);
+      } catch (sellerError) {
+        console.error("Error loading mobile listing seller:", sellerError);
+        if (active) setSeller(null);
+      }
+    }
+
+    loadSeller();
+
+    return () => {
+      active = false;
+    };
+  }, [listing?.userId]);
 
   const photos = listing?.photos || [];
   const activePhoto = photos[photoIndex];
@@ -265,6 +291,28 @@ export default function ListingDetailScreen({ navigation, route }) {
           </Text>
         </View>
 
+        {listing.userId && (
+          <Pressable
+            style={styles.sellerPanel}
+            onPress={() => navigation.navigate("SellerProfile", { userId: listing.userId })}
+          >
+            <View style={styles.sellerAvatar}>
+              <Text style={styles.sellerAvatarText}>
+                {(seller?.firstName || seller?.displayName || "S").slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.sellerInfo}>
+              <Text style={styles.sellerLabel}>Seller</Text>
+              <Text style={styles.sellerName} numberOfLines={1}>
+                {seller?.displayName ||
+                  `${seller?.firstName || ""} ${seller?.lastName || ""}`.trim() ||
+                  "Seller profile"}
+              </Text>
+            </View>
+            <Text style={styles.sellerAction}>View</Text>
+          </Pressable>
+        )}
+
         <Pressable
           style={[styles.primaryButton, creatingConversation && styles.primaryButtonDisabled]}
           onPress={handleMessageSeller}
@@ -443,6 +491,50 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  sellerPanel: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 14,
+    padding: 12,
+  },
+  sellerAvatar: {
+    alignItems: "center",
+    backgroundColor: "#dbeafe",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  sellerAvatarText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  sellerInfo: {
+    flex: 1,
+  },
+  sellerLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  sellerName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  sellerAction: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "800",
   },
   primaryButton: {
     alignItems: "center",

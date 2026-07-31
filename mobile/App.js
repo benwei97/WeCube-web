@@ -8,6 +8,7 @@ import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
 import ListingDetailScreen from "./src/screens/ListingDetailScreen";
+import SellerProfileScreen from "./src/screens/SellerProfileScreen";
 import SellScreen from "./src/screens/SellScreen";
 import MessagesScreen from "./src/screens/MessagesScreen";
 import ConversationScreen from "./src/screens/ConversationScreen";
@@ -53,6 +54,11 @@ function BrowseNavigator() {
         name="ListingDetail"
         component={ListingDetailScreen}
         options={{ title: "Listing" }}
+      />
+      <BrowseStack.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
+        options={{ title: "Seller" }}
       />
     </BrowseStack.Navigator>
   );
