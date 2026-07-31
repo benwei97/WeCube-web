@@ -23,6 +23,9 @@ docs/
 .env.development.local
 .env.test.local
 .env.production.local
+functions/.env
+functions/.env.*
+!functions/.env.example
 
 # Editor directories and files
 .vscode/*
