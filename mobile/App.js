@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Text, View } from "react-native";
 import { AuthProvider } from "./src/contexts/AuthContext";
+import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
 import ListingDetailScreen from "./src/screens/ListingDetailScreen";
@@ -139,6 +140,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="dark" />
         <AppTabs />
+        <PolicyAcceptanceGate />
       </NavigationContainer>
     </AuthProvider>
   );
