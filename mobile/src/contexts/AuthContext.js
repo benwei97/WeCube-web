@@ -1,10 +1,12 @@
 import { createContext, useEffect, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithCredential,
   signOut,
   updateProfile,
 } from "firebase/auth";
@@ -128,6 +130,20 @@ export function AuthProvider({ children }) {
     return userCredential;
   }
 
+  async function loginWithGoogle(idToken, accessToken) {
+    if (!idToken && !accessToken) {
+      throw createAuthFlowError(
+        "auth/missing-google-token",
+        "Google sign-in did not return a credential."
+      );
+    }
+
+    const credential = GoogleAuthProvider.credential(idToken, accessToken);
+    const userCredential = await signInWithCredential(auth, credential);
+    await ensureVerifiedUserProfile(userCredential.user, pendingProfiles[userCredential.user.uid]);
+    return userCredential;
+  }
+
   function logout() {
     return signOut(auth);
   }
@@ -195,6 +211,7 @@ export function AuthProvider({ children }) {
     loading,
     signup,
     login,
+    loginWithGoogle,
     logout,
     resetPassword,
   };

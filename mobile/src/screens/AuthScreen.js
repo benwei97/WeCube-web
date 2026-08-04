@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* global process */
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,12 +11,16 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { colors } from "../theme/colors";
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function AuthScreen() {
-  const { login, signup, resetPassword } = useAuth();
+  const { login, loginWithGoogle, signup, resetPassword } = useAuth();
   const [mode, setMode] = useState("login");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -23,8 +28,42 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const handledGoogleResponseRef = useRef("");
+  const googleIosRedirectScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_REDIRECT_SCHEME;
+
+  const [googleRequest, googleResponse, promptGoogleSignIn] =
+    Google.useIdTokenAuthRequest(
+      {
+        expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      },
+      googleIosRedirectScheme
+        ? { native: `${googleIosRedirectScheme}:/oauthredirect` }
+        : undefined
+    );
 
   const isSignup = mode === "signup";
+
+  useEffect(() => {
+    if (googleResponse?.type !== "success") return;
+
+    const { id_token: idToken, access_token: accessToken } =
+      googleResponse.params || {};
+    const responseKey = idToken || accessToken || "";
+
+    if (!responseKey || handledGoogleResponseRef.current === responseKey) return;
+    handledGoogleResponseRef.current = responseKey;
+
+    setGoogleLoading(true);
+    loginWithGoogle(idToken, accessToken)
+      .catch((error) => {
+        Alert.alert("Unable to sign in with Google", error.message || "Please try again.");
+      })
+      .finally(() => setGoogleLoading(false));
+  }, [googleResponse, loginWithGoogle]);
 
   async function handleSubmit() {
     const normalizedEmail = email.trim();
@@ -82,6 +121,27 @@ export default function AuthScreen() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    if (!googleRequest) {
+      Alert.alert(
+        "Google sign-in unavailable",
+        "Google sign-in is not configured for this build."
+      );
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const result = await promptGoogleSignIn();
+      if (result?.type !== "success") {
+        setGoogleLoading(false);
+      }
+    } catch (error) {
+      setGoogleLoading(false);
+      Alert.alert("Unable to sign in with Google", error.message || "Please try again.");
+    }
+  }
+
   return (
     <Screen>
       <KeyboardAvoidingView
@@ -91,8 +151,34 @@ export default function AuthScreen() {
         <View style={styles.card}>
           <Text style={styles.title}>{isSignup ? "Create account" : "Sign in"}</Text>
           <Text style={styles.subtitle}>
-            Use your WeCube account to sell, message, and manage listings.
+            Sign in before using WeCube.
           </Text>
+
+          <Pressable
+            style={[
+              styles.googleButton,
+              (loading || googleLoading || !googleRequest) && styles.buttonDisabled,
+            ]}
+            onPress={handleGoogleSignIn}
+            disabled={loading || googleLoading || !googleRequest}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <>
+                <View style={styles.googleLogo}>
+                  <Text style={styles.googleLogoText}>G</Text>
+                </View>
+                <Text style={styles.googleText}>Continue with Google</Text>
+              </>
+            )}
+          </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <View style={styles.segment}>
             <Pressable
@@ -157,7 +243,11 @@ export default function AuthScreen() {
             />
           )}
 
-          <Pressable style={styles.primaryButton} onPress={handleSubmit} disabled={loading}>
+          <Pressable
+            style={[styles.primaryButton, (loading || googleLoading) && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading || googleLoading}
+          >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -199,6 +289,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 6,
+  },
+  googleButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    marginTop: 18,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  googleLogo: {
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 20,
+    justifyContent: "center",
+    width: 20,
+  },
+  googleLogoText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  googleText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  dividerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  dividerLine: {
+    backgroundColor: colors.border,
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
   },
   segment: {
     backgroundColor: colors.background,
@@ -248,6 +386,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     minHeight: 48,
     justifyContent: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   primaryText: {
     color: "#fff",

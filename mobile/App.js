@@ -23,7 +23,7 @@ const BrowseStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
-function ProtectedScreen({ children }) {
+function AppContent() {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
@@ -38,7 +38,12 @@ function ProtectedScreen({ children }) {
     return <AuthScreen />;
   }
 
-  return children;
+  return (
+    <>
+      <AppTabs />
+      <PolicyAcceptanceGate />
+    </>
+  );
 }
 
 function BrowseNavigator() {
@@ -134,40 +139,25 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Sell"
+        component={SellScreen}
         options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>+</Text> }}
-      >
-        {() => (
-          <ProtectedScreen>
-            <SellScreen />
-          </ProtectedScreen>
-        )}
-      </Tab.Screen>
+      />
       <Tab.Screen
         name="Messages"
+        component={MessagesNavigator}
         options={{
           headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ color }}>M</Text>,
         }}
-      >
-        {() => (
-          <ProtectedScreen>
-            <MessagesNavigator />
-          </ProtectedScreen>
-        )}
-      </Tab.Screen>
+      />
       <Tab.Screen
         name="Profile"
+        component={ProfileNavigator}
         options={{
           headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ color }}>P</Text>,
         }}
-      >
-        {() => (
-          <ProtectedScreen>
-            <ProfileNavigator />
-          </ProtectedScreen>
-        )}
-      </Tab.Screen>
+      />
     </Tab.Navigator>
   );
 }
@@ -177,8 +167,7 @@ export default function App() {
     <AuthProvider>
       <NavigationContainer>
         <StatusBar style="dark" />
-        <AppTabs />
-        <PolicyAcceptanceGate />
+        <AppContent />
       </NavigationContainer>
     </AuthProvider>
   );
