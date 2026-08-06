@@ -48,11 +48,21 @@ import {
   Save,
   Star,
   Bookmark,
+  BookmarkBorder,
   Flag,
 } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
-import { deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import {
+  arrayRemove,
+  arrayUnion,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import {
@@ -194,6 +204,7 @@ function ListingDetail() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [savingListingBookmark, setSavingListingBookmark] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [ownerMenuAnchorEl, setOwnerMenuAnchorEl] = useState(null);
   const [viewerMenuAnchorEl, setViewerMenuAnchorEl] = useState(null);
@@ -899,6 +910,43 @@ function ListingDetail() {
     setReportDetails("");
   };
 
+  const handleToggleSavedListing = async () => {
+    if (!currentUser?.uid) {
+      setMessageSnackbar({
+        severity: "info",
+        message: "Please sign in to save listings.",
+      });
+      return;
+    }
+
+    if (!listing?.id || savingListingBookmark) {
+      return;
+    }
+
+    setSavingListingBookmark(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        savedListings: isSavedListing
+          ? arrayRemove(listing.id)
+          : arrayUnion(listing.id),
+      });
+      setMessageSnackbar({
+        severity: "success",
+        message: isSavedListing
+          ? "Removed from saved listings."
+          : "Saved to your dashboard.",
+      });
+    } catch (error) {
+      console.error("Error updating saved listing:", error);
+      setMessageSnackbar({
+        severity: "error",
+        message: "Unable to update saved listings right now.",
+      });
+    } finally {
+      setSavingListingBookmark(false);
+    }
+  };
+
   const handleSubmitListingReport = async () => {
     if (!currentUser?.uid || !listing?.id || !reportReason) {
       return;
@@ -1313,6 +1361,9 @@ function ListingDetail() {
   }
 
   const isOwner = currentUser && currentUser.uid === listing.userId;
+  const isSavedListing = Boolean(
+    currentUser?.savedListings?.includes(listing.id)
+  );
   const isOwnerMenuOpen = Boolean(ownerMenuAnchorEl);
   const isViewerMenuOpen = Boolean(viewerMenuAnchorEl);
   const isHiddenByModeration = isListingModerationHidden(listing);
@@ -1451,7 +1502,27 @@ function ListingDetail() {
             </Menu>
           </Box>
         ) : (
-          <Box>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <IconButton
+              onClick={handleToggleSavedListing}
+              disabled={savingListingBookmark}
+              aria-label={isSavedListing ? "Unsave listing" : "Save listing"}
+              sx={{
+                border: 1,
+                borderColor: isSavedListing ? "primary.main" : "divider",
+                color: isSavedListing ? "primary.main" : "text.secondary",
+                bgcolor: isSavedListing
+                  ? "rgba(100, 108, 255, 0.08)"
+                  : "transparent",
+                "&:hover": {
+                  bgcolor: isSavedListing
+                    ? "rgba(100, 108, 255, 0.12)"
+                    : "rgba(100, 108, 255, 0.04)",
+                },
+              }}
+            >
+              {isSavedListing ? <Bookmark /> : <BookmarkBorder />}
+            </IconButton>
             <IconButton
               onClick={(event) => setViewerMenuAnchorEl(event.currentTarget)}
               aria-label="Listing options"

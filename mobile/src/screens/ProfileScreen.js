@@ -386,6 +386,7 @@ export default function ProfileScreen({ navigation }) {
         avatarUrl: "",
         avatarS3Key: "",
         attendingCompetitions: [],
+        savedListings: [],
         deletedAt: new Date(),
         deletedByUser: true,
       });

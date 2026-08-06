@@ -116,6 +116,7 @@ export default function AccountDeletionDialog({ open, onClose }) {
         avatarUrl: "",
         avatarS3Key: "",
         attendingCompetitions: [],
+        savedListings: [],
         deletedAt: new Date(),
         deletedByUser: true,
       });

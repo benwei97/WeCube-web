@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Delete,
   Edit,
+  Bookmark,
   MoreVert,
   PendingActions,
   RestoreFromTrash,
@@ -36,8 +37,10 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   query,
+  arrayRemove,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -56,6 +59,7 @@ import {
   formatListingPrice,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
+  isListingModerationHidden,
 } from "../utils/listingUtils";
 import {
   deleteImageFromS3,
@@ -68,6 +72,7 @@ import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
+const SAVED_LISTING_PREVIEW_LIMIT = 6;
 const COMPACT_CARD_GRID_SX = {
   display: "grid",
   gridTemplateColumns: {
@@ -121,6 +126,8 @@ function Dashboard() {
   const avatarInputRef = useRef(null);
   const [listings, setListings] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [savedListings, setSavedListings] = useState([]);
+  const [loadingSavedListings, setLoadingSavedListings] = useState(false);
   const [writtenReviewsByRecipientId, setWrittenReviewsByRecipientId] = useState({});
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +135,7 @@ function Dashboard() {
   const [listingTab, setListingTab] = useState("active");
   const [showAllListings, setShowAllListings] = useState(false);
   const [showAllPurchases, setShowAllPurchases] = useState(false);
+  const [showAllSavedListings, setShowAllSavedListings] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState({});
   const [deleteDialog, setDeleteDialog] = useState({ open: false, listing: null });
   const [statusConfirmDialog, setStatusConfirmDialog] = useState({
@@ -157,9 +165,58 @@ function Dashboard() {
   }, [currentUser]);
 
   useEffect(() => {
+    let active = true;
+    const savedListingIds = Array.isArray(currentUser?.savedListings)
+      ? currentUser.savedListings
+      : [];
+
+    if (!currentUser?.uid || savedListingIds.length === 0) {
+      setSavedListings([]);
+      setLoadingSavedListings(false);
+      return undefined;
+    }
+
+    setLoadingSavedListings(true);
+
+    Promise.all(
+      savedListingIds.map(async (listingId) => {
+        try {
+          const listingDoc = await getDoc(doc(db, "listings", listingId));
+          return listingDoc.exists()
+            ? { id: listingDoc.id, ...listingDoc.data() }
+            : null;
+        } catch (error) {
+          console.error("Error loading saved listing:", error);
+          return null;
+        }
+      })
+    )
+      .then((nextSavedListings) => {
+        if (!active) return;
+
+        setSavedListings(
+          nextSavedListings
+            .filter(Boolean)
+            .filter((listing) => !isListingModerationHidden(listing))
+            .sort((a, b) => getDateTime(b.createdAt) - getDateTime(a.createdAt))
+        );
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingSavedListings(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.savedListings, currentUser?.uid]);
+
+  useEffect(() => {
     if (!currentUser?.uid) {
       setListings([]);
       setPurchases([]);
+      setSavedListings([]);
       setWrittenReviewsByRecipientId({});
       setReceivedReviews([]);
       setLoading(false);
@@ -253,6 +310,9 @@ function Dashboard() {
   const displayedPurchases = showAllPurchases
     ? purchases
     : purchases.slice(0, PURCHASE_PREVIEW_LIMIT);
+  const displayedSavedListings = showAllSavedListings
+    ? savedListings
+    : savedListings.slice(0, SAVED_LISTING_PREVIEW_LIMIT);
 
   const reviewSummary = useMemo(() => {
     const reviewCount = receivedReviews.length;
@@ -459,6 +519,21 @@ function Dashboard() {
   const handleDeleteClick = (listing) => {
     closeActionMenu();
     setDeleteDialog({ open: true, listing });
+  };
+
+  const handleRemoveSavedListing = async (event, listingId) => {
+    event.stopPropagation();
+
+    if (!currentUser?.uid || !listingId) return;
+
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        savedListings: arrayRemove(listingId),
+      });
+    } catch (error) {
+      console.error("Error removing saved listing:", error);
+      alert("Unable to remove this saved listing right now.");
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -742,6 +817,111 @@ function Dashboard() {
     );
   };
 
+  const renderSavedListingCard = (listing) => {
+    const normalizedListing = {
+      ...listing,
+      ...getNormalizedFulfillmentFields(listing),
+    };
+    const thumbnailUrl = listing.photos?.[0]?.s3Key
+      ? getS3PublicUrl(listing.photos[0].s3Key)
+      : null;
+
+    return (
+      <Card
+        key={listing.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(`/listing/${listing.id}`)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            navigate(`/listing/${listing.id}`);
+          }
+        }}
+        variant="outlined"
+        sx={{
+          ...DASHBOARD_COMPACT_CARD_SX,
+        }}
+      >
+        <CardContent sx={DASHBOARD_COMPACT_CONTENT_SX}>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: 1,
+                overflow: "hidden",
+                bgcolor: "grey.100",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: listing.status === "sold" ? 0.58 : 1,
+              }}
+            >
+              {thumbnailUrl ? (
+                <Box
+                  component="img"
+                  src={thumbnailUrl}
+                  alt={listing.title}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  No Image
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight={500}
+                    sx={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {listing.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
+                    {formatPrice(listing.price)}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  aria-label="Remove saved listing"
+                  onClick={(event) => handleRemoveSavedListing(event, listing.id)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  sx={{ mt: -0.5, mr: -0.75, flexShrink: 0, color: "primary.main" }}
+                >
+                  <Bookmark fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ mt: 0.5 }}>
+                <ListingFulfillmentLine option={getPrimaryFulfillmentOption(normalizedListing)} />
+              </Box>
+              <Typography variant="caption" color="text.secondary" component="div" sx={DASHBOARD_CARD_META_SX}>
+                {listing.status === "sold"
+                  ? "Sold"
+                  : listing.status === "archived"
+                    ? "Pending"
+                    : "Available"}
+              </Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (!currentUser) {
     return (
       <Box sx={LISTING_PAGE_SX}>
@@ -995,6 +1175,43 @@ function Dashboard() {
               {visibleListings.length > LISTING_PREVIEW_LIMIT && (
                 <Button sx={{ mt: 2 }} onClick={() => setShowAllListings((prev) => !prev)}>
                   {showAllListings ? "Show Less" : `View ${visibleListings.length - LISTING_PREVIEW_LIMIT} More`}
+                </Button>
+              )}
+            </>
+          )}
+        </Box>
+
+        <Box sx={{ pt: 2, pb: 1 }}>
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+            Saved Listings
+          </Typography>
+          {loadingSavedListings ? (
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={EMPTY_STATE_SX}>
+              <CircularProgress size={18} />
+              <Typography variant="body2">Loading saved listings...</Typography>
+            </Stack>
+          ) : savedListings.length === 0 ? (
+            <Box sx={EMPTY_STATE_SX}>
+              <Typography variant="body2">No saved listings yet.</Typography>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => navigate("/")}
+                sx={{ mt: 0.75, px: 0 }}
+              >
+                Browse cubes
+              </Button>
+            </Box>
+          ) : (
+            <>
+              <Box sx={COMPACT_CARD_GRID_SX}>
+                {displayedSavedListings.map(renderSavedListingCard)}
+              </Box>
+              {savedListings.length > SAVED_LISTING_PREVIEW_LIMIT && (
+                <Button sx={{ mt: 2 }} onClick={() => setShowAllSavedListings((prev) => !prev)}>
+                  {showAllSavedListings
+                    ? "Show Less"
+                    : `View ${savedListings.length - SAVED_LISTING_PREVIEW_LIMIT} More`}
                 </Button>
               )}
             </>
