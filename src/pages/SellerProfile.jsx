@@ -50,6 +50,7 @@ import {
   clampText,
   INPUT_LIMITS,
 } from "../utils/inputLimits";
+import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 
 const SECTION_SX = {
   py: 2.25,
@@ -364,7 +365,7 @@ function SellerProfile() {
 
   if (loading) {
     return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={LISTING_PAGE_SX}>
         <Typography variant="h4">Loading...</Typography>
       </Box>
     );
@@ -372,7 +373,7 @@ function SellerProfile() {
 
   if (!seller) {
     return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={LISTING_PAGE_SX}>
         <Typography variant="h4">Profile not found</Typography>
         <Button onClick={() => navigate(-1)} sx={{ mt: 2, ...BACK_BUTTON_SX }} variant="outlined">
           Back
@@ -382,7 +383,7 @@ function SellerProfile() {
   }
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={LISTING_PAGE_SX}>
       <Button
         onClick={() => navigate(-1)}
         variant="outlined"

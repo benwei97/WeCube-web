@@ -27,6 +27,7 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import {
+  LISTING_PAGE_SX,
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
   LISTING_CARD_SX,
@@ -585,14 +586,14 @@ function Browse() {
 
   if (loading) {
     return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={LISTING_PAGE_SX}>
         <Typography variant="h4">Loading...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={LISTING_PAGE_SX}>
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Browse Cubes
       </Typography>

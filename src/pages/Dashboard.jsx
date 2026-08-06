@@ -64,6 +64,7 @@ import {
   uploadAvatarToS3,
 } from "../utils/s3";
 import AccountDeletionDialog from "../components/AccountDeletionDialog";
+import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
@@ -743,7 +744,7 @@ function Dashboard() {
 
   if (!currentUser) {
     return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={LISTING_PAGE_SX}>
         <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
           Dashboard
         </Typography>
@@ -754,14 +755,14 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+      <Box sx={LISTING_PAGE_SX}>
         <Typography variant="h4">Loading...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={LISTING_PAGE_SX}>
       <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 3 }}>
         Dashboard
       </Typography>

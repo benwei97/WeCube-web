@@ -16,6 +16,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import {
+  LISTING_PAGE_SX,
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
   LISTING_CARD_SX,
@@ -168,7 +169,7 @@ function CompetitionListings() {
     : cubes;
 
   return (
-    <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+    <Box sx={LISTING_PAGE_SX}>
       <Button
         onClick={() => (returnTo ? navigate(-1) : navigate("/competitions"))}
         variant="outlined"

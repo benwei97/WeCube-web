@@ -1,3 +1,12 @@
+export const LISTING_PAGE_SX = {
+  width: { xs: "calc(100vw - 16px)", md: "80vw" },
+  mx: "auto",
+  px: { xs: 1, sm: 2, md: 3 },
+  py: { xs: 2, md: 3 },
+  mt: 2,
+  boxSizing: "border-box",
+};
+
 export const LISTING_CARD_GRID_SX = {
   display: "grid",
   gridTemplateColumns: {
