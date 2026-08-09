@@ -268,7 +268,9 @@ export default function ConversationScreen({ route }) {
         updatedAt: now,
       });
 
-      closeReportModal();
+      setReportOpen(false);
+      setReportReason("");
+      setReportDetails("");
       setError("");
     } catch (reportError) {
       console.error("Error submitting mobile conversation report:", reportError);

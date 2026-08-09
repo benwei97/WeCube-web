@@ -36,7 +36,10 @@ import {
   shouldShowListingInMarketplace,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
-import { closeListingConversationsForDeletedListing } from "../utils/messaging";
+import {
+  cancelListingReviewPrompts,
+  closeListingConversationsForDeletedListing,
+} from "../utils/messaging";
 import {
   deleteMultipleImages,
   getS3PublicUrl,
@@ -104,8 +107,10 @@ export default function ProfileScreen({ navigation }) {
   const { currentUser, logout } = useAuth();
   const [listings, setListings] = useState([]);
   const [savedListings, setSavedListings] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [loadingListings, setLoadingListings] = useState(true);
   const [loadingSavedListings, setLoadingSavedListings] = useState(false);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountText, setDeleteAccountText] = useState("");
@@ -201,6 +206,39 @@ export default function ProfileScreen({ navigation }) {
       active = false;
     };
   }, [currentUser?.savedListings, currentUser?.uid]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setPurchases([]);
+      setLoadingPurchases(false);
+      return undefined;
+    }
+
+    const purchasesQuery = query(
+      collection(db, "listings"),
+      where("buyerId", "==", currentUser.uid)
+    );
+
+    return onSnapshot(
+      purchasesQuery,
+      (snapshot) => {
+        const nextPurchases = snapshot.docs
+          .map((listingDoc) => ({ id: listingDoc.id, ...listingDoc.data() }))
+          .filter((listing) => listing.status === "sold")
+          .sort(
+            (a, b) =>
+              getDateTime(b.soldAt || b.updatedAt) -
+              getDateTime(a.soldAt || a.updatedAt)
+          );
+        setPurchases(nextPurchases);
+        setLoadingPurchases(false);
+      },
+      (error) => {
+        console.error("Error loading mobile purchases:", error);
+        setLoadingPurchases(false);
+      }
+    );
+  }, [currentUser?.uid]);
 
   const groupedListings = useMemo(
     () => ({
@@ -339,6 +377,15 @@ export default function ProfileScreen({ navigation }) {
       }
 
       await updateDoc(doc(db, "listings", listing.id), updates);
+
+      if (nextStatus === "active") {
+        await cancelListingReviewPrompts(
+          listing.id,
+          listing.userId,
+          currentUser?.firstName || displayName.trim().split(/\s+/)[0] || "Seller",
+          listing.title || "this listing"
+        );
+      }
     } catch (error) {
       console.error("Error updating mobile listing status:", error);
       Alert.alert("Unable to update listing", error.message || "Please try again.");
@@ -532,6 +579,40 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  function renderPurchasesSection() {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>My Purchases</Text>
+        {loadingPurchases ? (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : purchases.length === 0 ? (
+          <Text style={styles.emptyText}>No purchases yet.</Text>
+        ) : (
+          <FlatList
+            data={purchases}
+            numColumns={2}
+            columnWrapperStyle={styles.savedListingRow}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.savedListingSlot}>
+                <MobileListingCard
+                  listing={item}
+                  style={styles.savedListingCard}
+                  onPress={() =>
+                    navigation.navigate("ListingDetail", { listingId: item.id })
+                  }
+                />
+              </View>
+            )}
+            scrollEnabled={false}
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
@@ -560,6 +641,7 @@ export default function ProfileScreen({ navigation }) {
             {renderListingSection("Active", groupedListings.active)}
             {renderListingSection("Pending", groupedListings.pending)}
             {renderListingSection("Sold", groupedListings.sold)}
+            {renderPurchasesSection()}
           </>
         )}
 

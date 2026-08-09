@@ -14,6 +14,7 @@ import {
 import {
   arrayRemove,
   arrayUnion,
+  deleteDoc,
   doc,
   onSnapshot,
   setDoc,
@@ -24,8 +25,16 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { formatListingPrice } from "../utils/listingUtils";
-import { createConversation, getUserProfile } from "../utils/messaging";
-import { getS3PublicUrl } from "../utils/s3";
+import {
+  cancelListingReviewPrompts,
+  closeListingConversationsForDeletedListing,
+  closeListingConversationsForSold,
+  createConversation,
+  getExistingConversation,
+  getListingBuyerOptions,
+  getUserProfile,
+} from "../utils/messaging";
+import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 
 const LISTING_REPORT_REASONS = [
   { value: "inappropriate_image", label: "Inappropriate image" },
@@ -86,6 +95,12 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const [savingListingBookmark, setSavingListingBookmark] = useState(false);
+  const [existingConversation, setExistingConversation] = useState(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [markSoldOpen, setMarkSoldOpen] = useState(false);
+  const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
+  const [deletingListing, setDeletingListing] = useState(false);
 
   useEffect(() => {
     if (!listingId) {
@@ -141,12 +156,43 @@ export default function ListingDetailScreen({ navigation, route }) {
     };
   }, [listing?.userId]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadExistingConversation() {
+      if (!currentUser?.uid || !listing?.id || isOwnListing) {
+        setExistingConversation(null);
+        return;
+      }
+
+      try {
+        const conversation = await getExistingConversation(listing.id, currentUser.uid);
+        if (active) setExistingConversation(conversation);
+      } catch (conversationError) {
+        console.error("Error loading mobile existing conversation:", conversationError);
+        if (active) setExistingConversation(null);
+      }
+    }
+
+    loadExistingConversation();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid, isOwnListing, listing?.id]);
+
   const photos = listing?.photos || [];
   const activePhoto = photos[photoIndex];
   const activePhotoUrl = activePhoto?.s3Key ? getS3PublicUrl(activePhoto.s3Key) : null;
   const fulfillmentOptions = useMemo(() => formatFulfillment(listing), [listing]);
   const isOwnListing = currentUser?.uid && currentUser.uid === listing?.userId;
   const isSavedListing = Boolean(currentUser?.savedListings?.includes(listing?.id));
+  const sellerFirstName =
+    `${seller?.firstName || ""}`.trim() ||
+    `${seller?.displayName || ""}`.trim().split(/\s+/)[0] ||
+    "Seller";
+  const isListingUnavailable =
+    listing?.status === "sold" || listing?.status === "archived";
 
   function handlePreviousPhoto() {
     if (photos.length <= 1) return;
@@ -169,6 +215,19 @@ export default function ListingDetailScreen({ navigation, route }) {
       return;
     }
 
+    if (existingConversation?.id) {
+      navigation.getParent()?.navigate("Messages", {
+        screen: "Conversation",
+        params: { conversationId: existingConversation.id },
+      });
+      return;
+    }
+
+    if (isListingUnavailable) {
+      Alert.alert("Listing unavailable", "This listing is not available for new messages.");
+      return;
+    }
+
     setCreatingConversation(true);
     try {
       const conversationId = await createConversation({
@@ -177,7 +236,6 @@ export default function ListingDetailScreen({ navigation, route }) {
         buyerId: currentUser.uid,
         initialMessage: `Hi, I'm interested in ${listing.title || "this listing"}.`,
       });
-
       navigation.getParent()?.navigate("Messages", {
         screen: "Conversation",
         params: { conversationId },
@@ -190,6 +248,171 @@ export default function ListingDetailScreen({ navigation, route }) {
       );
     } finally {
       setCreatingConversation(false);
+    }
+  }
+
+  async function updateListingStatus(nextStatus) {
+    if (!listing?.id || !isOwnListing || statusUpdating) return;
+
+    setStatusUpdating(true);
+    try {
+      const updates = {
+        status: nextStatus,
+        updatedAt: new Date(),
+      };
+
+      if (nextStatus === "archived") {
+        updates.archivedAt = new Date();
+      }
+
+      if (nextStatus === "active") {
+        updates.archivedAt = null;
+        updates.soldAt = null;
+        updates.soldMethod = null;
+        updates.buyerId = null;
+        updates.soldConversationId = null;
+        updates.saleEventId = null;
+      }
+
+      await updateDoc(doc(db, "listings", listing.id), updates);
+
+      if (nextStatus === "active") {
+        await cancelListingReviewPrompts(
+          listing.id,
+          listing.userId,
+          sellerFirstName,
+          listing.title || "this listing"
+        );
+      }
+
+      Alert.alert(
+        "Listing updated",
+        nextStatus === "active" ? "Listing marked as available." : "Listing marked as pending."
+      );
+    } catch (statusError) {
+      console.error("Error updating mobile listing status:", statusError);
+      Alert.alert("Unable to update listing", statusError.message || "Please try again.");
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
+  function confirmStatusChange(nextStatus) {
+    const title =
+      nextStatus === "active" ? "Mark as available?" : "Mark as pending?";
+    const message =
+      nextStatus === "active"
+        ? `This will make "${listing.title || "this listing"}" available again and notify existing buyer chats.`
+        : `This will mark "${listing.title || "this listing"}" as pending and prevent new buyers from messaging about it.`;
+
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel" },
+      { text: nextStatus === "active" ? "Mark Available" : "Mark Pending", onPress: () => updateListingStatus(nextStatus) },
+    ]);
+  }
+
+  async function openMarkSoldModal() {
+    if (!listing?.id || !isOwnListing || statusUpdating) return;
+
+    setLoadingBuyerOptions(true);
+    setMarkSoldOpen(true);
+    try {
+      const options = await getListingBuyerOptions(listing.id, listing.userId);
+      setBuyerOptions(options);
+    } catch (buyerError) {
+      console.error("Error loading mobile buyer options:", buyerError);
+      Alert.alert("Unable to load buyers", "You can still mark this sold off app.");
+      setBuyerOptions([]);
+    } finally {
+      setLoadingBuyerOptions(false);
+    }
+  }
+
+  function closeMarkSoldModal() {
+    if (statusUpdating) return;
+    setMarkSoldOpen(false);
+    setBuyerOptions([]);
+  }
+
+  async function markListingSold(selectedBuyer = null) {
+    if (!listing?.id || !isOwnListing || statusUpdating) return;
+
+    const saleEventId = `sale_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    setStatusUpdating(true);
+    try {
+      await updateDoc(doc(db, "listings", listing.id), {
+        status: "sold",
+        soldAt: new Date(),
+        updatedAt: new Date(),
+        soldMethod: selectedBuyer ? "buyer_selected" : "sold_off_app",
+        buyerId: selectedBuyer?.buyerId || null,
+        soldConversationId: selectedBuyer?.conversationId || null,
+        saleEventId: selectedBuyer ? saleEventId : null,
+      });
+
+      if (selectedBuyer) {
+        await closeListingConversationsForSold({
+          listingId: listing.id,
+          sellerId: listing.userId,
+          sellerFirstName,
+          listingTitle: listing.title || "this listing",
+          saleEventId,
+          soldConversationId: selectedBuyer.conversationId,
+          buyerId: selectedBuyer.buyerId,
+        });
+      }
+
+      setMarkSoldOpen(false);
+      setBuyerOptions([]);
+      Alert.alert(
+        "Listing marked as sold",
+        selectedBuyer
+          ? "A review request was sent in that chat."
+          : "Listing marked as sold off app."
+      );
+    } catch (soldError) {
+      console.error("Error marking mobile listing sold:", soldError);
+      Alert.alert("Unable to mark sold", soldError.message || "Please try again.");
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
+  function confirmDeleteListing() {
+    Alert.alert(
+      "Delete listing?",
+      `Permanently delete "${listing.title || "this listing"}"? This removes the listing and closes related conversations.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: deleteListing },
+      ]
+    );
+  }
+
+  async function deleteListing() {
+    if (!listing?.id || !isOwnListing || deletingListing) return;
+
+    setDeletingListing(true);
+    try {
+      const s3Keys = (listing.photos || []).map((photo) => photo.s3Key).filter(Boolean);
+      if (s3Keys.length) {
+        await deleteMultipleImages(s3Keys);
+      }
+
+      await closeListingConversationsForDeletedListing(
+        listing.id,
+        listing.userId,
+        listing.title || "this listing"
+      );
+      await deleteDoc(doc(db, "listings", listing.id));
+      Alert.alert("Listing deleted", "Your listing has been deleted.", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } catch (deleteError) {
+      console.error("Error deleting mobile listing:", deleteError);
+      Alert.alert("Unable to delete listing", deleteError.message || "Please try again.");
+    } finally {
+      setDeletingListing(false);
     }
   }
 
@@ -236,7 +459,9 @@ export default function ListingDetailScreen({ navigation, route }) {
         updatedAt: now,
       });
 
-      closeReportModal();
+      setReportOpen(false);
+      setReportReason("");
+      setReportDetails("");
       Alert.alert("Report submitted", "We will review this listing.");
     } catch (reportError) {
       console.error("Error submitting mobile listing report:", reportError);
@@ -305,6 +530,54 @@ export default function ListingDetailScreen({ navigation, route }) {
             <Text style={styles.placeholderText}>No photo</Text>
           </View>
         )}
+
+        {isOwnListing ? (
+          <View style={styles.ownerActions}>
+            {listing.status === "sold" ? (
+              <Pressable
+                style={[styles.ownerPrimaryButton, statusUpdating && styles.primaryButtonDisabled]}
+                onPress={() => confirmStatusChange("active")}
+                disabled={statusUpdating}
+              >
+                <Text style={styles.ownerPrimaryText}>
+                  {statusUpdating ? "Updating..." : "Mark Available"}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.ownerPrimaryButton, statusUpdating && styles.primaryButtonDisabled]}
+                onPress={openMarkSoldModal}
+                disabled={statusUpdating}
+              >
+                <Text style={styles.ownerPrimaryText}>
+                  {statusUpdating ? "Updating..." : "Mark Sold"}
+                </Text>
+              </Pressable>
+            )}
+            {listing.status !== "sold" ? (
+              <Pressable
+                style={styles.ownerSecondaryButton}
+                onPress={() =>
+                  confirmStatusChange(listing.status === "archived" ? "active" : "archived")
+                }
+                disabled={statusUpdating}
+              >
+                <Text style={styles.ownerSecondaryText}>
+                  {listing.status === "archived" ? "Mark Available" : "Mark Pending"}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={styles.ownerDeleteButton}
+              onPress={confirmDeleteListing}
+              disabled={deletingListing || statusUpdating}
+            >
+              <Text style={styles.ownerDeleteText}>
+                {deletingListing ? "Deleting..." : "Delete Listing"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {photos.length > 1 && (
           <View style={styles.photoControls}>
@@ -387,12 +660,32 @@ export default function ListingDetailScreen({ navigation, route }) {
         )}
 
         <Pressable
-          style={[styles.primaryButton, creatingConversation && styles.primaryButtonDisabled]}
+          style={[
+            styles.primaryButton,
+            (creatingConversation ||
+              isOwnListing ||
+              (isListingUnavailable && !existingConversation?.id)) &&
+              styles.primaryButtonDisabled,
+          ]}
           onPress={handleMessageSeller}
-          disabled={creatingConversation}
+          disabled={
+            creatingConversation ||
+            isOwnListing ||
+            (isListingUnavailable && !existingConversation?.id)
+          }
         >
           <Text style={styles.primaryButtonText}>
-            {creatingConversation ? "Opening..." : isOwnListing ? "Your listing" : "Message seller"}
+            {creatingConversation
+              ? "Opening..."
+              : isOwnListing
+                ? "Your listing"
+                : existingConversation?.id
+                  ? "Continue Chat"
+                  : isListingUnavailable
+                    ? listing.status === "archived"
+                      ? "Pending"
+                      : "Sold"
+                    : "Message seller"}
           </Text>
         </Pressable>
         {!isOwnListing && (
@@ -460,6 +753,58 @@ export default function ListingDetailScreen({ navigation, route }) {
               >
                 <Text style={styles.modalSubmitText}>
                   {submittingReport ? "Submitting..." : "Submit"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={markSoldOpen} transparent animationType="fade" onRequestClose={closeMarkSoldModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Mark Listing as Sold</Text>
+            <Text style={styles.modalBody}>
+              Select the buyer if this sale happened through a WeCube chat, or mark it sold off app.
+            </Text>
+            {loadingBuyerOptions ? (
+              <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
+            ) : buyerOptions.length > 0 ? (
+              <View style={styles.buyerList}>
+                {buyerOptions.map((buyer) => (
+                  <Pressable
+                    key={buyer.conversationId}
+                    style={styles.buyerOption}
+                    onPress={() => markListingSold(buyer)}
+                    disabled={statusUpdating}
+                  >
+                    <Text style={styles.buyerName}>{buyer.buyerName}</Text>
+                    <Text style={styles.buyerMeta} numberOfLines={1}>
+                      {buyer.lastMessage || buyer.buyerEmail || "Buyer chat"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyModalText}>
+                No buyer chats were found.
+              </Text>
+            )}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeMarkSoldModal}
+                disabled={statusUpdating}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitButton, statusUpdating && styles.modalSubmitButtonDisabled]}
+                onPress={() => markListingSold(null)}
+                disabled={statusUpdating}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {statusUpdating ? "Saving..." : "Sold Off App"}
                 </Text>
               </Pressable>
             </View>
@@ -623,6 +968,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
+  ownerActions: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 10,
+    marginTop: 14,
+    padding: 14,
+  },
+  ownerPrimaryButton: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  ownerPrimaryText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  ownerSecondaryButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  ownerSecondaryText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  ownerDeleteButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 38,
+  },
+  ownerDeleteText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "800",
+  },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
@@ -747,6 +1136,36 @@ const styles = StyleSheet.create({
   modalSubmitText: {
     color: "#fff",
     fontWeight: "800",
+  },
+  inlineLoader: {
+    marginTop: 16,
+  },
+  buyerList: {
+    gap: 8,
+    marginTop: 14,
+  },
+  buyerOption: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  buyerName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  buyerMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  emptyModalText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 14,
   },
   error: {
     color: colors.danger,

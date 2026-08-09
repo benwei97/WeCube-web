@@ -28,6 +28,8 @@ import { colors } from "../theme/colors";
 
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
 const LOCATION_RADIUS_OPTIONS = [5, 10, 25, 50, 100];
+const INITIAL_VISIBLE_LISTINGS = 4;
+const LISTING_LOAD_INCREMENT = 8;
 
 function getSearchText(listing) {
   const competitionTags = [
@@ -96,6 +98,7 @@ export default function BrowseScreen({ navigation }) {
   );
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_LISTINGS);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -163,6 +166,13 @@ export default function BrowseScreen({ navigation }) {
     return sortListingsByAvailabilityAndDate(filteredListings);
   }, [listings, locationFilter, searchQuery]);
 
+  const hasActiveFilter =
+    Boolean(searchQuery.trim()) || Boolean(locationFilter.locationOption);
+  const displayedListings = hasActiveFilter
+    ? visibleListings
+    : visibleListings.slice(0, visibleCount);
+  const hasMoreListings = !hasActiveFilter && visibleListings.length > visibleCount;
+
   const locationButtonLabel = locationFilter.locationOption
     ? locationFilter.locationOption.city || locationFilter.locationOption.label
     : "All locations";
@@ -189,8 +199,14 @@ export default function BrowseScreen({ navigation }) {
 
   function applyLocationFilter() {
     setLocationFilter(locationDraft);
+    setVisibleCount(INITIAL_VISIBLE_LISTINGS);
     setLocationModalOpen(false);
   }
+
+  const loadMoreListings = useCallback(() => {
+    if (!hasMoreListings) return;
+    setVisibleCount((currentCount) => currentCount + LISTING_LOAD_INCREMENT);
+  }, [hasMoreListings]);
 
   const content = useMemo(() => {
     if (loading) {
@@ -211,10 +227,12 @@ export default function BrowseScreen({ navigation }) {
 
     return (
       <FlatList
-        data={visibleListings}
+        data={displayedListings}
         numColumns={2}
         columnWrapperStyle={styles.listingRow}
         keyExtractor={(item) => item.id}
+        onEndReached={loadMoreListings}
+        onEndReachedThreshold={0.7}
         ListHeaderComponent={
           <View style={styles.filters}>
             <Text style={styles.screenTitle}>Browse Cubes</Text>
@@ -248,6 +266,11 @@ export default function BrowseScreen({ navigation }) {
             <Text style={styles.resultCount}>
               {visibleListings.length} cube{visibleListings.length === 1 ? "" : "s"} found
             </Text>
+            {hasActiveFilter ? (
+              <Text style={styles.searchModeText}>
+                Showing all results from {listings.length} total cubes
+              </Text>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -262,17 +285,30 @@ export default function BrowseScreen({ navigation }) {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.centerState}>
-            <Text style={styles.emptyTitle}>No matching listings</Text>
-            <Text style={styles.emptyText}>Try clearing filters or searching for something else.</Text>
+            <Text style={styles.emptyTitle}>No cubes found matching your criteria</Text>
+            <Text style={styles.emptyText}>Try adjusting your filters or search terms.</Text>
           </View>
+        }
+        ListFooterComponent={
+          hasMoreListings ? (
+            <View style={styles.footerState}>
+              <ActivityIndicator color={colors.primary} size="small" />
+              <Text style={styles.footerText}>Scroll for more</Text>
+            </View>
+          ) : null
         }
       />
     );
   }, [
+    displayedListings,
     error,
+    hasActiveFilter,
+    hasMoreListings,
+    listings.length,
     locationButtonLabel,
     locationFilter.locationOption,
     loading,
+    loadMoreListings,
     navigation,
     openLocationModal,
     searchQuery,
@@ -543,6 +579,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 4,
+  },
+  searchModeText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  footerState: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 72,
+  },
+  footerText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",

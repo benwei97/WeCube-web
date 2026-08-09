@@ -13,24 +13,74 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { getDateTime } from "../utils/listingUtils";
+import {
+  getListing,
+  getUserProfile,
+  isConversationUnread,
+  markConversationAsRead,
+} from "../utils/messaging";
 
-function ConversationRow({ conversation, onPress }) {
-  const title =
-    conversation.listingTitle ||
-    (conversation.userRole === "seller" ? "Buyer conversation" : "Seller conversation");
+function formatTime(timestamp) {
+  const time = getDateTime(timestamp);
+  if (!time) return "";
+
+  const date = new Date(time);
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function getDisplayName(user) {
+  return (
+    user?.displayName ||
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+    user?.email ||
+    "WeCube user"
+  );
+}
+
+function ConversationRow({ conversation, listing, counterpart, currentUserId, onPress }) {
+  const unread = isConversationUnread(conversation, currentUserId);
+  const counterpartName = getDisplayName(counterpart);
+  const listingTitle = listing?.title || conversation.listingTitle || "Listing";
+  const senderLabel =
+    conversation.lastMessageSenderId === currentUserId
+      ? "You"
+      : counterpart?.firstName || counterpartName.split(" ")[0] || "User";
+  const preview = conversation.lastMessageReviewPrompt
+    ? "Rate your experience?"
+    : conversation.lastMessage
+      ? `${senderLabel}: ${conversation.lastMessage}`
+      : "No messages yet";
 
   return (
-    <Pressable style={styles.row} onPress={onPress}>
+    <Pressable style={[styles.row, unread && styles.rowUnread]} onPress={onPress}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{title.charAt(0).toUpperCase()}</Text>
+        <Text style={styles.avatarText}>{counterpartName.charAt(0).toUpperCase()}</Text>
       </View>
       <View style={styles.rowBody}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
+        <Text style={[styles.title, unread && styles.unreadText]} numberOfLines={1}>
+          {counterpartName}
+        </Text>
+        <Text style={styles.listingTitle} numberOfLines={1}>
+          {listingTitle}
         </Text>
         <Text style={styles.preview} numberOfLines={1}>
-          {conversation.lastMessage || "No messages yet"}
+          {preview}
         </Text>
+      </View>
+      <View style={styles.rowMeta}>
+        {unread ? <View style={styles.unreadDot} /> : null}
+        <Text style={styles.timeText}>{formatTime(conversation.lastMessageAt)}</Text>
       </View>
     </Pressable>
   );
@@ -42,6 +92,8 @@ export default function MessagesScreen({ navigation }) {
   const [sellerConversations, setSellerConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [listingDetails, setListingDetails] = useState({});
+  const [userDetails, setUserDetails] = useState({});
 
   useEffect(() => {
     if (!currentUser?.uid) return undefined;
@@ -105,6 +157,65 @@ export default function MessagesScreen({ navigation }) {
     [buyerConversations, sellerConversations]
   );
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadDetails() {
+      const nextListings = {};
+      const nextUsers = {};
+
+      await Promise.all(
+        conversations.map(async (conversation) => {
+          const otherUserId =
+            conversation.userRole === "seller"
+              ? conversation.buyerId
+              : conversation.sellerId;
+
+          try {
+            if (conversation.listingId) {
+              nextListings[conversation.listingId] = await getListing(conversation.listingId);
+            }
+          } catch (detailError) {
+            console.error("Error loading mobile inbox listing:", detailError);
+          }
+
+          try {
+            if (otherUserId) {
+              nextUsers[otherUserId] = await getUserProfile(otherUserId);
+            }
+          } catch (detailError) {
+            console.error("Error loading mobile inbox user:", detailError);
+          }
+        })
+      );
+
+      if (active) {
+        setListingDetails(nextListings);
+        setUserDetails(nextUsers);
+      }
+    }
+
+    if (conversations.length > 0) {
+      loadDetails();
+    } else {
+      setListingDetails({});
+      setUserDetails({});
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [conversations]);
+
+  async function openConversation(conversation) {
+    if (currentUser?.uid && isConversationUnread(conversation, currentUser.uid)) {
+      markConversationAsRead(conversation.id, currentUser.uid).catch((readError) =>
+        console.error("Error marking mobile conversation read:", readError)
+      );
+    }
+    navigation.navigate("Conversation", { conversationId: conversation.id });
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -133,7 +244,12 @@ export default function MessagesScreen({ navigation }) {
         renderItem={({ item }) => (
           <ConversationRow
             conversation={item}
-            onPress={() => navigation.navigate("Conversation", { conversationId: item.id })}
+            currentUserId={currentUser?.uid}
+            listing={listingDetails[item.listingId]}
+            counterpart={
+              userDetails[item.userRole === "seller" ? item.buyerId : item.sellerId]
+            }
+            onPress={() => openConversation(item)}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -162,6 +278,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
   },
+  rowUnread: {
+    borderColor: colors.primary,
+    backgroundColor: "#f8faff",
+  },
   avatar: {
     alignItems: "center",
     backgroundColor: colors.background,
@@ -185,10 +305,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
   },
+  unreadText: {
+    color: colors.primary,
+  },
+  listingTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
   preview: {
     color: colors.muted,
     fontSize: 14,
     marginTop: 4,
+  },
+  rowMeta: {
+    alignItems: "flex-end",
+    gap: 8,
+    marginLeft: 8,
+  },
+  unreadDot: {
+    backgroundColor: colors.primary,
+    borderRadius: 5,
+    height: 10,
+    width: 10,
+  },
+  timeText: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",

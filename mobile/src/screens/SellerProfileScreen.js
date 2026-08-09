@@ -24,7 +24,11 @@ import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
-import { formatListingPrice, getDateTime } from "../utils/listingUtils";
+import {
+  formatListingPrice,
+  getDateTime,
+  isListingModerationHidden,
+} from "../utils/listingUtils";
 import { blockUser, subscribeToUserBlock, unblockUser } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
 
@@ -176,8 +180,7 @@ export default function SellerProfileScreen({ navigation, route }) {
 
     const listingsQuery = query(
       collection(db, "listings"),
-      where("userId", "==", userId),
-      where("status", "==", "active")
+      where("userId", "==", userId)
     );
 
     return onSnapshot(
@@ -185,7 +188,10 @@ export default function SellerProfileScreen({ navigation, route }) {
       (snapshot) => {
         const nextListings = snapshot.docs
           .map((listingDoc) => ({ id: listingDoc.id, ...listingDoc.data() }))
-          .filter((listing) => listing.moderationStatus !== "hidden")
+          .filter(
+            (listing) =>
+              !isListingModerationHidden(listing) && listing.status !== "sold"
+          )
           .sort((a, b) => getDateTime(b.createdAt) - getDateTime(a.createdAt));
         setListings(nextListings);
         setLoadingListings(false);
