@@ -47,6 +47,12 @@ service cloud.firestore {
         exists(userBlockPath(secondUserId, firstUserId));
     }
 
+    function isUserBlockLookupForSignedInUser(blockId) {
+      return signedIn() &&
+        (blockId.matches(request.auth.uid + "_.*") ||
+         blockId.matches(".*_" + request.auth.uid));
+    }
+
     function isConversationParticipantByData(data) {
       return signedIn() &&
         (data.buyerId == request.auth.uid || data.sellerId == request.auth.uid);
@@ -669,7 +675,12 @@ service cloud.firestore {
     }
 
     match /userBlocks/{blockId} {
-      allow read: if isAdmin() ||
+      allow get: if isAdmin() ||
+        isUserBlockLookupForSignedInUser(blockId) ||
+        (signedIn() &&
+          (resource.data.blockerId == request.auth.uid ||
+           resource.data.blockedUserId == request.auth.uid));
+      allow list: if isAdmin() ||
         (signedIn() &&
           (resource.data.blockerId == request.auth.uid ||
            resource.data.blockedUserId == request.auth.uid));
