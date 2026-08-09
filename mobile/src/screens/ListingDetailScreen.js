@@ -20,6 +20,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
+import ActionSheet from "../components/ActionSheet";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -101,6 +102,8 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
   const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
   const [deletingListing, setDeletingListing] = useState(false);
+  const [ownerActionsOpen, setOwnerActionsOpen] = useState(false);
+  const [viewerActionsOpen, setViewerActionsOpen] = useState(false);
 
   useEffect(() => {
     if (!listingId) {
@@ -532,49 +535,32 @@ export default function ListingDetailScreen({ navigation, route }) {
         )}
 
         {isOwnListing ? (
-          <View style={styles.ownerActions}>
-            {listing.status === "sold" ? (
-              <Pressable
-                style={[styles.ownerPrimaryButton, statusUpdating && styles.primaryButtonDisabled]}
-                onPress={() => confirmStatusChange("active")}
-                disabled={statusUpdating}
-              >
-                <Text style={styles.ownerPrimaryText}>
-                  {statusUpdating ? "Updating..." : "Mark Available"}
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[styles.ownerPrimaryButton, statusUpdating && styles.primaryButtonDisabled]}
-                onPress={openMarkSoldModal}
-                disabled={statusUpdating}
-              >
-                <Text style={styles.ownerPrimaryText}>
-                  {statusUpdating ? "Updating..." : "Mark Sold"}
-                </Text>
-              </Pressable>
-            )}
-            {listing.status !== "sold" ? (
-              <Pressable
-                style={styles.ownerSecondaryButton}
-                onPress={() =>
-                  confirmStatusChange(listing.status === "archived" ? "active" : "archived")
-                }
-                disabled={statusUpdating}
-              >
-                <Text style={styles.ownerSecondaryText}>
-                  {listing.status === "archived" ? "Mark Available" : "Mark Pending"}
-                </Text>
-              </Pressable>
-            ) : null}
+          <View style={styles.ownerActionBar}>
             <Pressable
-              style={styles.ownerDeleteButton}
-              onPress={confirmDeleteListing}
-              disabled={deletingListing || statusUpdating}
+              style={[
+                styles.ownerPrimaryButton,
+                statusUpdating && styles.primaryButtonDisabled,
+              ]}
+              onPress={
+                listing.status === "sold"
+                  ? () => confirmStatusChange("active")
+                  : openMarkSoldModal
+              }
+              disabled={statusUpdating}
             >
-              <Text style={styles.ownerDeleteText}>
-                {deletingListing ? "Deleting..." : "Delete Listing"}
+              <Text style={styles.ownerPrimaryText}>
+                {statusUpdating
+                  ? "Updating..."
+                  : listing.status === "sold"
+                    ? "Mark Available"
+                    : "Mark Sold"}
               </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.moreActionsButton, styles.ownerMoreActionsButton]}
+              onPress={() => setOwnerActionsOpen(true)}
+            >
+              <Text style={styles.moreActionsText}>More actions</Text>
             </Pressable>
           </View>
         ) : null}
@@ -659,41 +645,79 @@ export default function ListingDetailScreen({ navigation, route }) {
           </Pressable>
         )}
 
-        <Pressable
-          style={[
-            styles.primaryButton,
-            (creatingConversation ||
-              isOwnListing ||
-              (isListingUnavailable && !existingConversation?.id)) &&
-              styles.primaryButtonDisabled,
-          ]}
-          onPress={handleMessageSeller}
-          disabled={
-            creatingConversation ||
-            isOwnListing ||
-            (isListingUnavailable && !existingConversation?.id)
-          }
-        >
-          <Text style={styles.primaryButtonText}>
-            {creatingConversation
-              ? "Opening..."
-              : isOwnListing
-                ? "Your listing"
-                : existingConversation?.id
-                  ? "Continue Chat"
-                  : isListingUnavailable
-                    ? listing.status === "archived"
-                      ? "Pending"
-                      : "Sold"
-                    : "Message seller"}
-          </Text>
-        </Pressable>
-        {!isOwnListing && (
-          <Pressable style={styles.reportButton} onPress={openReportModal}>
-            <Text style={styles.reportText}>Report listing</Text>
-          </Pressable>
-        )}
+        {!isOwnListing ? (
+          <>
+            <Pressable
+              style={[
+                styles.primaryButton,
+                (creatingConversation ||
+                  (isListingUnavailable && !existingConversation?.id)) &&
+                  styles.primaryButtonDisabled,
+              ]}
+              onPress={handleMessageSeller}
+              disabled={
+                creatingConversation ||
+                (isListingUnavailable && !existingConversation?.id)
+              }
+            >
+              <Text style={styles.primaryButtonText}>
+                {creatingConversation
+                  ? "Opening..."
+                  : existingConversation?.id
+                    ? "Continue Chat"
+                    : isListingUnavailable
+                      ? listing.status === "archived"
+                        ? "Pending"
+                        : "Sold"
+                      : "Message seller"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.moreActionsButton}
+              onPress={() => setViewerActionsOpen(true)}
+            >
+              <Text style={styles.moreActionsText}>More</Text>
+            </Pressable>
+          </>
+        ) : null}
       </ScrollView>
+
+      <ActionSheet
+        visible={ownerActionsOpen}
+        title="Listing actions"
+        onClose={() => setOwnerActionsOpen(false)}
+        actions={[
+          ...(listing.status !== "sold"
+            ? [
+                {
+                  label: listing.status === "archived" ? "Mark Available" : "Mark Pending",
+                  disabled: statusUpdating,
+                  onPress: () =>
+                    confirmStatusChange(listing.status === "archived" ? "active" : "archived"),
+                },
+              ]
+            : []),
+          {
+            label: deletingListing ? "Deleting..." : "Delete Listing",
+            destructive: true,
+            disabled: deletingListing || statusUpdating,
+            onPress: confirmDeleteListing,
+          },
+        ]}
+      />
+
+      <ActionSheet
+        visible={viewerActionsOpen}
+        title="Listing options"
+        onClose={() => setViewerActionsOpen(false)}
+        actions={[
+          {
+            label: "Report listing",
+            destructive: true,
+            onPress: openReportModal,
+          },
+        ]}
+      />
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
         <View style={styles.modalBackdrop}>
@@ -968,19 +992,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
-  ownerActions: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+  ownerActionBar: {
+    flexDirection: "row",
     gap: 10,
     marginTop: 14,
-    padding: 14,
   },
   ownerPrimaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 6,
+    flex: 1,
     justifyContent: "center",
     minHeight: 46,
   },
@@ -989,27 +1010,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
-  ownerSecondaryButton: {
+  moreActionsButton: {
     alignItems: "center",
     borderColor: colors.border,
     borderRadius: 6,
     borderWidth: 1,
     justifyContent: "center",
-    minHeight: 44,
+    marginTop: 12,
+    minHeight: 46,
+    paddingHorizontal: 14,
   },
-  ownerSecondaryText: {
+  ownerMoreActionsButton: {
+    marginTop: 0,
+  },
+  moreActionsText: {
     color: colors.text,
     fontSize: 14,
-    fontWeight: "800",
-  },
-  ownerDeleteButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 38,
-  },
-  ownerDeleteText: {
-    color: colors.danger,
-    fontSize: 13,
     fontWeight: "800",
   },
   primaryButton: {
@@ -1026,16 +1042,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "800",
-  },
-  reportButton: {
-    alignItems: "center",
-    marginTop: 12,
-    paddingVertical: 8,
-  },
-  reportText: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "700",
   },
   modalBackdrop: {
     alignItems: "center",

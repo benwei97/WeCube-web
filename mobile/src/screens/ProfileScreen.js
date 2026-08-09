@@ -25,6 +25,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import ActionSheet from "../components/ActionSheet";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
 import { useAuth } from "../contexts/useAuth";
@@ -120,6 +121,9 @@ export default function ProfileScreen({ navigation }) {
   const [lastNameDraft, setLastNameDraft] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileActionsOpen, setProfileActionsOpen] = useState(false);
+  const [profileSection, setProfileSection] = useState("listings");
+  const [listingStatusTab, setListingStatusTab] = useState("active");
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
   const avatarUrl = currentUser?.avatarUrl || "";
 
@@ -613,6 +617,42 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  function renderSegmentButton(label, value, selectedValue, onSelect) {
+    const selected = value === selectedValue;
+    return (
+      <Pressable
+        style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+        onPress={() => onSelect(value)}
+      >
+        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  function renderDashboardContent() {
+    if (profileSection === "saved") return renderSavedListingsSection();
+    if (profileSection === "purchases") return renderPurchasesSection();
+
+    const currentListings = groupedListings[listingStatusTab] || [];
+    const listingTitle =
+      listingStatusTab === "pending"
+        ? "Pending"
+        : listingStatusTab.charAt(0).toUpperCase() + listingStatusTab.slice(1);
+
+    return (
+      <>
+        <View style={[styles.segmentedControl, styles.statusSegmentedControl]}>
+          {renderSegmentButton("Active", "active", listingStatusTab, setListingStatusTab)}
+          {renderSegmentButton("Pending", "pending", listingStatusTab, setListingStatusTab)}
+          {renderSegmentButton("Sold", "sold", listingStatusTab, setListingStatusTab)}
+        </View>
+        {renderListingSection(listingTitle, currentListings)}
+      </>
+    );
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
@@ -626,9 +666,17 @@ export default function ProfileScreen({ navigation }) {
           )}
           <Text style={styles.name}>{displayName || "WeCube member"}</Text>
           {currentUser?.email ? <Text style={styles.email}>{currentUser.email}</Text> : null}
-          <Pressable style={styles.editProfileButton} onPress={openEditProfileModal}>
-            <Text style={styles.editProfileText}>Edit profile</Text>
-          </Pressable>
+          <View style={styles.profileButtonRow}>
+            <Pressable style={styles.editProfileButton} onPress={openEditProfileModal}>
+              <Text style={styles.editProfileText}>Edit profile</Text>
+            </Pressable>
+            <Pressable
+              style={styles.profileMoreButton}
+              onPress={() => setProfileActionsOpen(true)}
+            >
+              <Text style={styles.profileMoreText}>...</Text>
+            </Pressable>
+          </View>
         </View>
 
         {loadingListings ? (
@@ -637,11 +685,12 @@ export default function ProfileScreen({ navigation }) {
           </View>
         ) : (
           <>
-            {renderSavedListingsSection()}
-            {renderListingSection("Active", groupedListings.active)}
-            {renderListingSection("Pending", groupedListings.pending)}
-            {renderListingSection("Sold", groupedListings.sold)}
-            {renderPurchasesSection()}
+            <View style={styles.segmentedControl}>
+              {renderSegmentButton("Listings", "listings", profileSection, setProfileSection)}
+              {renderSegmentButton("Saved", "saved", profileSection, setProfileSection)}
+              {renderSegmentButton("Purchases", "purchases", profileSection, setProfileSection)}
+            </View>
+            {renderDashboardContent()}
           </>
         )}
 
@@ -652,11 +701,20 @@ export default function ProfileScreen({ navigation }) {
         <Pressable style={styles.infoButton} onPress={() => navigation.navigate("Info")}>
           <Text style={styles.infoText}>About & policies</Text>
         </Pressable>
-
-        <Pressable style={styles.deleteAccountButton} onPress={() => setDeleteAccountOpen(true)}>
-          <Text style={styles.deleteAccountText}>Delete account</Text>
-        </Pressable>
       </ScrollView>
+
+      <ActionSheet
+        visible={profileActionsOpen}
+        title="Account options"
+        onClose={() => setProfileActionsOpen(false)}
+        actions={[
+          {
+            label: "Delete account",
+            destructive: true,
+            onPress: () => setDeleteAccountOpen(true),
+          },
+        ]}
+      />
 
       <Modal
         animationType="fade"
@@ -834,11 +892,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+  profileButtonRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+  },
   editProfileButton: {
     borderColor: colors.border,
     borderRadius: 6,
     borderWidth: 1,
-    marginTop: 14,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -847,8 +909,58 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  profileMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 35,
+    justifyContent: "center",
+    width: 42,
+  },
+  profileMoreText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
   loadingBlock: {
     padding: 24,
+  },
+  segmentedControl: {
+    alignSelf: "stretch",
+    backgroundColor: "#f8fafc",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 14,
+    padding: 4,
+  },
+  statusSegmentedControl: {
+    marginTop: 12,
+  },
+  segmentButton: {
+    alignItems: "center",
+    borderRadius: 6,
+    flex: 1,
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  segmentButtonSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  segmentText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  segmentTextSelected: {
+    color: colors.text,
   },
   section: {
     backgroundColor: colors.surface,
@@ -964,16 +1076,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     color: colors.text,
-    fontWeight: "800",
-  },
-  deleteAccountButton: {
-    alignItems: "center",
-    marginTop: 14,
-    paddingVertical: 10,
-  },
-  deleteAccountText: {
-    color: colors.danger,
-    fontSize: 13,
     fontWeight: "800",
   },
   modalBackdrop: {

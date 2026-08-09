@@ -20,6 +20,7 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
+import ActionSheet from "../components/ActionSheet";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -98,6 +99,7 @@ export default function SellerProfileScreen({ navigation, route }) {
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [profileActionsOpen, setProfileActionsOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
@@ -343,24 +345,15 @@ export default function SellerProfileScreen({ navigation, route }) {
                 : "No reviews yet"}
             </Text>
           </View>
-        </View>
-
-        {!isOwnProfile && (
-          <View style={styles.actionRow}>
+          {!isOwnProfile ? (
             <Pressable
-              style={[styles.secondaryButton, blockLoading && styles.disabledButton]}
-              onPress={handleToggleBlock}
-              disabled={blockLoading}
+              style={styles.profileMoreButton}
+              onPress={() => setProfileActionsOpen(true)}
             >
-              <Text style={styles.secondaryButtonText}>
-                {blockLoading ? "Updating..." : blockedByMe ? "Unblock user" : "Block user"}
-              </Text>
+              <Text style={styles.profileMoreText}>...</Text>
             </Pressable>
-            <Pressable style={styles.reportButton} onPress={openReportModal}>
-              <Text style={styles.reportButtonText}>Report user</Text>
-            </Pressable>
-          </View>
-        )}
+          ) : null}
+        </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active listings</Text>
@@ -441,6 +434,25 @@ export default function SellerProfileScreen({ navigation, route }) {
           </View>
         )}
       </ScrollView>
+
+      <ActionSheet
+        visible={profileActionsOpen}
+        title="Profile options"
+        onClose={() => setProfileActionsOpen(false)}
+        actions={[
+          {
+            label: "Report user",
+            destructive: true,
+            onPress: openReportModal,
+          },
+          {
+            label: blockLoading ? "Updating..." : blockedByMe ? "Unblock user" : "Block user",
+            destructive: !blockedByMe,
+            disabled: blockLoading,
+            onPress: handleToggleBlock,
+          },
+        ]}
+      />
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
         <View style={styles.modalBackdrop}>
@@ -547,6 +559,21 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
   },
+  profileMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 42,
+  },
+  profileMoreText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
   name: {
     color: colors.text,
     fontSize: 22,
@@ -562,40 +589,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     marginTop: 7,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 14,
-  },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    flex: 1,
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  disabledButton: {
-    opacity: 0.55,
-  },
-  reportButton: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    flex: 1,
-    paddingVertical: 12,
-  },
-  reportButtonText: {
-    color: colors.danger,
-    fontSize: 14,
-    fontWeight: "800",
   },
   sectionHeader: {
     alignItems: "center",
