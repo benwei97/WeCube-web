@@ -1,10 +1,12 @@
 export const colors = {
-  background: "#f8fafc",
+  background: "#ffffff",
   surface: "#ffffff",
-  border: "#dbe3ef",
-  text: "#172033",
-  muted: "#64748b",
-  primary: "#2563eb",
+  softSurface: "rgba(248, 250, 252, 0.78)",
+  border: "rgba(148, 163, 184, 0.22)",
+  text: "#213547",
+  muted: "#666666",
+  primary: "#646cff",
   danger: "#dc2626",
   success: "#15803d",
+  cardShadow: "rgba(31, 53, 99, 0.04)",
 };

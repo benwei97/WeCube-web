@@ -17,6 +17,7 @@ import { deleteUser } from "firebase/auth";
 import {
   collection,
   deleteDoc,
+  documentId,
   doc,
   getDocs,
   onSnapshot,
@@ -25,10 +26,16 @@ import {
   where,
 } from "firebase/firestore";
 import Screen from "../components/Screen";
+import MobileListingCard from "../components/MobileListingCard";
 import { useAuth } from "../contexts/useAuth";
 import { auth, db } from "../lib/firebase";
 import { colors } from "../theme/colors";
-import { formatListingPrice, getDateTime } from "../utils/listingUtils";
+import {
+  formatListingPrice,
+  getDateTime,
+  shouldShowListingInMarketplace,
+  sortListingsByAvailabilityAndDate,
+} from "../utils/listingUtils";
 import { closeListingConversationsForDeletedListing } from "../utils/messaging";
 import {
   deleteMultipleImages,
@@ -96,7 +103,9 @@ function ListingRow({ listing, onStatusChange, onDelete, loading }) {
 export default function ProfileScreen({ navigation }) {
   const { currentUser, logout } = useAuth();
   const [listings, setListings] = useState([]);
+  const [savedListings, setSavedListings] = useState([]);
   const [loadingListings, setLoadingListings] = useState(true);
+  const [loadingSavedListings, setLoadingSavedListings] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountText, setDeleteAccountText] = useState("");
@@ -138,6 +147,60 @@ export default function ProfileScreen({ navigation }) {
 
     return unsubscribe;
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    const savedListingIds = Array.isArray(currentUser?.savedListings)
+      ? currentUser.savedListings.filter(Boolean)
+      : [];
+
+    if (!currentUser?.uid || savedListingIds.length === 0) {
+      setSavedListings([]);
+      setLoadingSavedListings(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingSavedListings(true);
+
+    async function loadSavedListings() {
+      try {
+        const chunks = [];
+        for (let index = 0; index < savedListingIds.length; index += 10) {
+          chunks.push(savedListingIds.slice(index, index + 10));
+        }
+
+        const snapshots = await Promise.all(
+          chunks.map((chunk) =>
+            getDocs(query(collection(db, "listings"), where(documentId(), "in", chunk)))
+          )
+        );
+
+        const nextListings = snapshots
+          .flatMap((snapshot) =>
+            snapshot.docs.map((listingDoc) => ({
+              id: listingDoc.id,
+              ...listingDoc.data(),
+            }))
+          )
+          .filter(shouldShowListingInMarketplace);
+
+        if (active) {
+          setSavedListings(sortListingsByAvailabilityAndDate(nextListings));
+        }
+      } catch (error) {
+        console.error("Error loading mobile saved listings:", error);
+        if (active) setSavedListings([]);
+      } finally {
+        if (active) setLoadingSavedListings(false);
+      }
+    }
+
+    loadSavedListings();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.savedListings, currentUser?.uid]);
 
   const groupedListings = useMemo(
     () => ({
@@ -435,6 +498,40 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  function renderSavedListingsSection() {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Saved Listings</Text>
+        {loadingSavedListings ? (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : savedListings.length === 0 ? (
+          <Text style={styles.emptyText}>No saved listings yet.</Text>
+        ) : (
+          <FlatList
+            data={savedListings}
+            numColumns={2}
+            columnWrapperStyle={styles.savedListingRow}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.savedListingSlot}>
+                <MobileListingCard
+                  listing={item}
+                  style={styles.savedListingCard}
+                  onPress={() =>
+                    navigation.navigate("ListingDetail", { listingId: item.id })
+                  }
+                />
+              </View>
+            )}
+            scrollEnabled={false}
+          />
+        )}
+      </View>
+    );
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
@@ -459,6 +556,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
         ) : (
           <>
+            {renderSavedListingsSection()}
             {renderListingSection("Active", groupedListings.active)}
             {renderListingSection("Pending", groupedListings.pending)}
             {renderListingSection("Sold", groupedListings.sold)}
@@ -705,6 +803,17 @@ const styles = StyleSheet.create({
   listingBody: {
     flex: 1,
     marginLeft: 12,
+  },
+  savedListingRow: {
+    alignItems: "stretch",
+  },
+  savedListingSlot: {
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    width: "50%",
+  },
+  savedListingCard: {
+    flex: 1,
   },
   listingTitle: {
     color: colors.text,

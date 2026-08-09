@@ -8,6 +8,7 @@ import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
 import CompetitionsScreen from "./src/screens/CompetitionsScreen";
+import CompetitionListingsScreen from "./src/screens/CompetitionListingsScreen";
 import ListingDetailScreen from "./src/screens/ListingDetailScreen";
 import SellerProfileScreen from "./src/screens/SellerProfileScreen";
 import SellScreen from "./src/screens/SellScreen";
@@ -20,6 +21,7 @@ import { colors } from "./src/theme/colors";
 
 const Tab = createBottomTabNavigator();
 const BrowseStack = createNativeStackNavigator();
+const CompetitionsStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 
@@ -93,6 +95,37 @@ function MessagesNavigator() {
   );
 }
 
+function CompetitionsNavigator() {
+  return (
+    <CompetitionsStack.Navigator
+      screenOptions={{
+        headerTitleStyle: { fontWeight: "700" },
+      }}
+    >
+      <CompetitionsStack.Screen
+        name="CompetitionsList"
+        component={CompetitionsScreen}
+        options={{ title: "Competitions" }}
+      />
+      <CompetitionsStack.Screen
+        name="CompetitionListings"
+        component={CompetitionListingsScreen}
+        options={{ title: "Listings" }}
+      />
+      <CompetitionsStack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={{ title: "Listing" }}
+      />
+      <CompetitionsStack.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
+        options={{ title: "Seller" }}
+      />
+    </CompetitionsStack.Navigator>
+  );
+}
+
 function ProfileNavigator() {
   return (
     <ProfileStack.Navigator
@@ -109,6 +142,16 @@ function ProfileNavigator() {
         name="Info"
         component={InfoScreen}
         options={{ title: "About & Policies" }}
+      />
+      <ProfileStack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={{ title: "Listing" }}
+      />
+      <ProfileStack.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
+        options={{ title: "Seller" }}
       />
     </ProfileStack.Navigator>
   );
@@ -134,8 +177,11 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Competitions"
-        component={CompetitionsScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>C</Text> }}
+        component={CompetitionsNavigator}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Text style={{ color }}>C</Text>,
+        }}
       />
       <Tab.Screen
         name="Sell"

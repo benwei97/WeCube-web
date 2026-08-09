@@ -11,7 +11,14 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import {
+  arrayRemove,
+  arrayUnion,
+  doc,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -78,6 +85,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [savingListingBookmark, setSavingListingBookmark] = useState(false);
 
   useEffect(() => {
     if (!listingId) {
@@ -138,6 +146,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const activePhotoUrl = activePhoto?.s3Key ? getS3PublicUrl(activePhoto.s3Key) : null;
   const fulfillmentOptions = useMemo(() => formatFulfillment(listing), [listing]);
   const isOwnListing = currentUser?.uid && currentUser.uid === listing?.userId;
+  const isSavedListing = Boolean(currentUser?.savedListings?.includes(listing?.id));
 
   function handlePreviousPhoto() {
     if (photos.length <= 1) return;
@@ -237,6 +246,35 @@ export default function ListingDetailScreen({ navigation, route }) {
     }
   }
 
+  async function handleToggleSavedListing() {
+    if (!currentUser?.uid) {
+      Alert.alert("Sign in required", "Sign in to save listings.");
+      return;
+    }
+
+    if (!listing?.id || savingListingBookmark) return;
+
+    setSavingListingBookmark(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        savedListings: isSavedListing
+          ? arrayRemove(listing.id)
+          : arrayUnion(listing.id),
+      });
+      Alert.alert(
+        isSavedListing ? "Removed" : "Saved",
+        isSavedListing
+          ? "Removed from saved listings."
+          : "Saved to your dashboard."
+      );
+    } catch (saveError) {
+      console.error("Error updating mobile saved listing:", saveError);
+      Alert.alert("Unable to save listing", saveError.message || "Please try again.");
+    } finally {
+      setSavingListingBookmark(false);
+    }
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -285,6 +323,21 @@ export default function ListingDetailScreen({ navigation, route }) {
         <View style={styles.panel}>
           <Text style={styles.title}>{listing.title || "Untitled listing"}</Text>
           <Text style={styles.price}>{formatListingPrice(listing.price)}</Text>
+          {!isOwnListing ? (
+            <Pressable
+              style={[styles.saveListingButton, savingListingBookmark && styles.primaryButtonDisabled]}
+              onPress={handleToggleSavedListing}
+              disabled={savingListingBookmark}
+            >
+              <Text style={styles.saveListingText}>
+                {savingListingBookmark
+                  ? "Saving..."
+                  : isSavedListing
+                    ? "Saved listing"
+                    : "Save listing"}
+              </Text>
+            </Pressable>
+          ) : null}
           <View style={styles.metaRow}>
             <Text style={styles.metaPill}>{listing.condition || "Condition not set"}</Text>
             {listing.puzzleType ? <Text style={styles.metaPill}>{listing.puzzleType}</Text> : null}
@@ -482,6 +535,20 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     marginTop: 8,
+  },
+  saveListingButton: {
+    alignSelf: "flex-start",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  saveListingText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
   },
   metaRow: {
     flexDirection: "row",

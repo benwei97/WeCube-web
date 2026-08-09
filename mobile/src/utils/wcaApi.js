@@ -156,3 +156,17 @@ export async function searchCompetitions(query, limit = 50) {
 
   return formattedResults.slice(0, limit);
 }
+
+export async function getCompetitionById(competitionId) {
+  const response = await fetch(`${WCA_API_BASE}/competitions/${competitionId}`);
+  if (!response.ok) {
+    throw new Error("Unable to load competition.");
+  }
+
+  const competition = await response.json();
+  if (competition.country_iso2 !== UNITED_STATES_COUNTRY_CODE) {
+    throw new Error("Only United States competitions are available.");
+  }
+
+  return formatCompetition(competition);
+}

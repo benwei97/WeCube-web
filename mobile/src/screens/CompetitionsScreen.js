@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +15,9 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { searchCompetitions } from "../utils/wcaApi";
+
+const COMPETITION_BATCH_SIZE = 50;
+const INITIAL_COMPETITION_LIMIT = 50;
 
 function getCompetitionMeta(competition) {
   return [competition.city, competition.country, competition.dateRange]
@@ -39,37 +42,53 @@ function getCompetitionForStorage(competition) {
   };
 }
 
-function CompetitionRow({ competition, saved, saving, onToggleSave }) {
+function CompetitionRow({
+  competition,
+  saved,
+  saving,
+  onToggleSave,
+  onOpen,
+}) {
   return (
     <View style={styles.competitionRow}>
-      <View style={styles.competitionInfo}>
-        <Text style={styles.competitionName} numberOfLines={2}>
+      <Pressable style={styles.competitionBody} onPress={() => onOpen(competition)}>
+        <Text style={styles.competitionName} numberOfLines={1}>
           {competition.name}
         </Text>
-        <Text style={styles.competitionMeta} numberOfLines={2}>
+        <Text style={styles.competitionMeta} numberOfLines={1}>
           {getCompetitionMeta(competition)}
         </Text>
-      </View>
+      </Pressable>
       <Pressable
-        style={[styles.bookmarkButton, saved && styles.bookmarkButtonSaved]}
+        style={[styles.iconButton, saved && styles.iconButtonSaved]}
         onPress={() => onToggleSave(competition)}
         disabled={saving}
+        accessibilityLabel={
+          saved
+            ? `Remove ${competition.name} from saved competitions`
+            : `Save ${competition.name}`
+        }
       >
-        <Text style={[styles.bookmarkText, saved && styles.bookmarkTextSaved]}>
-          {saving ? "..." : saved ? "Saved" : "Save"}
+        <Text style={[styles.iconButtonText, saved && styles.iconButtonTextSaved]}>
+          {saving ? "..." : saved ? "◆" : "◇"}
         </Text>
+      </Pressable>
+      <Pressable style={styles.chevronButton} onPress={() => onOpen(competition)}>
+        <Text style={styles.chevronText}>›</Text>
       </Pressable>
     </View>
   );
 }
 
-export default function CompetitionsScreen() {
+export default function CompetitionsScreen({ navigation }) {
   const { currentUser } = useAuth();
   const [query, setQuery] = useState("");
   const [competitions, setCompetitions] = useState([]);
+  const [competitionLimit, setCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const savedCompetitions = useMemo(
     () => currentUser?.attendingCompetitions || [],
@@ -81,16 +100,26 @@ export default function CompetitionsScreen() {
   );
 
   useEffect(() => {
+    setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
+  }, [query]);
+
+  useEffect(() => {
     let active = true;
-    setLoading(true);
+    const isInitialLoad = competitionLimit === INITIAL_COMPETITION_LIMIT;
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError("");
 
     const timeoutId = setTimeout(async () => {
       try {
-        const results = await searchCompetitions(query, 50);
+        const results = await searchCompetitions(query, competitionLimit);
         if (active) {
           setCompetitions(results);
           setLoading(false);
+          setLoadingMore(false);
         }
       } catch (searchError) {
         console.error("Error loading mobile competitions:", searchError);
@@ -98,6 +127,7 @@ export default function CompetitionsScreen() {
           setError("Unable to load competitions.");
           setCompetitions([]);
           setLoading(false);
+          setLoadingMore(false);
         }
       }
     }, query.trim().length >= 2 ? 300 : 0);
@@ -106,7 +136,27 @@ export default function CompetitionsScreen() {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [query]);
+  }, [competitionLimit, query]);
+
+  function openCompetitionListings(competition) {
+    if (!competition?.id) return;
+    navigation.navigate("CompetitionListings", {
+      competitionId: competition.id,
+      competition,
+    });
+  }
+
+  function loadMoreCompetitions() {
+    if (loading || loadingMore || query.trim().length >= 2) return;
+    setCompetitionLimit((currentLimit) => currentLimit + COMPETITION_BATCH_SIZE);
+  }
+
+  function handleScroll(event) {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const nearBottom =
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 120;
+    if (nearBottom) loadMoreCompetitions();
+  }
 
   async function persistSavedCompetitions(nextCompetitions) {
     await updateDoc(doc(db, "users", currentUser.uid), {
@@ -140,83 +190,119 @@ export default function CompetitionsScreen() {
 
   return (
     <Screen>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        onScroll={handleScroll}
+        scrollEventThrottle={120}
+      >
         <Text style={styles.title}>Competitions</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          style={styles.searchInput}
-          placeholder="Search competitions"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
 
-        {savedCompetitions.length > 0 && (
-          <View style={styles.savedSection}>
-            <Text style={styles.sectionTitle}>My competitions</Text>
-            <FlatList
-              data={savedCompetitions}
-              keyExtractor={(item) => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.savedPill}
-                  onPress={() => handleToggleSavedCompetition(item)}
-                >
-                  <Text style={styles.savedPillText} numberOfLines={1}>
-                    {item.displayName || item.name}
-                  </Text>
-                </Pressable>
-              )}
-              ItemSeparatorComponent={() => <View style={styles.savedSeparator} />}
-            />
-          </View>
-        )}
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        {loading ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        ) : (
-          <FlatList
-            data={competitions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <CompetitionRow
-                competition={item}
-                saved={savedCompetitionIds.has(item.id)}
-                onToggleSave={handleToggleSavedCompetition}
-                saving={savingId === item.id}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <View style={styles.centerState}>
-                <Text style={styles.emptyTitle}>No competitions found</Text>
-                <Text style={styles.emptyText}>Try a different competition or city.</Text>
-              </View>
-            }
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Select a Competition</Text>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            style={styles.searchInput}
+            placeholder="Search competitions..."
+            autoCapitalize="none"
+            autoCorrect={false}
           />
-        )}
-      </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {loading ? (
+            <View style={styles.centerState}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : competitions.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Text style={styles.emptyTitle}>No competitions found</Text>
+              <Text style={styles.emptyText}>Try a different competition or city.</Text>
+            </View>
+          ) : (
+            <View style={styles.listStack}>
+              {competitions.map((competition) => (
+                <CompetitionRow
+                  key={competition.id}
+                  competition={competition}
+                  saved={savedCompetitionIds.has(competition.id)}
+                  onToggleSave={handleToggleSavedCompetition}
+                  onOpen={openCompetitionListings}
+                  saving={savingId === competition.id}
+                />
+              ))}
+            </View>
+          )}
+
+          {loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.panel}>
+          <Text style={styles.savedTitle}>Saved Competitions</Text>
+          {savedCompetitions.length === 0 ? (
+            <View style={styles.savedEmptyBlock}>
+              <Text style={styles.emptyText}>
+                Bookmark competitions from the list to keep them here.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.listStack}>
+              {savedCompetitions.map((competition) => (
+                <CompetitionRow
+                  key={competition.id}
+                  competition={competition}
+                  saved
+                  onToggleSave={handleToggleSavedCompetition}
+                  onOpen={openCompetitionListings}
+                  saving={savingId === competition.id}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
-    padding: 16,
+  },
+  container: {
+    gap: 16,
+    padding: 12,
+    paddingBottom: 32,
   },
   title: {
     color: colors.text,
     fontSize: 28,
     fontWeight: "900",
-    marginBottom: 12,
+    marginTop: 4,
+  },
+  panel: {
+    backgroundColor: "rgba(255, 255, 255, 0.72)",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+  },
+  panelTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  savedTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 14,
   },
   searchInput: {
     backgroundColor: colors.surface,
@@ -225,96 +311,89 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
+    marginBottom: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  savedSection: {
-    marginTop: 16,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
-    marginBottom: 8,
-  },
-  savedPill: {
-    backgroundColor: "#eff6ff",
-    borderColor: colors.primary,
-    borderRadius: 6,
-    borderWidth: 1,
-    maxWidth: 220,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  savedPillText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  savedSeparator: {
-    width: 8,
-  },
-  listContent: {
-    paddingTop: 16,
-    paddingBottom: 32,
+  listStack: {
+    gap: 10,
   },
   competitionRow: {
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.76)",
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
     padding: 12,
   },
-  competitionInfo: {
+  competitionBody: {
     flex: 1,
+    minWidth: 0,
   },
   competitionName: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
   competitionMeta: {
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    fontWeight: "600",
     marginTop: 4,
   },
-  bookmarkButton: {
+  iconButton: {
+    alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: 999,
     borderWidth: 1,
-    minWidth: 70,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
   },
-  bookmarkButtonSaved: {
-    backgroundColor: colors.primary,
+  iconButtonSaved: {
+    backgroundColor: "#eff6ff",
     borderColor: colors.primary,
   },
-  bookmarkText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "800",
-    textAlign: "center",
+  iconButtonText: {
+    color: colors.muted,
+    fontSize: 15,
+    fontWeight: "900",
   },
-  bookmarkTextSaved: {
-    color: "#fff",
+  iconButtonTextSaved: {
+    color: colors.primary,
   },
-  separator: {
-    height: 10,
+  chevronButton: {
+    alignItems: "center",
+    height: 34,
+    justifyContent: "center",
+    width: 22,
+  },
+  chevronText: {
+    color: colors.muted,
+    fontSize: 24,
+    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",
-    flex: 1,
+    minHeight: 180,
     justifyContent: "center",
-    padding: 24,
+  },
+  emptyBlock: {
+    alignItems: "center",
+    paddingVertical: 32,
+  },
+  savedEmptyBlock: {
+    backgroundColor: "rgba(248, 250, 252, 0.72)",
+    borderColor: "rgba(148, 163, 184, 0.18)",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
   },
   emptyTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     textAlign: "center",
   },
@@ -322,13 +401,17 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 8,
+    marginTop: 6,
     textAlign: "center",
+  },
+  footerLoader: {
+    alignItems: "center",
+    paddingTop: 18,
   },
   error: {
     color: colors.danger,
     fontSize: 14,
     fontWeight: "700",
-    marginTop: 12,
+    marginBottom: 12,
   },
 });

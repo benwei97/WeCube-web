@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -19,14 +20,38 @@ import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import {
+  CONDITION_OPTIONS,
+  PUZZLE_TYPE_OPTIONS,
+} from "../utils/listingUtils";
+import {
+  characterCountText,
+  clampText,
+  formatCurrencyInputFromDigits,
+  INPUT_LIMITS,
+} from "../utils/inputLimits";
+import {
+  fetchLocationSuggestionOptions,
+  getLocationOptionLabel,
+} from "../utils/locationSearch";
 import { uploadImageAssetToS3 } from "../utils/s3";
+import { searchCompetitions } from "../utils/wcaApi";
 
-const CONDITIONS = [
-  { label: "New", value: "new" },
-  { label: "Like new", value: "like-new" },
-  { label: "Used", value: "used" },
-];
-const PUZZLE_TYPES = ["3x3", "2x2", "4x4", "5x5", "Pyraminx", "Megaminx", "Skewb", "Other"];
+const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
+const COMPETITION_BATCH_SIZE = 25;
+const INITIAL_COMPETITION_LIMIT = 50;
+
+const MY_COMPETITIONS_OPTION = {
+  id: MY_COMPETITIONS_OPTION_ID,
+  name: "My competitions",
+  displayName: "My competitions",
+  isMyCompetitionsOption: true,
+};
+
+function parseNonNegativeCurrencyAmount(value) {
+  const amount = Number.parseFloat(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
 
 function getListingCompetitionPayload(competition = {}, options = {}) {
   const payload = {
@@ -51,50 +76,264 @@ function getListingCompetitionPayload(competition = {}, options = {}) {
   return payload;
 }
 
-function SegmentOptions({ options, value, onChange }) {
-  return (
-    <View style={styles.segmentWrap}>
-      {options.map((option) => {
-        const optionValue = typeof option === "string" ? option : option.value;
-        const optionLabel = typeof option === "string" ? option : option.label;
-        const selected = value === optionValue;
+function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
+  const competitionsById = new Map(
+    currentCompetitions
+      .filter((competition) => !competition.isMyCompetitionsOption)
+      .map((competition) => [competition.id, competition])
+  );
 
-        return (
-          <Pressable
-            key={optionValue}
-            style={[styles.segmentOption, selected && styles.segmentOptionSelected]}
-            onPress={() => onChange(optionValue)}
-          >
-            <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
-              {optionLabel}
-            </Text>
-          </Pressable>
-        );
-      })}
+  competitionsToAdd.forEach((competition) => {
+    if (competition?.id && !competitionsById.has(competition.id)) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
+
+  return [...competitionsById.values()];
+}
+
+function RequiredLabel({ children }) {
+  return (
+    <Text style={styles.label}>
+      {children}
+      <Text style={styles.required}>*</Text>
+    </Text>
+  );
+}
+
+function HelperText({ children, error }) {
+  if (!children) return null;
+  return (
+    <Text style={[styles.helper, error && styles.errorText]}>
+      {children}
+    </Text>
+  );
+}
+
+function SelectField({
+  label,
+  required,
+  value,
+  placeholder,
+  error,
+  helperText,
+  options,
+  onChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <View>
+      {required ? <RequiredLabel>{label}</RequiredLabel> : <Text style={styles.label}>{label}</Text>}
+      <Pressable
+        style={[styles.input, styles.selectInput, error && styles.inputError]}
+        onPress={() => setOpen(true)}
+      >
+        <Text
+          style={[
+            styles.selectText,
+            !selectedOption && styles.placeholderText,
+          ]}
+        >
+          {selectedOption?.label || placeholder}
+        </Text>
+        <Text style={styles.selectChevron}>⌄</Text>
+      </Pressable>
+      <HelperText error={error}>{helperText}</HelperText>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={open}
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.selectPanel}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{label}</Text>
+              <Pressable onPress={() => setOpen(false)}>
+                <Text style={styles.closeText}>Close</Text>
+              </Pressable>
+            </View>
+            {options.map((option) => {
+              const selected = option.value === value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.selectOption,
+                    selected && styles.selectOptionSelected,
+                  ]}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.selectOptionText,
+                      selected && styles.selectOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-export default function SellScreen() {
+function PhotoTile({ photo, index, onRemove }) {
+  return (
+    <View style={styles.photoTile}>
+      <Image source={{ uri: photo.uri }} style={styles.photo} />
+      <Pressable
+        style={styles.removePhotoButton}
+        onPress={() => onRemove(photo.uri)}
+        accessibilityLabel={`Remove photo ${index + 1}`}
+      >
+        <Text style={styles.removePhotoText}>×</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export default function SellScreen({ navigation }) {
   const { currentUser } = useAuth();
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
-  const [condition, setCondition] = useState("used");
-  const [puzzleType, setPuzzleType] = useState("3x3");
-  const [shippingAvailable, setShippingAvailable] = useState(true);
+  const [condition, setCondition] = useState("");
+  const [puzzleType, setPuzzleType] = useState("");
+  const [shippingAvailable, setShippingAvailable] = useState(false);
   const [shippingCost, setShippingCost] = useState("0.00");
   const [localMeetupAvailable, setLocalMeetupAvailable] = useState(false);
   const [meetupLocationLabel, setMeetupLocationLabel] = useState("");
+  const [meetupLocation, setMeetupLocation] = useState(null);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitionMeetupAvailable, setCompetitionMeetupAvailable] = useState(false);
-  const [selectedCompetitionIds, setSelectedCompetitionIds] = useState([]);
+  const [competitions, setCompetitions] = useState([]);
+  const [competitionSearchInput, setCompetitionSearchInput] = useState("");
+  const [competitionLimit, setCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
+  const [loadingCompetitions, setLoadingCompetitions] = useState(false);
+  const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
 
   const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
-  const selectedCompetitions = bookmarkedCompetitions.filter((competition) =>
-    selectedCompetitionIds.includes(competition.id)
+  const competitionOptions = useMemo(
+    () =>
+      bookmarkedCompetitions.length > 0
+        ? [MY_COMPETITIONS_OPTION, ...competitions]
+        : competitions,
+    [bookmarkedCompetitions.length, competitions]
   );
+
+  const selectedCompetitionIds = useMemo(
+    () => new Set(selectedCompetitions.map((competition) => competition.id)),
+    [selectedCompetitions]
+  );
+
+  useEffect(() => {
+    let active = true;
+    const query = meetupLocationLabel.trim();
+
+    if (!localMeetupAvailable || query.length < 2) {
+      setLocationOptions([]);
+      setLoadingLocations(false);
+      return undefined;
+    }
+
+    setLoadingLocations(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const options = await fetchLocationSuggestionOptions(query);
+        if (active) setLocationOptions(options);
+      } catch (locationError) {
+        console.error("Error loading mobile meetup locations:", locationError);
+        if (active) setLocationOptions([]);
+      } finally {
+        if (active) setLoadingLocations(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [localMeetupAvailable, meetupLocationLabel]);
+
+  useEffect(() => {
+    if (!competitionMeetupAvailable) return;
+    setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
+  }, [competitionMeetupAvailable, competitionSearchInput]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!competitionMeetupAvailable) {
+      setCompetitions([]);
+      setLoadingCompetitions(false);
+      return undefined;
+    }
+
+    setLoadingCompetitions(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchCompetitions(
+          competitionSearchInput,
+          competitionLimit
+        );
+        if (active) setCompetitions(results);
+      } catch (competitionError) {
+        console.error("Error loading mobile sell competitions:", competitionError);
+        if (active) setCompetitions([]);
+      } finally {
+        if (active) setLoadingCompetitions(false);
+      }
+    }, competitionSearchInput.trim().length >= 2 ? 300 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [competitionLimit, competitionMeetupAvailable, competitionSearchInput]);
+
+  const isDeliveryValid =
+    shippingAvailable || localMeetupAvailable || competitionMeetupAvailable;
+  const isCompetitionValid =
+    !competitionMeetupAvailable || selectedCompetitions.length > 0;
+  const isMeetupLocationValid =
+    !localMeetupAvailable ||
+    (Boolean(meetupLocationLabel.trim()) &&
+      meetupLocation?.label === meetupLocationLabel.trim());
+  const isShippingCostValid =
+    !shippingAvailable ||
+    (parseNonNegativeCurrencyAmount(shippingCost) !== null &&
+      parseNonNegativeCurrencyAmount(shippingCost) <=
+        INPUT_LIMITS.SHIPPING_COST_MAX);
+  const isPhotosInvalid = hasAttemptedSubmit && photos.length === 0;
+  const isTitleInvalid = hasAttemptedSubmit && !title.trim();
+  const isPriceInvalid =
+    hasAttemptedSubmit &&
+    (!price ||
+      parseNonNegativeCurrencyAmount(price) === null ||
+      parseNonNegativeCurrencyAmount(price) > INPUT_LIMITS.LISTING_PRICE_MAX);
+  const isPuzzleTypeInvalid = hasAttemptedSubmit && !puzzleType;
+  const isConditionInvalid = hasAttemptedSubmit && !condition;
+  const isDescriptionInvalid = hasAttemptedSubmit && !description.trim();
+
+  function clearSubmitNotice() {
+    if (submitNotice) setSubmitNotice("");
+  }
 
   async function pickPhotos() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -111,88 +350,165 @@ export default function SellScreen() {
     });
 
     if (result.canceled) return;
+    clearSubmitNotice();
     setPhotos((prev) => [...prev, ...result.assets].slice(0, 5));
   }
 
   function removePhoto(uri) {
+    clearSubmitNotice();
     setPhotos((prev) => prev.filter((photo) => photo.uri !== uri));
   }
 
-  function parseCurrency(value) {
-    const normalized = Number.parseFloat(String(value).replace(/[^0-9.]/g, ""));
-    return Number.isFinite(normalized) ? Math.round(normalized * 100) / 100 : NaN;
+  function handleTitleChange(value) {
+    clearSubmitNotice();
+    setTitle(clampText(value, INPUT_LIMITS.LISTING_TITLE));
   }
 
-  function validateForm() {
-    const parsedPrice = parseCurrency(price);
-    const parsedShippingCost = shippingAvailable ? parseCurrency(shippingCost || "0") : 0;
+  function handleDescriptionChange(value) {
+    clearSubmitNotice();
+    setDescription(clampText(value, INPUT_LIMITS.LISTING_DESCRIPTION));
+  }
 
-    if (!title.trim()) return "Enter a title.";
-    if (!description.trim()) return "Enter a description.";
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 9999.99) {
-      return "Enter a valid price.";
-    }
-    if (!Number.isFinite(parsedShippingCost) || parsedShippingCost < 0 || parsedShippingCost > 999.99) {
-      return "Enter a valid shipping price.";
-    }
-    if (!shippingAvailable && !localMeetupAvailable && !competitionMeetupAvailable) {
-      return "Select shipping, local meetup, or competition meetup.";
-    }
-    if (localMeetupAvailable && !meetupLocationLabel.trim()) {
-      return "Enter a meetup location.";
-    }
-    if (competitionMeetupAvailable && selectedCompetitions.length === 0) {
-      return "Select at least one bookmarked competition.";
-    }
-    if (photos.length < 1) return "Add at least one photo.";
+  function handlePriceChange(value) {
+    const formattedValue = formatCurrencyInputFromDigits(
+      value,
+      INPUT_LIMITS.LISTING_PRICE_MAX
+    );
+    if (formattedValue === null) return;
+    clearSubmitNotice();
+    setPrice(formattedValue);
+  }
 
-    return null;
+  function handleShippingCostChange(value) {
+    const formattedValue = formatCurrencyInputFromDigits(
+      value,
+      INPUT_LIMITS.SHIPPING_COST_MAX
+    );
+    if (formattedValue === null) return;
+    clearSubmitNotice();
+    setShippingCost(formattedValue || "0.00");
+  }
+
+  function handleLocalMeetupChange(value) {
+    clearSubmitNotice();
+    setLocalMeetupAvailable(value);
+    if (!value) {
+      setMeetupLocationLabel("");
+      setMeetupLocation(null);
+      setLocationOptions([]);
+    }
   }
 
   function handleCompetitionMeetupChange(value) {
+    clearSubmitNotice();
     setCompetitionMeetupAvailable(value);
     if (!value) {
-      setSelectedCompetitionIds([]);
+      setSelectedCompetitions([]);
+      setCompetitionSearchInput("");
+      setCompetitions([]);
     }
   }
 
-  function toggleCompetition(competitionId) {
-    setSelectedCompetitionIds((prev) =>
-      prev.includes(competitionId)
-        ? prev.filter((id) => id !== competitionId)
-        : [...prev, competitionId]
+  function handleCompetitionSelect(competition) {
+    clearSubmitNotice();
+    if (competition.isMyCompetitionsOption) {
+      setSelectedCompetitions((current) =>
+        mergeCompetitionsById(current, bookmarkedCompetitions)
+      );
+      return;
+    }
+
+    setSelectedCompetitions((current) =>
+      selectedCompetitionIds.has(competition.id)
+        ? current.filter((item) => item.id !== competition.id)
+        : [...current, competition]
     );
   }
 
+  function clearListing() {
+    setTitle("");
+    setPrice("");
+    setDescription("");
+    setCondition("");
+    setPuzzleType("");
+    setShippingAvailable(false);
+    setShippingCost("0.00");
+    setLocalMeetupAvailable(false);
+    setMeetupLocationLabel("");
+    setMeetupLocation(null);
+    setCompetitionMeetupAvailable(false);
+    setCompetitionSearchInput("");
+    setSelectedCompetitions([]);
+    setPhotos([]);
+    setHasAttemptedSubmit(false);
+    setSubmitNotice("");
+  }
+
   async function publishListing() {
-    const validationError = validateForm();
-    if (validationError) {
-      Alert.alert("Check listing", validationError);
+    setHasAttemptedSubmit(true);
+    const parsedPrice = parseNonNegativeCurrencyAmount(price);
+
+    const isBasicInfoValid =
+      title.trim() &&
+      parsedPrice !== null &&
+      parsedPrice <= INPUT_LIMITS.LISTING_PRICE_MAX &&
+      condition &&
+      description.trim() &&
+      puzzleType;
+
+    if (
+      photos.length === 0 ||
+      !isBasicInfoValid ||
+      !isDeliveryValid ||
+      !isMeetupLocationValid ||
+      !isShippingCostValid
+    ) {
+      setSubmitNotice(
+        !isDeliveryValid
+          ? "Please select at least one fulfillment method before publishing."
+          : "Please fill in all required fields before publishing."
+      );
+      return;
+    }
+
+    if (!isCompetitionValid) {
+      setSubmitNotice("Please select at least one competition for meetup delivery.");
+      return;
+    }
+
+    if (!currentUser?.uid) {
+      setSubmitNotice("You must be logged in to create a listing.");
       return;
     }
 
     setPublishing(true);
+    setSubmitNotice("");
+
     try {
-      const listingId = `listing_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const listingId = `listing_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 9)}`;
       const uploadedPhotos = [];
 
       for (const photo of photos) {
         uploadedPhotos.push(await uploadImageAssetToS3(photo, listingId));
       }
 
-      const parsedShippingCost = shippingAvailable ? parseCurrency(shippingCost || "0") : 0;
+      const shippingPrice = shippingAvailable
+        ? parseNonNegativeCurrencyAmount(shippingCost)
+        : 0;
       const listingToSave = {
         title: title.trim(),
-        price: parseCurrency(price),
+        price: parsedPrice,
         description: description.trim(),
         condition,
         puzzleType,
-        meetupLocationLabel: localMeetupAvailable ? meetupLocationLabel.trim() : "",
-        meetupLocation: null,
+        meetupLocationLabel: meetupLocationLabel.trim(),
+        meetupLocation: localMeetupAvailable ? meetupLocation : null,
         photos: uploadedPhotos,
         shippingAvailable,
-        shippingIncluded: shippingAvailable && parsedShippingCost === 0,
-        shippingCost: parsedShippingCost,
+        shippingIncluded: shippingAvailable && shippingPrice === 0,
+        shippingCost: shippingPrice,
         localMeetupAvailable,
         competitionMeetupAvailable,
         competitions: selectedCompetitions.map((competition) =>
@@ -208,26 +524,40 @@ export default function SellScreen() {
         listingId,
       };
 
-      await addDoc(collection(db, "listings"), listingToSave);
-      setTitle("");
-      setPrice("");
-      setDescription("");
-      setCondition("used");
-      setPuzzleType("3x3");
-      setShippingAvailable(true);
-      setShippingCost("0.00");
-      setLocalMeetupAvailable(false);
-      setMeetupLocationLabel("");
-      setCompetitionMeetupAvailable(false);
-      setSelectedCompetitionIds([]);
-      setPhotos([]);
-      Alert.alert("Listing published", "Your listing is now active.");
+      const docRef = await addDoc(collection(db, "listings"), listingToSave);
+      clearListing();
+      Alert.alert("Listing published", "Your listing is now active.", [
+        {
+          text: "View listing",
+          onPress: () =>
+            navigation?.navigate("Browse", {
+              screen: "ListingDetail",
+              params: { listingId: docRef.id },
+            }),
+        },
+      ]);
     } catch (error) {
       console.error("Error publishing mobile listing:", error);
-      Alert.alert("Unable to publish", error.message || "Please try again.");
+      const isUploadError = error.message?.toLowerCase().includes("upload");
+      setSubmitNotice(
+        isUploadError
+          ? `Failed to upload photos: ${error.message}`
+          : `Failed to publish listing: ${error.message}`
+      );
     } finally {
       setPublishing(false);
     }
+  }
+
+  if (!currentUser) {
+    return (
+      <Screen>
+        <View style={styles.container}>
+          <Text style={styles.pageTitle}>List Your Cube</Text>
+          <Text style={styles.emptyText}>Please sign in to create a listing</Text>
+        </View>
+      </Screen>
+    );
   }
 
   return (
@@ -237,157 +567,385 @@ export default function SellScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={styles.title}>Sell a puzzle</Text>
+          <Text style={styles.pageTitle}>List Your Cube</Text>
 
-          <Text style={styles.label}>Photos</Text>
-          <View style={styles.photoGrid}>
-            {photos.map((photo) => (
-              <Pressable key={photo.uri} onPress={() => removePhoto(photo.uri)}>
-                <Image source={{ uri: photo.uri }} style={styles.photo} />
-              </Pressable>
-            ))}
-            {photos.length < 5 && (
-              <Pressable style={styles.addPhoto} onPress={pickPhotos}>
-                <Text style={styles.addPhotoText}>Add photo</Text>
-              </Pressable>
-            )}
-          </View>
-          <Text style={styles.helper}>Tap a selected photo to remove it.</Text>
-
-          <Text style={styles.label}>Title</Text>
-          <TextInput value={title} onChangeText={setTitle} style={styles.input} maxLength={80} />
-
-          <Text style={styles.label}>Price</Text>
-          <TextInput
-            value={price}
-            onChangeText={setPrice}
-            style={styles.input}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-          />
-
-          <Text style={styles.label}>Condition</Text>
-          <SegmentOptions options={CONDITIONS} value={condition} onChange={setCondition} />
-
-          <Text style={styles.label}>Puzzle type</Text>
-          <SegmentOptions options={PUZZLE_TYPES} value={puzzleType} onChange={setPuzzleType} />
-
-          <Text style={styles.label}>Description</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            style={[styles.input, styles.textArea]}
-            maxLength={2000}
-            multiline
-            textAlignVertical="top"
-          />
-
-          <View style={styles.switchRow}>
-            <View>
-              <Text style={styles.switchLabel}>Shipping</Text>
-              <Text style={styles.helper}>Turn on if you can ship this puzzle.</Text>
+          {submitNotice ? (
+            <View style={styles.notice}>
+              <Text style={styles.noticeText}>{submitNotice}</Text>
             </View>
-            <Switch value={shippingAvailable} onValueChange={setShippingAvailable} />
-          </View>
-          {shippingAvailable && (
-            <>
-              <Text style={styles.label}>Shipping price</Text>
-              <TextInput
-                value={shippingCost}
-                onChangeText={setShippingCost}
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-              />
-              <Text style={styles.helper}>Keep at 0.00 if no additional shipping cost.</Text>
-            </>
-          )}
+          ) : null}
 
-          <View style={styles.switchRow}>
-            <View>
-              <Text style={styles.switchLabel}>Local meetup</Text>
-              <Text style={styles.helper}>Use a public meetup location.</Text>
-            </View>
-            <Switch value={localMeetupAvailable} onValueChange={setLocalMeetupAvailable} />
-          </View>
-          {localMeetupAvailable && (
-            <>
-              <Text style={styles.label}>Meetup location</Text>
-              <TextInput
-                value={meetupLocationLabel}
-                onChangeText={setMeetupLocationLabel}
-                style={styles.input}
-                placeholder="City, venue, or general area"
-              />
-            </>
-          )}
+          <View style={[styles.formCard, isPhotosInvalid && styles.cardError]}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Photos</Text>
+              <Text style={styles.sectionHelper}>Add 1-5 photos*</Text>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Competition meetup</Text>
-              <Text style={styles.helper}>Offer pickup at bookmarked competitions.</Text>
-            </View>
-            <Switch
-              value={competitionMeetupAvailable}
-              onValueChange={handleCompetitionMeetupChange}
-            />
-          </View>
-          {competitionMeetupAvailable && (
-            <View style={styles.competitionPanel}>
-              {bookmarkedCompetitions.length === 0 ? (
-                <Text style={styles.emptyCompetitionText}>
-                  Bookmark competitions on web first, then they will appear here.
-                </Text>
-              ) : (
-                bookmarkedCompetitions.map((competition) => {
-                  const selected = selectedCompetitionIds.includes(competition.id);
-                  return (
-                    <Pressable
-                      key={competition.id}
+              <View style={styles.photoGrid}>
+                {photos.map((photo, index) => (
+                  <PhotoTile
+                    key={photo.uri}
+                    photo={photo}
+                    index={index}
+                    onRemove={removePhoto}
+                  />
+                ))}
+                {photos.length < 5 && (
+                  <Pressable
+                    style={[
+                      styles.addPhoto,
+                      isPhotosInvalid && styles.addPhotoError,
+                    ]}
+                    onPress={pickPhotos}
+                  >
+                    <Text
                       style={[
-                        styles.competitionPill,
-                        selected && styles.competitionPillSelected,
+                        styles.addPhotoIcon,
+                        isPhotosInvalid && styles.addPhotoTextError,
                       ]}
-                      onPress={() => toggleCompetition(competition.id)}
                     >
-                      <Text
-                        style={[
-                          styles.competitionName,
-                          selected && styles.competitionNameSelected,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {competition.displayName || competition.name}
-                      </Text>
-                      {[competition.city, competition.country].filter(Boolean).length > 0 && (
-                        <Text
-                          style={[
-                            styles.competitionMeta,
-                            selected && styles.competitionMetaSelected,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {[competition.city, competition.country].filter(Boolean).join(", ")}
-                        </Text>
-                      )}
-                    </Pressable>
-                  );
-                })
-              )}
+                      ↑
+                    </Text>
+                    <Text
+                      style={[
+                        styles.addPhotoText,
+                        isPhotosInvalid && styles.addPhotoTextError,
+                      ]}
+                    >
+                      Upload
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+              <HelperText error={isPhotosInvalid}>
+                {isPhotosInvalid ? "Add at least one photo." : ""}
+              </HelperText>
             </View>
-          )}
 
-          <Pressable
-            style={[styles.primaryButton, publishing && styles.primaryButtonDisabled]}
-            onPress={publishListing}
-            disabled={publishing}
-          >
-            {publishing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Publish listing</Text>
-            )}
-          </Pressable>
+            <View style={[styles.section, styles.sectionBorder]}>
+              <Text style={styles.sectionTitle}>Basic Information</Text>
+
+              <RequiredLabel>Title</RequiredLabel>
+              <TextInput
+                value={title}
+                onChangeText={handleTitleChange}
+                style={[styles.input, isTitleInvalid && styles.inputError]}
+                placeholder="ex. Gan 16 Maglev UV"
+                maxLength={INPUT_LIMITS.LISTING_TITLE}
+              />
+              <HelperText error={isTitleInvalid}>
+                {isTitleInvalid ? "Enter a title." : ""}
+              </HelperText>
+
+              <View style={styles.inlineFields}>
+                <View style={styles.priceField}>
+                  <RequiredLabel>Price</RequiredLabel>
+                  <TextInput
+                    value={price}
+                    onChangeText={handlePriceChange}
+                    style={[styles.input, isPriceInvalid && styles.inputError]}
+                    keyboardType="number-pad"
+                    placeholder="0.00"
+                  />
+                  <HelperText error={isPriceInvalid}>
+                    {isPriceInvalid
+                      ? `Enter a price from $0 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                      : ""}
+                  </HelperText>
+                </View>
+              </View>
+
+              <SelectField
+                label="Puzzle Type"
+                required
+                value={puzzleType}
+                placeholder="Select puzzle type"
+                error={isPuzzleTypeInvalid}
+                helperText={isPuzzleTypeInvalid ? "Select a puzzle type." : ""}
+                options={PUZZLE_TYPE_OPTIONS.map((option) => ({
+                  value: option,
+                  label: option,
+                }))}
+                onChange={(value) => {
+                  clearSubmitNotice();
+                  setPuzzleType(value);
+                }}
+              />
+
+              <SelectField
+                label="Condition"
+                required
+                value={condition}
+                placeholder="Select condition"
+                error={isConditionInvalid}
+                helperText={isConditionInvalid ? "Select a condition." : ""}
+                options={CONDITION_OPTIONS}
+                onChange={(value) => {
+                  clearSubmitNotice();
+                  setCondition(value);
+                }}
+              />
+
+              <RequiredLabel>Description</RequiredLabel>
+              <TextInput
+                value={description}
+                onChangeText={handleDescriptionChange}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  isDescriptionInvalid && styles.inputError,
+                ]}
+                maxLength={INPUT_LIMITS.LISTING_DESCRIPTION}
+                multiline
+                placeholder="Describe your cube's condition, features, and any included accessories..."
+                textAlignVertical="top"
+              />
+              <HelperText error={isDescriptionInvalid}>
+                {isDescriptionInvalid
+                  ? "Enter a description."
+                  : characterCountText(
+                      description,
+                      INPUT_LIMITS.LISTING_DESCRIPTION
+                    )}
+              </HelperText>
+            </View>
+
+            <View style={[styles.section, styles.sectionBorder]}>
+              <Text style={styles.sectionTitle}>Fulfillment Methods</Text>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Shipping</Text>
+                <Switch
+                  value={shippingAvailable}
+                  onValueChange={(value) => {
+                    clearSubmitNotice();
+                    setShippingAvailable(value);
+                    if (!value) setShippingCost("0.00");
+                  }}
+                />
+              </View>
+              {shippingAvailable ? (
+                <View style={styles.nestedSection}>
+                  <RequiredLabel>Shipping Price</RequiredLabel>
+                  <TextInput
+                    value={shippingCost}
+                    onChangeText={handleShippingCostChange}
+                    style={[
+                      styles.input,
+                      styles.shippingInput,
+                      isShippingCostValid ? null : styles.inputError,
+                    ]}
+                    keyboardType="number-pad"
+                    placeholder="0.00"
+                  />
+                  <HelperText error={!isShippingCostValid && hasAttemptedSubmit}>
+                    {!isShippingCostValid && hasAttemptedSubmit
+                      ? `Enter a shipping price from $0 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
+                      : "Keep at $0 if there is no additional shipping cost."}
+                  </HelperText>
+                </View>
+              ) : null}
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Local Meetup</Text>
+                <Switch
+                  value={localMeetupAvailable}
+                  onValueChange={handleLocalMeetupChange}
+                />
+              </View>
+              {localMeetupAvailable ? (
+                <View style={styles.nestedSection}>
+                  <RequiredLabel>General Meetup Area</RequiredLabel>
+                  <TextInput
+                    value={meetupLocationLabel}
+                    onChangeText={(value) => {
+                      clearSubmitNotice();
+                      const nextValue = clampText(value, INPUT_LIMITS.LOCATION_LABEL);
+                      setMeetupLocationLabel(nextValue);
+                      setMeetupLocation(
+                        nextValue === meetupLocation?.label ? meetupLocation : null
+                      );
+                    }}
+                    style={[
+                      styles.input,
+                      hasAttemptedSubmit &&
+                        !isMeetupLocationValid &&
+                        styles.inputError,
+                    ]}
+                    placeholder="ex. Los Angeles, CA"
+                  />
+                  {loadingLocations ? (
+                    <ActivityIndicator
+                      color={colors.primary}
+                      style={styles.inlineLoader}
+                    />
+                  ) : null}
+                  {locationOptions.length > 0 ? (
+                    <View style={styles.optionList}>
+                      {locationOptions.map((option) => {
+                        const selected = meetupLocation?.label === option.label;
+                        return (
+                          <Pressable
+                            key={option.label}
+                            style={[
+                              styles.inlineOption,
+                              selected && styles.inlineOptionSelected,
+                            ]}
+                            onPress={() => {
+                              clearSubmitNotice();
+                              setMeetupLocation(option);
+                              setMeetupLocationLabel(getLocationOptionLabel(option));
+                              setLocationOptions([]);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.inlineOptionText,
+                                selected && styles.inlineOptionTextSelected,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                  <HelperText error={hasAttemptedSubmit && !isMeetupLocationValid}>
+                    {hasAttemptedSubmit && !isMeetupLocationValid
+                      ? "Select a location from the list."
+                      : ""}
+                  </HelperText>
+                </View>
+              ) : null}
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Competition Meetup</Text>
+                <Switch
+                  value={competitionMeetupAvailable}
+                  onValueChange={handleCompetitionMeetupChange}
+                />
+              </View>
+              {competitionMeetupAvailable ? (
+                <View style={styles.competitionSection}>
+                  <RequiredLabel>Search competitions</RequiredLabel>
+                  <TextInput
+                    value={competitionSearchInput}
+                    onChangeText={(value) => {
+                      clearSubmitNotice();
+                      setCompetitionSearchInput(value);
+                    }}
+                    style={[
+                      styles.input,
+                      hasAttemptedSubmit &&
+                        !isCompetitionValid &&
+                        styles.inputError,
+                    ]}
+                    placeholder="Search competitions..."
+                  />
+                  {loadingCompetitions ? (
+                    <ActivityIndicator
+                      color={colors.primary}
+                      style={styles.inlineLoader}
+                    />
+                  ) : null}
+                  {selectedCompetitions.length > 0 ? (
+                    <View style={styles.selectedCompetitionWrap}>
+                      {selectedCompetitions.map((competition) => (
+                        <Pressable
+                          key={competition.id}
+                          style={styles.selectedCompetitionPill}
+                          onPress={() => handleCompetitionSelect(competition)}
+                        >
+                          <Text
+                            style={styles.selectedCompetitionText}
+                            numberOfLines={1}
+                          >
+                            {competition.displayName || competition.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                  <View style={styles.optionList}>
+                    {competitionOptions.map((competition) => {
+                      const selected = selectedCompetitionIds.has(competition.id);
+                      return (
+                        <Pressable
+                          key={competition.id}
+                          style={[
+                            styles.competitionOption,
+                            selected && styles.inlineOptionSelected,
+                          ]}
+                          onPress={() => handleCompetitionSelect(competition)}
+                        >
+                          <Text
+                            style={[
+                              styles.competitionOptionTitle,
+                              selected && styles.inlineOptionTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {competition.displayName || competition.name}
+                          </Text>
+                          <Text style={styles.competitionOptionMeta} numberOfLines={1}>
+                            {competition.isMyCompetitionsOption
+                              ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
+                              : [competition.city, competition.country, competition.dateRange]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {competitions.length >= competitionLimit ? (
+                    <Pressable
+                      style={styles.loadMoreButton}
+                      onPress={() =>
+                        setCompetitionLimit(
+                          (currentLimit) => currentLimit + COMPETITION_BATCH_SIZE
+                        )
+                      }
+                    >
+                      <Text style={styles.loadMoreText}>Load more competitions</Text>
+                    </Pressable>
+                  ) : null}
+                  <HelperText error={hasAttemptedSubmit && !isCompetitionValid}>
+                    {hasAttemptedSubmit && !isCompetitionValid
+                      ? "Select at least one competition."
+                      : ""}
+                  </HelperText>
+                </View>
+              ) : null}
+
+              {!isDeliveryValid && hasAttemptedSubmit ? (
+                <HelperText error>
+                  Please select at least one fulfillment method
+                </HelperText>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.clearButton}
+              onPress={clearListing}
+              disabled={publishing}
+            >
+              <Text style={styles.clearButtonText}>Clear All</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.publishButton, publishing && styles.publishButtonDisabled]}
+              onPress={publishListing}
+              disabled={publishing}
+            >
+              {publishing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.publishButtonText}>Publish Listing</Text>
+              )}
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -402,11 +960,53 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 36,
   },
-  title: {
+  pageTitle: {
     color: colors.text,
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "900",
+    marginBottom: 18,
+  },
+  notice: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#fecaca",
+    borderRadius: 8,
+    borderWidth: 1,
     marginBottom: 12,
+    padding: 12,
+  },
+  noticeText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  formCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  cardError: {
+    borderColor: colors.danger,
+  },
+  section: {
+    padding: 16,
+  },
+  sectionBorder: {
+    borderColor: colors.border,
+    borderTopWidth: 1,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+  sectionHelper: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
   },
   label: {
     color: colors.text,
@@ -414,11 +1014,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 16,
   },
+  required: {
+    color: colors.danger,
+  },
   helper: {
     color: colors.muted,
     fontSize: 12,
     lineHeight: 17,
-    marginTop: 4,
+    marginTop: 5,
+  },
+  errorText: {
+    color: colors.danger,
+    fontWeight: "700",
   },
   input: {
     backgroundColor: colors.surface,
@@ -431,127 +1038,295 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+  inputError: {
+    borderColor: colors.danger,
+  },
+  selectInput: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  selectText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  placeholderText: {
+    color: colors.muted,
+    fontWeight: "500",
+  },
+  selectChevron: {
+    color: colors.muted,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  inlineFields: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  priceField: {
+    width: 118,
+  },
   textArea: {
-    minHeight: 120,
+    minHeight: 118,
   },
   photoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-  photo: {
-    backgroundColor: "#e2e8f0",
+  photoTile: {
+    backgroundColor: "#f1f5f9",
+    borderColor: colors.border,
     borderRadius: 8,
-    height: 82,
-    width: 82,
+    borderWidth: 1,
+    height: 94,
+    overflow: "hidden",
+    position: "relative",
+    width: 94,
+  },
+  photo: {
+    height: "100%",
+    resizeMode: "contain",
+    width: "100%",
+  },
+  removePhotoButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.72)",
+    borderRadius: 12,
+    height: 24,
+    justifyContent: "center",
+    position: "absolute",
+    right: 6,
+    top: 6,
+    width: 24,
+  },
+  removePhotoText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 20,
   },
   addPhoto: {
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "#f8fafc",
     borderColor: colors.border,
     borderRadius: 8,
-    borderWidth: 1,
-    height: 82,
+    borderStyle: "dashed",
+    borderWidth: 2,
+    height: 94,
     justifyContent: "center",
-    width: 82,
+    width: 94,
+  },
+  addPhotoError: {
+    borderColor: colors.danger,
+  },
+  addPhotoIcon: {
+    color: colors.muted,
+    fontSize: 24,
+    fontWeight: "900",
   },
   addPhotoText: {
-    color: colors.primary,
+    color: colors.muted,
     fontSize: 12,
-    fontWeight: "800",
-    textAlign: "center",
+    fontWeight: "900",
+    marginTop: 4,
   },
-  segmentWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  segmentOption: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  segmentOptionSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  segmentText: {
-    color: colors.text,
-    fontWeight: "700",
-  },
-  segmentTextSelected: {
-    color: "#fff",
+  addPhotoTextError: {
+    color: colors.danger,
   },
   switchRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 18,
-  },
-  switchText: {
-    flex: 1,
-    paddingRight: 12,
+    minHeight: 48,
   },
   switchLabel: {
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "700",
   },
-  competitionPanel: {
+  nestedSection: {
+    borderColor: "rgba(37, 99, 235, 0.28)",
+    borderLeftWidth: 1,
+    marginBottom: 12,
+    marginLeft: 4,
+    marginTop: 4,
+    paddingBottom: 4,
+    paddingLeft: 14,
+  },
+  shippingInput: {
+    width: 180,
+  },
+  inlineLoader: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+  },
+  optionList: {
     gap: 8,
     marginTop: 10,
   },
-  competitionPill: {
-    backgroundColor: colors.surface,
+  inlineOption: {
     borderColor: colors.border,
     borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  competitionPillSelected: {
+  inlineOptionSelected: {
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
   },
-  competitionName: {
+  inlineOptionText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  inlineOptionTextSelected: {
+    color: colors.primary,
+  },
+  competitionSection: {
+    marginTop: 4,
+  },
+  selectedCompetitionWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  selectedCompetitionPill: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+    borderRadius: 6,
+    borderWidth: 1,
+    maxWidth: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  selectedCompetitionText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  competitionOption: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  competitionOptionTitle: {
     color: colors.text,
     fontSize: 14,
     fontWeight: "800",
   },
-  competitionNameSelected: {
-    color: colors.primary,
-  },
-  competitionMeta: {
+  competitionOptionMeta: {
     color: colors.muted,
     fontSize: 12,
+    lineHeight: 17,
     marginTop: 3,
   },
-  competitionMetaSelected: {
+  loadMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  loadMoreText: {
     color: colors.primary,
-  },
-  emptyCompetitionText: {
-    color: colors.muted,
     fontSize: 13,
-    lineHeight: 19,
+    fontWeight: "900",
   },
-  primaryButton: {
+  actionRow: {
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  clearButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  clearButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  publishButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 6,
-    marginTop: 24,
-    minHeight: 50,
+    flex: 1,
     justifyContent: "center",
+    minHeight: 50,
   },
-  primaryButtonDisabled: {
+  publishButtonDisabled: {
     opacity: 0.6,
   },
-  primaryButtonText: {
+  publishButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  emptyText: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  modalOverlay: {
+    backgroundColor: "rgba(15, 23, 42, 0.38)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  selectPanel: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: "82%",
+    padding: 18,
+  },
+  modalHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  closeText: {
+    color: colors.primary,
+    fontSize: 14,
     fontWeight: "800",
+  },
+  selectOption: {
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+  },
+  selectOptionSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+  },
+  selectOptionText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  selectOptionTextSelected: {
+    color: colors.primary,
   },
 });

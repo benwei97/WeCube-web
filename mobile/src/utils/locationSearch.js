@@ -1,0 +1,70 @@
+const OPEN_METEO_GEOCODING_URL =
+  "https://geocoding-api.open-meteo.com/v1/search";
+const UNITED_STATES_COUNTRY_CODE = "US";
+
+const CITY_FEATURE_CODES = new Set([
+  "PPL",
+  "PPLA",
+  "PPLA2",
+  "PPLA3",
+  "PPLA4",
+  "PPLC",
+  "PPLG",
+  "PPLL",
+  "PPLS",
+  "PPLX",
+]);
+
+function formatLocationResult(result) {
+  return [result.name, result.admin1, result.country].filter(Boolean).join(", ");
+}
+
+function mapLocationResult(result) {
+  return {
+    label: formatLocationResult(result),
+    city: result.name || "",
+    region: result.admin1 || "",
+    country: result.country || "",
+    countryCode: result.country_code || "",
+    latitude: result.latitude,
+    longitude: result.longitude,
+  };
+}
+
+export function getLocationOptionLabel(option) {
+  return typeof option === "string" ? option : option?.label || "";
+}
+
+export async function fetchLocationSuggestionOptions(query) {
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length < 2) {
+    return [];
+  }
+
+  const url = new URL(OPEN_METEO_GEOCODING_URL);
+  url.searchParams.set("name", trimmedQuery);
+  url.searchParams.set("count", "10");
+  url.searchParams.set("language", "en");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("countryCode", UNITED_STATES_COUNTRY_CODE);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error("Failed to fetch location suggestions.");
+  }
+
+  const data = await response.json();
+  const results = Array.isArray(data.results) ? data.results : [];
+
+  return results
+    .filter(
+      (result) =>
+        CITY_FEATURE_CODES.has(result.feature_code) &&
+        result.country_code === UNITED_STATES_COUNTRY_CODE
+    )
+    .map((result) => mapLocationResult(result))
+    .filter(
+      (value, index, list) =>
+        list.findIndex((item) => item.label === value.label) === index
+    );
+}
