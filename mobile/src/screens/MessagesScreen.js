@@ -266,6 +266,7 @@ export default function MessagesScreen({ navigation }) {
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={<Text style={styles.screenTitle}>Messages</Text>}
         renderItem={({ item }) => (
           <ConversationRow
             conversation={item}
@@ -291,8 +292,15 @@ export default function MessagesScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   listContent: {
-    padding: 16,
     gap: 10,
+    padding: 16,
+  },
+  screenTitle: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "900",
+    marginBottom: 4,
+    marginTop: 4,
   },
   row: {
     alignItems: "center",
