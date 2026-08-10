@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -15,6 +14,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
+import Toggle from "../components/Toggle";
 import { db } from "../lib/firebase";
 import {
   getLocationMatchInfo,
@@ -436,7 +436,7 @@ export default function BrowseScreen({ navigation }) {
             <View style={styles.switchBlock}>
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Local meetups</Text>
-                <Switch
+                <Toggle
                   value={locationDraft.includeLocalMeetups}
                   onValueChange={(value) =>
                     setLocationDraft((prev) => ({
@@ -448,7 +448,7 @@ export default function BrowseScreen({ navigation }) {
               </View>
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Competition meetups</Text>
-                <Switch
+                <Toggle
                   value={locationDraft.includeCompetitionMeetups}
                   onValueChange={(value) =>
                     setLocationDraft((prev) => ({
@@ -460,7 +460,7 @@ export default function BrowseScreen({ navigation }) {
               </View>
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Shippable listings</Text>
-                <Switch
+                <Toggle
                   value={locationDraft.includeShippableListings}
                   onValueChange={(value) =>
                     setLocationDraft((prev) => ({

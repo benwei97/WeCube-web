@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -17,6 +16,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
 import Screen from "../components/Screen";
+import Toggle from "../components/Toggle";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -714,7 +714,7 @@ export default function SellScreen({ navigation }) {
 
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Shipping</Text>
-                <Switch
+                <Toggle
                   value={shippingAvailable}
                   onValueChange={(value) => {
                     clearSubmitNotice();
@@ -747,7 +747,7 @@ export default function SellScreen({ navigation }) {
 
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Local Meetup</Text>
-                <Switch
+                <Toggle
                   value={localMeetupAvailable}
                   onValueChange={handleLocalMeetupChange}
                 />
@@ -820,7 +820,7 @@ export default function SellScreen({ navigation }) {
 
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Competition Meetup</Text>
-                <Switch
+                <Toggle
                   value={competitionMeetupAvailable}
                   onValueChange={handleCompetitionMeetupChange}
                 />
