@@ -56,6 +56,12 @@ function statusLabel(status) {
   return "Active";
 }
 
+function getCompetitionMeta(competition) {
+  return [competition.city, competition.country, competition.dateRange]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function ListingRow({ listing, onStatusChange, onDelete, loading }) {
   const thumbnailUrl = listing.photos?.[0]?.s3Key
     ? getS3PublicUrl(listing.photos[0].s3Key)
@@ -104,6 +110,28 @@ function ListingRow({ listing, onStatusChange, onDelete, loading }) {
   );
 }
 
+function CompetitionRow({ competition, onOpen, onRemove, loading }) {
+  return (
+    <View style={styles.competitionRow}>
+      <Pressable style={styles.competitionBody} onPress={() => onOpen(competition)}>
+        <Text style={styles.competitionName} numberOfLines={1}>
+          {competition.displayName || competition.name || "Competition"}
+        </Text>
+        <Text style={styles.competitionMeta} numberOfLines={1}>
+          {getCompetitionMeta(competition) || "Competition meetup"}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={styles.removeCompetitionButton}
+        onPress={() => onRemove(competition)}
+        disabled={loading}
+      >
+        <Text style={styles.removeCompetitionText}>{loading ? "..." : "Remove"}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function ProfileScreen({ navigation }) {
   const { currentUser, logout } = useAuth();
   const [listings, setListings] = useState([]);
@@ -124,8 +152,12 @@ export default function ProfileScreen({ navigation }) {
   const [profileActionsOpen, setProfileActionsOpen] = useState(false);
   const [profileSection, setProfileSection] = useState("listings");
   const [listingStatusTab, setListingStatusTab] = useState("active");
+  const [competitionSavingId, setCompetitionSavingId] = useState("");
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
   const avatarUrl = currentUser?.avatarUrl || "";
+  const attendingCompetitions = Array.isArray(currentUser?.attendingCompetitions)
+    ? currentUser.attendingCompetitions
+    : [];
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -523,12 +555,43 @@ export default function ProfileScreen({ navigation }) {
     }
   }
 
+  function openCompetitionListings(competition) {
+    if (!competition?.id) return;
+
+    navigation.getParent()?.navigate("Competitions", {
+      screen: "CompetitionListings",
+      params: {
+        competitionId: competition.id,
+        competition,
+      },
+    });
+  }
+
+  async function removeAttendingCompetition(competition) {
+    if (!currentUser?.uid || !competition?.id || competitionSavingId) return;
+
+    setCompetitionSavingId(competition.id);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        attendingCompetitions: attendingCompetitions.filter(
+          (item) => item.id !== competition.id
+        ),
+      });
+    } catch (error) {
+      console.error("Error removing mobile profile competition:", error);
+      Alert.alert("Unable to update competitions", "Please try again.");
+    } finally {
+      setCompetitionSavingId("");
+    }
+  }
+
   function renderListingSection(title, data) {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {data.length ? (
           <FlatList
+            key={`profile-listings-${title.toLowerCase()}`}
             data={data}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
@@ -561,6 +624,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.emptyText}>No saved listings yet.</Text>
         ) : (
           <FlatList
+            key="profile-saved-listings-grid"
             data={savedListings}
             numColumns={2}
             columnWrapperStyle={styles.savedListingRow}
@@ -595,6 +659,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.emptyText}>No purchases yet.</Text>
         ) : (
           <FlatList
+            key="profile-purchases-grid"
             data={purchases}
             numColumns={2}
             columnWrapperStyle={styles.savedListingRow}
@@ -617,6 +682,35 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  function renderCompetitionsSection() {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>My Competitions</Text>
+        {attendingCompetitions.length === 0 ? (
+          <Text style={styles.emptyText}>
+            Mark competitions you are going to from the Competitions tab.
+          </Text>
+        ) : (
+          <FlatList
+            key="profile-going-competitions-list"
+            data={attendingCompetitions}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CompetitionRow
+                competition={item}
+                onOpen={openCompetitionListings}
+                onRemove={removeAttendingCompetition}
+                loading={competitionSavingId === item.id}
+              />
+            )}
+            scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        )}
+      </View>
+    );
+  }
+
   function renderSegmentButton(label, value, selectedValue, onSelect) {
     const selected = value === selectedValue;
     return (
@@ -633,6 +727,7 @@ export default function ProfileScreen({ navigation }) {
 
   function renderDashboardContent() {
     if (profileSection === "saved") return renderSavedListingsSection();
+    if (profileSection === "competitions") return renderCompetitionsSection();
     if (profileSection === "purchases") return renderPurchasesSection();
 
     const currentListings = groupedListings[listingStatusTab] || [];
@@ -688,6 +783,7 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.segmentedControl}>
               {renderSegmentButton("Listings", "listings", profileSection, setProfileSection)}
               {renderSegmentButton("Saved", "saved", profileSection, setProfileSection)}
+              {renderSegmentButton("Going", "competitions", profileSection, setProfileSection)}
               {renderSegmentButton("Purchases", "purchases", profileSection, setProfileSection)}
             </View>
             {renderDashboardContent()}
@@ -1006,6 +1102,40 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     marginTop: 4,
+  },
+  competitionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    minHeight: 54,
+  },
+  competitionBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  competitionName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  competitionMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  removeCompetitionButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginLeft: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  removeCompetitionText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "800",
   },
   actionRow: {
     flexDirection: "row",

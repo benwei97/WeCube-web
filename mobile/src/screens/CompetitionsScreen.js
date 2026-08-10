@@ -65,12 +65,12 @@ function CompetitionRow({
         disabled={saving}
         accessibilityLabel={
           saved
-            ? `Remove ${competition.name} from saved competitions`
-            : `Save ${competition.name}`
+            ? `Remove ${competition.name} from my competitions`
+            : `Mark ${competition.name} as going`
         }
       >
         <Text style={[styles.iconButtonText, saved && styles.iconButtonTextSaved]}>
-          {saving ? "..." : saved ? "◆" : "◇"}
+          {saving ? "..." : saved ? "✓" : "+"}
         </Text>
       </Pressable>
       <Pressable style={styles.chevronButton} onPress={() => onOpen(competition)}>
@@ -98,6 +98,16 @@ export default function CompetitionsScreen({ navigation }) {
     () => new Set(savedCompetitions.map((competition) => competition.id)),
     [savedCompetitions]
   );
+  const displayedCompetitions = useMemo(() => {
+    if (!competitions.length || !savedCompetitionIds.size) return competitions;
+
+    return [...competitions].sort((firstCompetition, secondCompetition) => {
+      const firstSaved = savedCompetitionIds.has(firstCompetition.id);
+      const secondSaved = savedCompetitionIds.has(secondCompetition.id);
+      if (firstSaved === secondSaved) return 0;
+      return firstSaved ? -1 : 1;
+    });
+  }, [competitions, savedCompetitionIds]);
 
   useEffect(() => {
     setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
@@ -199,7 +209,6 @@ export default function CompetitionsScreen({ navigation }) {
         <Text style={styles.title}>Competitions</Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select a Competition</Text>
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -215,14 +224,14 @@ export default function CompetitionsScreen({ navigation }) {
             <View style={styles.centerState}>
               <ActivityIndicator color={colors.primary} />
             </View>
-          ) : competitions.length === 0 ? (
+          ) : displayedCompetitions.length === 0 ? (
             <View style={styles.emptyBlock}>
               <Text style={styles.emptyTitle}>No competitions found</Text>
               <Text style={styles.emptyText}>Try a different competition or city.</Text>
             </View>
           ) : (
             <View style={styles.listStack}>
-              {competitions.map((competition) => (
+              {displayedCompetitions.map((competition) => (
                 <CompetitionRow
                   key={competition.id}
                   competition={competition}
@@ -240,30 +249,6 @@ export default function CompetitionsScreen({ navigation }) {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : null}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Saved Competitions</Text>
-          {savedCompetitions.length === 0 ? (
-            <View style={styles.savedEmptyBlock}>
-              <Text style={styles.emptyText}>
-                Bookmark competitions from the list to keep them here.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.listStack}>
-              {savedCompetitions.map((competition) => (
-                <CompetitionRow
-                  key={competition.id}
-                  competition={competition}
-                  saved
-                  onToggleSave={handleToggleSavedCompetition}
-                  onOpen={openCompetitionListings}
-                  saving={savingId === competition.id}
-                />
-              ))}
-            </View>
-          )}
         </View>
       </ScrollView>
     </Screen>
@@ -287,11 +272,6 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 12,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
   },
   searchInput: {
     backgroundColor: colors.surface,
@@ -371,10 +351,6 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   savedEmptyBlock: {
-    backgroundColor: "rgba(248, 250, 252, 0.72)",
-    borderColor: "rgba(148, 163, 184, 0.18)",
-    borderRadius: 8,
-    borderWidth: 1,
     padding: 16,
   },
   emptyTitle: {
