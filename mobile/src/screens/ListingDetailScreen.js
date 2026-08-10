@@ -887,12 +887,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   panel: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
     marginTop: 14,
-    padding: 14,
   },
   title: {
     color: colors.text,
@@ -950,14 +945,12 @@ const styles = StyleSheet.create({
   },
   sellerPanel: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
     flexDirection: "row",
     gap: 12,
-    marginTop: 14,
-    padding: 12,
+    marginTop: 18,
+    paddingTop: 14,
   },
   sellerAvatar: {
     alignItems: "center",

@@ -575,7 +575,7 @@ export default function SellScreen({ navigation }) {
             </View>
           ) : null}
 
-          <View style={[styles.formCard, isPhotosInvalid && styles.cardError]}>
+          <View style={styles.formCard}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Photos</Text>
               <Text style={styles.sectionHelper}>Add 1-5 photos*</Text>
@@ -980,21 +980,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   formCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  cardError: {
-    borderColor: colors.danger,
   },
   section: {
-    padding: 16,
+    paddingVertical: 6,
   },
   sectionBorder: {
     borderColor: colors.border,
     borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 22,
   },
   sectionTitle: {
     color: colors.text,
@@ -1148,13 +1142,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   nestedSection: {
-    borderColor: "rgba(37, 99, 235, 0.28)",
-    borderLeftWidth: 1,
     marginBottom: 12,
-    marginLeft: 4,
-    marginTop: 4,
+    marginTop: 2,
     paddingBottom: 4,
-    paddingLeft: 14,
   },
   shippingInput: {
     width: 180,
@@ -1210,11 +1200,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   competitionOption: {
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    paddingVertical: 11,
   },
   competitionOptionTitle: {
     color: colors.text,

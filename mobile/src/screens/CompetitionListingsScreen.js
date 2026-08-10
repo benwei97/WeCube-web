@@ -240,11 +240,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   searchPanel: {
-    backgroundColor: colors.surface,
-    borderColor: "rgba(148, 163, 184, 0.14)",
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
+    marginTop: 2,
   },
   searchInput: {
     backgroundColor: colors.surface,
