@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -19,6 +18,7 @@ import {
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import { getCompetitionById } from "../utils/wcaApi";
+import BackButton from "../components/BackButton";
 
 function getCompetitionMeta(competition) {
   return [competition?.city, competition?.country, competition?.dateRange]
@@ -133,9 +133,7 @@ export default function CompetitionListingsScreen({ navigation, route }) {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backButtonText}>Back</Text>
-            </Pressable>
+            <BackButton navigation={navigation} />
             <Text style={styles.title}>{competition?.name || "Competition"}</Text>
             {competition ? (
               <Text style={styles.meta}>{getCompetitionMeta(competition)}</Text>
@@ -213,19 +211,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
     paddingHorizontal: 4,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  backButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   title: {
     color: colors.text,

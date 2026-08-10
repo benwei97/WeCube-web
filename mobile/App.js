@@ -63,12 +63,12 @@ function BrowseNavigator() {
       <BrowseStack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}
-        options={{ title: "Listing" }}
+        options={{ headerShown: false }}
       />
       <BrowseStack.Screen
         name="SellerProfile"
         component={SellerProfileScreen}
-        options={{ title: "Seller" }}
+        options={{ headerShown: false }}
       />
     </BrowseStack.Navigator>
   );
@@ -89,7 +89,7 @@ function MessagesNavigator() {
       <MessagesStack.Screen
         name="Conversation"
         component={ConversationScreen}
-        options={{ title: "Conversation" }}
+        options={{ headerShown: false }}
       />
     </MessagesStack.Navigator>
   );
@@ -110,17 +110,17 @@ function CompetitionsNavigator() {
       <CompetitionsStack.Screen
         name="CompetitionListings"
         component={CompetitionListingsScreen}
-        options={{ title: "Listings" }}
+        options={{ headerShown: false }}
       />
       <CompetitionsStack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}
-        options={{ title: "Listing" }}
+        options={{ headerShown: false }}
       />
       <CompetitionsStack.Screen
         name="SellerProfile"
         component={SellerProfileScreen}
-        options={{ title: "Seller" }}
+        options={{ headerShown: false }}
       />
     </CompetitionsStack.Navigator>
   );
@@ -141,17 +141,17 @@ function ProfileNavigator() {
       <ProfileStack.Screen
         name="Info"
         component={InfoScreen}
-        options={{ title: "About & Policies" }}
+        options={{ headerShown: false }}
       />
       <ProfileStack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}
-        options={{ title: "Listing" }}
+        options={{ headerShown: false }}
       />
       <ProfileStack.Screen
         name="SellerProfile"
         component={SellerProfileScreen}
-        options={{ title: "Seller" }}
+        options={{ headerShown: false }}
       />
     </ProfileStack.Navigator>
   );

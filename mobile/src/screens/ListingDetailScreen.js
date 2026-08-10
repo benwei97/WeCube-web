@@ -22,6 +22,7 @@ import {
 } from "firebase/firestore";
 import ActionSheet from "../components/ActionSheet";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
+import BackButton from "../components/BackButton";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -511,6 +512,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
+        <BackButton navigation={navigation} />
         {activePhotoUrl ? (
           <Image source={{ uri: activePhotoUrl }} style={styles.heroImage} />
         ) : (

@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import BackButton from "../components/BackButton";
 import Screen from "../components/Screen";
 import { colors } from "../theme/colors";
 
@@ -129,7 +130,7 @@ function SectionList({ sections }) {
   ));
 }
 
-export default function InfoScreen() {
+export default function InfoScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState("about");
 
   const content = useMemo(() => {
@@ -215,6 +216,7 @@ export default function InfoScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
+        <BackButton navigation={navigation} />
         <PolicyToggle activeTab={activeTab} setActiveTab={setActiveTab} />
         {content}
       </ScrollView>

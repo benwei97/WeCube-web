@@ -32,6 +32,7 @@ import {
 } from "../utils/listingUtils";
 import { blockUser, subscribeToUserBlock, unblockUser } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
+import BackButton from "../components/BackButton";
 
 const USER_REPORT_REASONS = [
   { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
@@ -332,6 +333,7 @@ export default function SellerProfileScreen({ navigation, route }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
+        <BackButton navigation={navigation} />
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>

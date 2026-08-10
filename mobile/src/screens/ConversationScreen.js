@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
+import BackButton from "../components/BackButton";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -74,7 +75,7 @@ function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
   );
 }
 
-export default function ConversationScreen({ route }) {
+export default function ConversationScreen({ navigation, route }) {
   const { currentUser } = useAuth();
   const { conversationId } = route.params || {};
   const [conversation, setConversation] = useState(null);
@@ -354,6 +355,9 @@ export default function ConversationScreen({ route }) {
         keyboardVerticalOffset={90}
         style={styles.container}
       >
+        <View style={styles.topBar}>
+          <BackButton navigation={navigation} />
+        </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {conversation?.closedReason === "listing_deleted" ? (
           <Text style={styles.closedNotice}>This listing was deleted, so the conversation is closed.</Text>
@@ -549,6 +553,11 @@ export default function ConversationScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   centerState: {
     alignItems: "center",
