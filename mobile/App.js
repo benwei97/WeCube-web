@@ -1,8 +1,9 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { MaterialIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import { useAuth } from "./src/contexts/useAuth";
@@ -158,6 +159,9 @@ function ProfileNavigator() {
 }
 
 function AppTabs() {
+  const { currentUser } = useAuth();
+  const avatarUrl = currentUser?.avatarUrl || "";
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -172,7 +176,9 @@ function AppTabs() {
         component={BrowseNavigator}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color }}>B</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="storefront" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -180,7 +186,9 @@ function AppTabs() {
         component={CompetitionsNavigator}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color }}>C</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="emoji-events" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -188,7 +196,9 @@ function AppTabs() {
         component={SellScreen}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color }}>+</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="add-circle-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -196,7 +206,9 @@ function AppTabs() {
         component={MessagesNavigator}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color }}>M</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="chat-bubble-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -204,12 +216,34 @@ function AppTabs() {
         component={ProfileNavigator}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ color }}>P</Text>,
+          tabBarIcon: ({ color, focused, size }) =>
+            avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={[
+                  styles.tabAvatar,
+                  {
+                    borderColor: focused ? color : "transparent",
+                    height: size,
+                    width: size,
+                  },
+                ]}
+              />
+            ) : (
+              <MaterialIcons name="person-outline" size={size} color={color} />
+            ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabAvatar: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
+});
 
 export default function App() {
   return (
