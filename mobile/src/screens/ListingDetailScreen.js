@@ -21,11 +21,12 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import ActionSheet from "../components/ActionSheet";
+import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
-import { formatListingPrice } from "../utils/listingUtils";
+import { formatListingPrice, getCompetitionTags } from "../utils/listingUtils";
 import {
   cancelListingReviewPrompts,
   closeListingConversationsForDeletedListing,
@@ -52,34 +53,6 @@ function formatShipping(listing) {
     return "Shipping: free";
   }
   return `Shipping: +${formatListingPrice(listing.shippingCost)}`;
-}
-
-function formatFulfillment(listing) {
-  const options = [];
-  if (listing?.shippingAvailable) options.push(formatShipping(listing));
-  if (listing?.localMeetupAvailable) options.push("Local meetup");
-  if (listing?.competitionMeetupAvailable) {
-    const competitionTags = [
-      ...(listing.meetupCompetitionTags || []),
-      ...(listing.competitions || []),
-    ];
-    const uniqueCompetitions = competitionTags.filter(
-      (competition, index, allCompetitions) =>
-        competition?.id &&
-        allCompetitions.findIndex((item) => item.id === competition.id) === index
-    );
-
-    if (uniqueCompetitions.length > 0) {
-      uniqueCompetitions.forEach((competition) => {
-        options.push(
-          `Competition meetup: ${competition.displayName || competition.name || "Competition"}`
-        );
-      });
-    } else {
-      options.push("Competition meetup");
-    }
-  }
-  return options.filter(Boolean);
 }
 
 export default function ListingDetailScreen({ navigation, route }) {
@@ -187,7 +160,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const photos = listing?.photos || [];
   const activePhoto = photos[photoIndex];
   const activePhotoUrl = activePhoto?.s3Key ? getS3PublicUrl(activePhoto.s3Key) : null;
-  const fulfillmentOptions = useMemo(() => formatFulfillment(listing), [listing]);
+  const meetupCompetitionTags = useMemo(() => getCompetitionTags(listing), [listing]);
   const isOwnListing = currentUser?.uid && currentUser.uid === listing?.userId;
   const isSavedListing = Boolean(currentUser?.savedListings?.includes(listing?.id));
   const sellerFirstName =
@@ -196,6 +169,18 @@ export default function ListingDetailScreen({ navigation, route }) {
     "Seller";
   const isListingUnavailable =
     listing?.status === "sold" || listing?.status === "archived";
+
+  function openCompetitionListings(competition) {
+    if (!competition?.id) return;
+
+    navigation.getParent()?.navigate("Competitions", {
+      screen: "CompetitionListings",
+      params: {
+        competitionId: competition.id,
+        competition,
+      },
+    });
+  }
 
   function handlePreviousPhoto() {
     if (photos.length <= 1) return;
@@ -605,15 +590,62 @@ export default function ListingDetailScreen({ navigation, route }) {
 
         <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Fulfillment</Text>
-          {fulfillmentOptions.length ? (
-            fulfillmentOptions.map((option) => (
-              <Text key={option} style={styles.bodyText}>
-                {option}
+          {listing.shippingAvailable ? (
+            <View style={styles.fulfillmentBlock}>
+              <Text style={styles.fulfillmentTitle}>Shipping</Text>
+              <Text style={styles.bodyText}>{formatShipping(listing)}</Text>
+            </View>
+          ) : null}
+
+          {listing.localMeetupAvailable ? (
+            <View style={styles.fulfillmentBlock}>
+              <Text style={styles.fulfillmentTitle}>Local Meetup</Text>
+              <Text style={styles.bodyText}>
+                {listing.meetupLocationLabel || "Meetup area"}
               </Text>
-            ))
-          ) : (
+              <ApproximateMeetupMap
+                location={listing.meetupLocation}
+                label={listing.meetupLocationLabel}
+              />
+            </View>
+          ) : null}
+
+          {listing.competitionMeetupAvailable ? (
+            <View style={styles.fulfillmentBlock}>
+              <Text style={styles.fulfillmentTitle}>Competition Meetup</Text>
+              {meetupCompetitionTags.length ? (
+                <View style={styles.competitionMeetupList}>
+                  {meetupCompetitionTags.map((competition) => (
+                    <Pressable
+                      key={competition.id}
+                      style={styles.competitionMeetupRow}
+                      onPress={() => openCompetitionListings(competition)}
+                    >
+                      <View style={styles.competitionMeetupBody}>
+                        <Text style={styles.competitionMeetupTitle} numberOfLines={1}>
+                          {competition.displayName || competition.name || "Competition"}
+                        </Text>
+                        <Text style={styles.competitionMeetupMeta} numberOfLines={1}>
+                          {[competition.city, competition.country, competition.dateRange]
+                            .filter(Boolean)
+                            .join(" · ") || "View competition listings"}
+                        </Text>
+                      </View>
+                      <Text style={styles.competitionMeetupChevron}>›</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.bodyText}>Available at selected competitions.</Text>
+              )}
+            </View>
+          ) : null}
+
+          {!listing.shippingAvailable &&
+          !listing.localMeetupAvailable &&
+          !listing.competitionMeetupAvailable ? (
             <Text style={styles.bodyText}>Fulfillment options not set.</Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.panel}>
@@ -938,10 +970,50 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 8,
   },
+  fulfillmentBlock: {
+    marginTop: 12,
+  },
+  fulfillmentTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
   bodyText: {
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  competitionMeetupList: {
+    marginTop: 2,
+  },
+  competitionMeetupRow: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 50,
+    paddingVertical: 9,
+  },
+  competitionMeetupBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  competitionMeetupTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  competitionMeetupMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  competitionMeetupChevron: {
+    color: colors.muted,
+    fontSize: 24,
+    fontWeight: "700",
   },
   sellerPanel: {
     alignItems: "center",

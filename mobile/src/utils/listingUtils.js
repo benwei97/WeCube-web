@@ -118,8 +118,16 @@ export function getMilesBetweenLocations(firstLocation, secondLocation) {
 }
 
 export function getCompetitionTags(listing = {}) {
+  const safeListing = listing || {};
   const seen = new Set();
-  return [...(listing.meetupCompetitionTags || []), ...(listing.competitions || [])]
+  const meetupCompetitionTags = Array.isArray(safeListing.meetupCompetitionTags)
+    ? safeListing.meetupCompetitionTags
+    : [];
+  const legacyCompetitions = Array.isArray(safeListing.competitions)
+    ? safeListing.competitions
+    : [];
+
+  return [...meetupCompetitionTags, ...legacyCompetitions]
     .filter((competition) => {
       if (!competition?.id || seen.has(competition.id)) return false;
       seen.add(competition.id);
