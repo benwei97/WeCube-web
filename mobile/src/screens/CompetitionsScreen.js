@@ -91,7 +91,10 @@ export default function CompetitionsScreen({ navigation }) {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const savedCompetitions = useMemo(
-    () => currentUser?.attendingCompetitions || [],
+    () =>
+      Array.isArray(currentUser?.attendingCompetitions)
+        ? currentUser.attendingCompetitions.filter((competition) => competition?.id)
+        : [],
     [currentUser?.attendingCompetitions]
   );
   const savedCompetitionIds = useMemo(
@@ -99,15 +102,15 @@ export default function CompetitionsScreen({ navigation }) {
     [savedCompetitions]
   );
   const displayedCompetitions = useMemo(() => {
-    if (!competitions.length || !savedCompetitionIds.size) return competitions;
+    if (!savedCompetitions.length) return competitions;
 
-    return [...competitions].sort((firstCompetition, secondCompetition) => {
-      const firstSaved = savedCompetitionIds.has(firstCompetition.id);
-      const secondSaved = savedCompetitionIds.has(secondCompetition.id);
-      if (firstSaved === secondSaved) return 0;
-      return firstSaved ? -1 : 1;
-    });
-  }, [competitions, savedCompetitionIds]);
+    return [
+      ...savedCompetitions,
+      ...competitions.filter(
+        (competition) => competition?.id && !savedCompetitionIds.has(competition.id)
+      ),
+    ];
+  }, [competitions, savedCompetitionIds, savedCompetitions]);
 
   useEffect(() => {
     setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
