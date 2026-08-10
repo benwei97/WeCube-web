@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
@@ -253,14 +254,11 @@ export default function BrowseScreen({ navigation }) {
                 onPress={openLocationModal}
                 accessibilityLabel={locationButtonLabel}
               >
-                <Text
-                  style={[
-                    styles.locationButtonText,
-                    locationFilter.locationOption && styles.locationButtonTextActive,
-                  ]}
-                >
-                  ⌖
-                </Text>
+                <MaterialIcons
+                  name="location-on"
+                  size={24}
+                  color={locationFilter.locationOption ? colors.primary : colors.text}
+                />
               </Pressable>
             </View>
             <Text style={styles.resultCount}>
@@ -534,14 +532,6 @@ const styles = StyleSheet.create({
   locationButtonActive: {
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
-  },
-  locationButtonText: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  locationButtonTextActive: {
-    color: colors.primary,
   },
   filterRow: {
     flexDirection: "row",
