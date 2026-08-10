@@ -58,7 +58,7 @@ function BrowseNavigator() {
       <BrowseStack.Screen
         name="BrowseList"
         component={BrowseScreen}
-        options={{ title: "Browse" }}
+        options={{ headerShown: false }}
       />
       <BrowseStack.Screen
         name="ListingDetail"
@@ -84,7 +84,7 @@ function MessagesNavigator() {
       <MessagesStack.Screen
         name="MessagesList"
         component={MessagesScreen}
-        options={{ title: "Messages" }}
+        options={{ headerShown: false }}
       />
       <MessagesStack.Screen
         name="Conversation"
@@ -105,7 +105,7 @@ function CompetitionsNavigator() {
       <CompetitionsStack.Screen
         name="CompetitionsList"
         component={CompetitionsScreen}
-        options={{ title: "Competitions" }}
+        options={{ headerShown: false }}
       />
       <CompetitionsStack.Screen
         name="CompetitionListings"
@@ -136,7 +136,7 @@ function ProfileNavigator() {
       <ProfileStack.Screen
         name="ProfileHome"
         component={ProfileScreen}
-        options={{ title: "Profile" }}
+        options={{ headerShown: false }}
       />
       <ProfileStack.Screen
         name="Info"
@@ -186,7 +186,10 @@ function AppTabs() {
       <Tab.Screen
         name="Sell"
         component={SellScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color }}>+</Text> }}
+        options={{
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Text style={{ color }}>+</Text>,
+        }}
       />
       <Tab.Screen
         name="Messages"
