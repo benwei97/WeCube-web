@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,8 +13,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ActionSheet from "../components/ActionSheet";
 import BackButton from "../components/BackButton";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -89,6 +92,7 @@ export default function ConversationScreen({ navigation, route }) {
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockedMe, setBlockedMe] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [conversationActionsOpen, setConversationActionsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
@@ -186,6 +190,8 @@ export default function ConversationScreen({ navigation, route }) {
   const otherUserName =
     `${otherUser?.firstName || ""} ${otherUser?.lastName || ""}`.trim() ||
     "this user";
+  const headerUserName = otherUserName === "this user" ? "WeCube user" : otherUserName;
+  const otherUserAvatarUrl = otherUser?.avatarUrl || "";
 
   function getReviewPromptState(message) {
     const isReviewPrompt = message.type === "review_prompt" || message.reviewPrompt;
@@ -220,19 +226,34 @@ export default function ConversationScreen({ navigation, route }) {
   async function handleBlockToggle() {
     if (!currentUser?.uid || !otherUserId || blockLoading) return;
 
-    setBlockLoading(true);
-    try {
-      if (blockedByMe) {
-        await unblockUser(currentUser.uid, otherUserId);
-      } else {
-        await blockUser(currentUser.uid, otherUserId);
-      }
-    } catch (blockError) {
-      console.error("Error updating mobile block:", blockError);
-      setError(blockError.message || "Unable to update block status.");
-    } finally {
-      setBlockLoading(false);
-    }
+    const action = blockedByMe ? "unblock" : "block";
+    const title = blockedByMe ? "Unblock user?" : "Block user?";
+    const message = blockedByMe
+      ? `You will be able to exchange messages with ${headerUserName} again.`
+      : `This will prevent ${headerUserName} from exchanging messages with you.`;
+
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: blockedByMe ? "Unblock" : "Block",
+        style: blockedByMe ? "default" : "destructive",
+        onPress: async () => {
+          setBlockLoading(true);
+          try {
+            if (action === "unblock") {
+              await unblockUser(currentUser.uid, otherUserId);
+            } else {
+              await blockUser(currentUser.uid, otherUserId);
+            }
+          } catch (blockError) {
+            console.error("Error updating mobile block:", blockError);
+            setError(blockError.message || "Unable to update block status.");
+          } finally {
+            setBlockLoading(false);
+          }
+        },
+      },
+    ]);
   }
 
   function openReportModal() {
@@ -356,7 +377,28 @@ export default function ConversationScreen({ navigation, route }) {
         style={styles.container}
       >
         <View style={styles.topBar}>
-          <BackButton navigation={navigation} />
+          <BackButton navigation={navigation} style={styles.backButton} />
+          <View style={styles.headerUser}>
+            {otherUserAvatarUrl ? (
+              <Image source={{ uri: otherUserAvatarUrl }} style={styles.headerAvatarImage} />
+            ) : (
+              <View style={styles.headerAvatar}>
+                <Text style={styles.headerAvatarText}>
+                  {headerUserName.charAt(0).toUpperCase() || "W"}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.headerName} numberOfLines={1}>
+              {headerUserName}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.moreButton}
+            onPress={() => setConversationActionsOpen(true)}
+            accessibilityLabel="Conversation options"
+          >
+            <MaterialIcons name="more-horiz" size={24} color={colors.text} />
+          </Pressable>
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {conversation?.closedReason === "listing_deleted" ? (
@@ -367,18 +409,6 @@ export default function ConversationScreen({ navigation, route }) {
             {blockedByMe ? "You blocked this user." : "Messaging is not available."}
           </Text>
         ) : null}
-        <View style={styles.safetyActions}>
-          <Pressable style={styles.safetyButton} onPress={openReportModal}>
-            <Text style={styles.safetyText}>Report conversation</Text>
-          </Pressable>
-          {!blockedMe && (
-            <Pressable style={styles.safetyButton} onPress={handleBlockToggle} disabled={blockLoading}>
-              <Text style={[styles.safetyText, styles.blockText]}>
-                {blockLoading ? "Updating..." : blockedByMe ? "Unblock user" : "Block user"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
         <FlatList
           data={messages}
           keyExtractor={(item) => item.id}
@@ -428,6 +458,33 @@ export default function ConversationScreen({ navigation, route }) {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <ActionSheet
+        visible={conversationActionsOpen}
+        title="Conversation options"
+        onClose={() => setConversationActionsOpen(false)}
+        actions={[
+          {
+            label: "Report conversation",
+            destructive: true,
+            onPress: openReportModal,
+          },
+          ...(!blockedMe
+            ? [
+                {
+                  label: blockLoading
+                    ? "Updating..."
+                    : blockedByMe
+                      ? "Unblock user"
+                      : "Block user",
+                  destructive: !blockedByMe,
+                  disabled: blockLoading,
+                  onPress: handleBlockToggle,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
         <View style={styles.modalBackdrop}>
@@ -555,9 +612,55 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
+    alignItems: "center",
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  backButton: {
+    marginBottom: 0,
+  },
+  headerUser: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
+  },
+  headerAvatar: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  headerAvatarImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 18,
+    height: 36,
+    width: 36,
+  },
+  headerAvatarText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  headerName: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  moreButton: {
+    alignItems: "center",
+    height: 42,
+    justifyContent: "center",
+    width: 42,
   },
   centerState: {
     alignItems: "center",
@@ -687,27 +790,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     padding: 10,
     textAlign: "center",
-  },
-  safetyActions: {
-    backgroundColor: colors.surface,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 14,
-    paddingVertical: 8,
-  },
-  safetyButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  safetyText: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  blockText: {
-    color: colors.danger,
   },
   modalBackdrop: {
     alignItems: "center",
