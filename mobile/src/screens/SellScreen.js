@@ -42,6 +42,8 @@ import { searchCompetitions } from "../utils/wcaApi";
 const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const COMPETITION_BATCH_SIZE = 25;
 const INITIAL_COMPETITION_LIMIT = 50;
+const SELL_DRAFT_KEY_PREFIX = "wecube:sellDraft:";
+const sellDrafts = new Map();
 
 const MY_COMPETITIONS_OPTION = {
   id: MY_COMPETITIONS_OPTION_ID,
@@ -229,6 +231,7 @@ export default function SellScreen({ navigation }) {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [submitNotice, setSubmitNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
   const competitionOptions = useMemo(
@@ -243,6 +246,84 @@ export default function SellScreen({ navigation }) {
     () => new Set(selectedCompetitions.map((competition) => competition.id)),
     [selectedCompetitions]
   );
+  const draftStorageKey = currentUser?.uid
+    ? `${SELL_DRAFT_KEY_PREFIX}${currentUser.uid}`
+    : "";
+  const hasUnsavedChanges = useMemo(
+    () =>
+      photos.length > 0 ||
+      Boolean(title.trim()) ||
+      Boolean(price) ||
+      Boolean(description.trim()) ||
+      Boolean(condition) ||
+      Boolean(puzzleType) ||
+      shippingAvailable ||
+      shippingCost !== "0.00" ||
+      localMeetupAvailable ||
+      Boolean(meetupLocationLabel.trim()) ||
+      Boolean(meetupLocation) ||
+      competitionMeetupAvailable ||
+      Boolean(competitionSearchInput.trim()) ||
+      selectedCompetitions.length > 0,
+    [
+      competitionMeetupAvailable,
+      competitionSearchInput,
+      condition,
+      description,
+      localMeetupAvailable,
+      meetupLocation,
+      meetupLocationLabel,
+      photos.length,
+      price,
+      puzzleType,
+      selectedCompetitions.length,
+      shippingAvailable,
+      shippingCost,
+      title,
+    ]
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    function loadDraft() {
+      if (!draftStorageKey) {
+        setDraftLoaded(true);
+        return undefined;
+      }
+
+      try {
+        const draft = sellDrafts.get(draftStorageKey);
+        if (!active) return;
+        if (draft) {
+          setTitle(draft.title || "");
+          setPrice(draft.price || "");
+          setDescription(draft.description || "");
+          setCondition(draft.condition || "");
+          setPuzzleType(draft.puzzleType || "");
+          setShippingAvailable(Boolean(draft.shippingAvailable));
+          setShippingCost(draft.shippingCost || "0.00");
+          setLocalMeetupAvailable(Boolean(draft.localMeetupAvailable));
+          setMeetupLocationLabel(draft.meetupLocationLabel || "");
+          setMeetupLocation(draft.meetupLocation || null);
+          setCompetitionMeetupAvailable(Boolean(draft.competitionMeetupAvailable));
+          setCompetitionSearchInput(draft.competitionSearchInput || "");
+          setSelectedCompetitions(Array.isArray(draft.selectedCompetitions) ? draft.selectedCompetitions : []);
+          setPhotos(Array.isArray(draft.photos) ? draft.photos : []);
+        }
+      } catch (draftError) {
+        console.error("Error loading mobile sell draft:", draftError);
+      } finally {
+        if (active) setDraftLoaded(true);
+      }
+    }
+
+    loadDraft();
+
+    return () => {
+      active = false;
+    };
+  }, [draftStorageKey]);
 
   useEffect(() => {
     let active = true;
@@ -446,6 +527,49 @@ export default function SellScreen({ navigation }) {
     setSubmitNotice("");
   }
 
+  async function deleteSavedDraft() {
+    if (!draftStorageKey) return;
+    sellDrafts.delete(draftStorageKey);
+  }
+
+  async function saveDraftAndClose() {
+    if (!draftStorageKey) {
+      closeSellModal({ force: true });
+      return;
+    }
+
+    try {
+      sellDrafts.set(draftStorageKey, {
+        title,
+        price,
+        description,
+        condition,
+        puzzleType,
+        shippingAvailable,
+        shippingCost,
+        localMeetupAvailable,
+        meetupLocationLabel,
+        meetupLocation,
+        competitionMeetupAvailable,
+        competitionSearchInput,
+        selectedCompetitions,
+        photos,
+      });
+      setHasAttemptedSubmit(false);
+      setSubmitNotice("");
+      closeSellModal({ force: true });
+    } catch (draftError) {
+      console.error("Error saving mobile sell draft:", draftError);
+      Alert.alert("Unable to save draft", "Please try again.");
+    }
+  }
+
+  async function discardDraftAndClose() {
+    await deleteSavedDraft();
+    clearListing();
+    closeSellModal({ force: true });
+  }
+
   async function publishListing() {
     setHasAttemptedSubmit(true);
     const parsedPrice = parseNonNegativeCurrencyAmount(price);
@@ -527,6 +651,7 @@ export default function SellScreen({ navigation }) {
       };
 
       const docRef = await addDoc(collection(db, "listings"), listingToSave);
+      await deleteSavedDraft();
       clearListing();
       Alert.alert("Listing published", "Your listing is now active.", [
         {
@@ -559,7 +684,26 @@ export default function SellScreen({ navigation }) {
     }
   }
 
-  function closeSellModal() {
+  function closeSellModal(options = {}) {
+    if (!options.force && draftLoaded && hasUnsavedChanges) {
+      Alert.alert("Discard changes?", "You have unsaved edits to this listing.", [
+        {
+          text: "Save Draft",
+          onPress: saveDraftAndClose,
+        },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: discardDraftAndClose,
+        },
+        {
+          text: "Continue Editing",
+          style: "cancel",
+        },
+      ]);
+      return;
+    }
+
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
       return;
@@ -993,6 +1137,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 36,
+    paddingTop: 28,
   },
   titleRow: {
     alignItems: "center",

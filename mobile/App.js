@@ -49,7 +49,7 @@ function AppContent() {
         <RootStack.Screen
           name="SellModal"
           component={SellScreen}
-          options={{ presentation: "modal" }}
+          options={{ gestureEnabled: false, presentation: "fullScreenModal" }}
         />
       </RootStack.Navigator>
       <PolicyAcceptanceGate />
