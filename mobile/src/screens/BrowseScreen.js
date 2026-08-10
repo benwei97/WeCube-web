@@ -80,6 +80,18 @@ function getInitialLocationDraft(locationFilter) {
   };
 }
 
+function hasFulfillmentMethodFilter(filter) {
+  return (
+    filter.includeLocalMeetups !== true ||
+    filter.includeCompetitionMeetups !== true ||
+    filter.includeShippableListings !== true
+  );
+}
+
+function hasLocationFilterControls(filter) {
+  return Boolean(filter.locationOption) || hasFulfillmentMethodFilter(filter);
+}
+
 export default function BrowseScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,12 +165,20 @@ export default function BrowseScreen({ navigation }) {
   const visibleListings = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const hasLocationFilter = Boolean(locationFilter.locationOption);
+    const hasFulfillmentFilter = hasFulfillmentMethodFilter(locationFilter);
 
     const filteredListings = listings.filter((listing) => {
       const matchesSearch =
         !normalizedSearch || getSearchText(listing).includes(normalizedSearch);
       if (!matchesSearch) return false;
-      if (!hasLocationFilter) return true;
+      if (!hasLocationFilter && !hasFulfillmentFilter) return true;
+      if (!hasLocationFilter) {
+        return (
+          (locationFilter.includeLocalMeetups && listing.localMeetupAvailable) ||
+          (locationFilter.includeCompetitionMeetups && listing.competitionMeetupAvailable) ||
+          (locationFilter.includeShippableListings && listing.shippingAvailable)
+        );
+      }
 
       const locationMatch = getLocationMatchInfo(listing, locationFilter);
       return locationMatch.matchesLocation || locationMatch.matchesShipping;
@@ -168,15 +188,20 @@ export default function BrowseScreen({ navigation }) {
   }, [listings, locationFilter, searchQuery]);
 
   const hasActiveFilter =
-    Boolean(searchQuery.trim()) || Boolean(locationFilter.locationOption);
+    Boolean(searchQuery.trim()) || hasLocationFilterControls(locationFilter);
   const displayedListings = hasActiveFilter
     ? visibleListings
     : visibleListings.slice(0, visibleCount);
   const hasMoreListings = !hasActiveFilter && visibleListings.length > visibleCount;
 
+  const hasActiveLocationControls = hasLocationFilterControls(locationFilter);
+  const isLocationDraftInvalid =
+    Boolean(locationDraft.locationInput.trim()) && !locationDraft.locationOption;
   const locationButtonLabel = locationFilter.locationOption
     ? locationFilter.locationOption.city || locationFilter.locationOption.label
-    : "All locations";
+    : hasFulfillmentMethodFilter(locationFilter)
+      ? "Fulfillment filters"
+      : "All locations";
 
   const openLocationModal = useCallback(() => {
     setLocationDraft(getInitialLocationDraft(locationFilter));
@@ -249,7 +274,7 @@ export default function BrowseScreen({ navigation }) {
               <Pressable
                 style={[
                   styles.locationButton,
-                  locationFilter.locationOption && styles.locationButtonActive,
+                  hasActiveLocationControls && styles.locationButtonActive,
                 ]}
                 onPress={openLocationModal}
                 accessibilityLabel={locationButtonLabel}
@@ -257,7 +282,7 @@ export default function BrowseScreen({ navigation }) {
                 <MaterialIcons
                   name="location-on"
                   size={24}
-                  color={locationFilter.locationOption ? colors.primary : colors.text}
+                  color={hasActiveLocationControls ? colors.primary : colors.text}
                 />
               </Pressable>
             </View>
@@ -301,10 +326,10 @@ export default function BrowseScreen({ navigation }) {
     displayedListings,
     error,
     hasActiveFilter,
+    hasActiveLocationControls,
     hasMoreListings,
     listings.length,
     locationButtonLabel,
-    locationFilter.locationOption,
     loading,
     loadMoreListings,
     navigation,
@@ -449,15 +474,15 @@ export default function BrowseScreen({ navigation }) {
 
             <View style={styles.modalActions}>
               <Pressable style={styles.secondaryButton} onPress={clearLocationFilter}>
-                <Text style={styles.secondaryButtonText}>Clear location</Text>
+                <Text style={styles.secondaryButtonText}>Clear filters</Text>
               </Pressable>
               <Pressable
                 style={[
                   styles.primaryButton,
-                  !locationDraft.locationOption && styles.primaryButtonDisabled,
+                  isLocationDraftInvalid && styles.primaryButtonDisabled,
                 ]}
                 onPress={applyLocationFilter}
-                disabled={!locationDraft.locationOption}
+                disabled={isLocationDraftInvalid}
               >
                 <Text style={styles.primaryButtonText}>Apply</Text>
               </Pressable>
