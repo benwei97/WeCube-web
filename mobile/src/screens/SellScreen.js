@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -553,7 +554,7 @@ export default function SellScreen({ navigation }) {
     return (
       <Screen>
         <View style={styles.container}>
-          <Text style={styles.pageTitle}>List Your Cube</Text>
+          <ScreenTitle style={styles.pageTitle}>List Your Cube</ScreenTitle>
           <Text style={styles.emptyText}>Please sign in to create a listing</Text>
         </View>
       </Screen>
@@ -567,7 +568,7 @@ export default function SellScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={styles.pageTitle}>List Your Cube</Text>
+          <ScreenTitle style={styles.pageTitle}>List Your Cube</ScreenTitle>
 
           {submitNotice ? (
             <View style={styles.notice}>
@@ -961,9 +962,6 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   pageTitle: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
     marginBottom: 18,
   },
   notice: {

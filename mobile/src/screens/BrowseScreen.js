@@ -14,6 +14,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
+import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
 import { db } from "../lib/firebase";
 import {
@@ -307,7 +308,7 @@ export default function BrowseScreen({ navigation }) {
         onEndReachedThreshold={0.7}
         ListHeaderComponent={
           <View style={styles.filters}>
-            <Text style={styles.screenTitle}>Browse Cubes</Text>
+            <ScreenTitle>Browse Cubes</ScreenTitle>
             <View style={styles.searchPanel}>
               <TextInput
                 value={searchQuery}
@@ -541,7 +542,7 @@ export default function BrowseScreen({ navigation }) {
 const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 4,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 32,
   },
   listingRow: {
@@ -558,13 +559,7 @@ const styles = StyleSheet.create({
   filters: {
     gap: 10,
     marginBottom: 14,
-    paddingHorizontal: 4,
-  },
-  screenTitle: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
-    marginBottom: 2,
+    paddingHorizontal: 12,
   },
   searchInput: {
     backgroundColor: colors.surface,

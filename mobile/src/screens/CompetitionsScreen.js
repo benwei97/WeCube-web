@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { doc, updateDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ScreenTitle from "../components/ScreenTitle";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -209,7 +210,7 @@ export default function CompetitionsScreen({ navigation }) {
         onScroll={handleScroll}
         scrollEventThrottle={120}
       >
-        <Text style={styles.title}>Competitions</Text>
+        <ScreenTitle>Competitions</ScreenTitle>
 
         <View style={styles.section}>
           <TextInput
@@ -266,12 +267,6 @@ const styles = StyleSheet.create({
     gap: 22,
     padding: 16,
     paddingBottom: 32,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
-    marginTop: 4,
   },
   section: {
     gap: 12,

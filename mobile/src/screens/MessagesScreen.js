@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ScreenTitle from "../components/ScreenTitle";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -266,7 +267,7 @@ export default function MessagesScreen({ navigation }) {
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={<Text style={styles.screenTitle}>Messages</Text>}
+        ListHeaderComponent={<ScreenTitle>Messages</ScreenTitle>}
         renderItem={({ item }) => (
           <ConversationRow
             conversation={item}
@@ -294,13 +295,6 @@ const styles = StyleSheet.create({
   listContent: {
     gap: 10,
     padding: 16,
-  },
-  screenTitle: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
-    marginBottom: 4,
-    marginTop: 4,
   },
   row: {
     alignItems: "center",

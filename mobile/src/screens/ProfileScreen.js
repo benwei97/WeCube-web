@@ -28,6 +28,7 @@ import {
 import ActionSheet from "../components/ActionSheet";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
+import ScreenTitle from "../components/ScreenTitle";
 import { useAuth } from "../contexts/useAuth";
 import { auth, db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -751,6 +752,8 @@ export default function ProfileScreen({ navigation }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.container}>
+        <ScreenTitle>Profile</ScreenTitle>
+
         <View style={styles.profileHeader}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
@@ -956,6 +959,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
+    marginTop: 18,
     padding: 18,
   },
   avatar: {
