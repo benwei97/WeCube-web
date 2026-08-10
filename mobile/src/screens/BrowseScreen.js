@@ -56,19 +56,6 @@ function getSearchText(listing) {
     .toLowerCase();
 }
 
-function OptionChip({ label, selected, onPress }) {
-  return (
-    <Pressable
-      style={[styles.filterChip, selected && styles.filterChipSelected]}
-      onPress={onPress}
-    >
-      <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function getInitialLocationDraft(locationFilter) {
   return {
     locationInput: locationFilter.locationInput,
@@ -90,6 +77,65 @@ function hasFulfillmentMethodFilter(filter) {
 
 function hasLocationFilterControls(filter) {
   return Boolean(filter.locationOption) || hasFulfillmentMethodFilter(filter);
+}
+
+function RadiusSlider({ value, onChange }) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const selectedIndex = Math.max(0, LOCATION_RADIUS_OPTIONS.indexOf(value));
+  const selectedPercent =
+    selectedIndex / Math.max(LOCATION_RADIUS_OPTIONS.length - 1, 1);
+
+  function updateFromPosition(locationX) {
+    if (!trackWidth) return;
+    const boundedPosition = Math.max(0, Math.min(locationX, trackWidth));
+    const nextIndex = Math.round(
+      (boundedPosition / trackWidth) * (LOCATION_RADIUS_OPTIONS.length - 1)
+    );
+    onChange(LOCATION_RADIUS_OPTIONS[nextIndex]);
+  }
+
+  return (
+    <View style={styles.radiusSliderBlock}>
+      <View
+        style={styles.radiusTrack}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(event) => updateFromPosition(event.nativeEvent.locationX)}
+        onResponderMove={(event) => updateFromPosition(event.nativeEvent.locationX)}
+      >
+        <View style={[styles.radiusTrackFill, { width: `${selectedPercent * 100}%` }]} />
+        {LOCATION_RADIUS_OPTIONS.map((radius, index) => {
+          const active = index <= selectedIndex;
+          return (
+            <View
+              key={radius}
+              style={[
+                styles.radiusTick,
+                active && styles.radiusTickActive,
+                { left: `${(index / (LOCATION_RADIUS_OPTIONS.length - 1)) * 100}%` },
+              ]}
+            />
+          );
+        })}
+        <View style={[styles.radiusThumb, { left: `${selectedPercent * 100}%` }]} />
+      </View>
+      <View style={styles.radiusLabels}>
+        {LOCATION_RADIUS_OPTIONS.map((radius) => (
+          <Pressable key={radius} onPress={() => onChange(radius)}>
+            <Text
+              style={[
+                styles.radiusLabel,
+                radius === value && styles.radiusLabelActive,
+              ]}
+            >
+              {radius}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export default function BrowseScreen({ navigation }) {
@@ -414,26 +460,24 @@ export default function BrowseScreen({ navigation }) {
               </ScrollView>
             ) : null}
 
-            <Text style={styles.filterLabel}>
-              Radius: {locationDraft.radiusMiles} miles
-            </Text>
-            <View style={styles.filterRow}>
-              {LOCATION_RADIUS_OPTIONS.map((radius) => (
-                <OptionChip
-                  key={radius}
-                  label={`${radius}`}
-                  selected={locationDraft.radiusMiles === radius}
-                  onPress={() =>
-                    setLocationDraft((prev) => ({
-                      ...prev,
-                      radiusMiles: radius,
-                    }))
-                  }
-                />
-              ))}
+            <View style={styles.modalSection}>
+              <View style={styles.sectionHeadingRow}>
+                <Text style={styles.filterLabel}>Radius</Text>
+                <Text style={styles.radiusValue}>{locationDraft.radiusMiles} miles</Text>
+              </View>
+              <RadiusSlider
+                value={locationDraft.radiusMiles}
+                onChange={(radius) =>
+                  setLocationDraft((prev) => ({
+                    ...prev,
+                    radiusMiles: radius,
+                  }))
+                }
+              />
             </View>
 
-            <View style={styles.switchBlock}>
+            <View style={[styles.modalSection, styles.switchBlock]}>
+              <Text style={styles.filterLabel}>Fulfillment</Text>
               <View style={styles.switchRow}>
                 <Text style={styles.switchLabel}>Local meetups</Text>
                 <Toggle
@@ -558,32 +602,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
   },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterChip: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  filterChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "capitalize",
-  },
-  filterChipTextSelected: {
-    color: "#fff",
-  },
   resultCount: {
     color: colors.muted,
     fontSize: 12,
@@ -641,13 +659,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     maxHeight: "88%",
-    padding: 18,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 22,
   },
   modalHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 14,
+    marginBottom: 18,
   },
   modalTitle: {
     color: colors.text,
@@ -670,7 +690,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   locationOptions: {
-    marginTop: 10,
+    marginTop: 12,
     maxHeight: 190,
   },
   locationOption: {
@@ -693,14 +713,83 @@ const styles = StyleSheet.create({
   locationOptionTextSelected: {
     color: colors.primary,
   },
-  switchBlock: {
+  modalSection: {
+    marginTop: 22,
+  },
+  sectionHeadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  radiusValue: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  radiusSliderBlock: {
+    marginTop: 16,
+  },
+  radiusTrack: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 999,
+    height: 4,
+    justifyContent: "center",
+    marginHorizontal: 8,
+  },
+  radiusTrackFill: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 4,
+  },
+  radiusTick: {
+    backgroundColor: "#cbd5e1",
+    borderRadius: 999,
+    height: 8,
+    marginLeft: -4,
+    position: "absolute",
+    width: 8,
+  },
+  radiusTickActive: {
+    backgroundColor: colors.primary,
+  },
+  radiusThumb: {
+    backgroundColor: colors.primary,
+    borderColor: colors.surface,
+    borderRadius: 999,
+    borderWidth: 3,
+    height: 24,
+    marginLeft: -12,
+    position: "absolute",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    width: 24,
+  },
+  radiusLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 14,
+  },
+  radiusLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    minWidth: 24,
+    textAlign: "center",
+  },
+  radiusLabelActive: {
+    color: colors.primary,
+    fontWeight: "900",
+  },
+  switchBlock: {
+    gap: 4,
   },
   switchRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 48,
   },
   switchLabel: {
     color: colors.text,
@@ -710,7 +799,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 18,
+    marginTop: 24,
   },
   secondaryButton: {
     alignItems: "center",
