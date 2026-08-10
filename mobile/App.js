@@ -21,6 +21,7 @@ import AuthScreen from "./src/screens/AuthScreen";
 import { colors } from "./src/theme/colors";
 
 const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
 const BrowseStack = createNativeStackNavigator();
 const CompetitionsStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
@@ -43,7 +44,14 @@ function AppContent() {
 
   return (
     <>
-      <AppTabs />
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="MainTabs" component={AppTabs} />
+        <RootStack.Screen
+          name="SellModal"
+          component={SellScreen}
+          options={{ presentation: "modal" }}
+        />
+      </RootStack.Navigator>
       <PolicyAcceptanceGate />
     </>
   );
@@ -193,7 +201,13 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Sell"
-        component={SellScreen}
+        component={View}
+        listeners={({ navigation }) => ({
+          tabPress: (event) => {
+            event.preventDefault();
+            navigation.getParent()?.navigate("SellModal");
+          },
+        })}
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (

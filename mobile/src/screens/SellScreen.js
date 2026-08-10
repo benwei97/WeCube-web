@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
 import Screen from "../components/Screen";
@@ -531,10 +532,18 @@ export default function SellScreen({ navigation }) {
         {
           text: "View listing",
           onPress: () =>
-            navigation?.navigate("Browse", {
-              screen: "ListingDetail",
-              params: { listingId: docRef.id },
+            navigation?.navigate("MainTabs", {
+              screen: "Browse",
+              params: {
+                screen: "ListingDetail",
+                params: { listingId: docRef.id },
+              },
             }),
+        },
+        {
+          text: "Close",
+          style: "cancel",
+          onPress: closeSellModal,
         },
       ]);
     } catch (error) {
@@ -550,11 +559,35 @@ export default function SellScreen({ navigation }) {
     }
   }
 
+  function closeSellModal() {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation?.navigate?.("MainTabs", { screen: "Browse" });
+  }
+
+  function renderTitleBar() {
+    return (
+      <View style={styles.titleRow}>
+        <ScreenTitle style={styles.pageTitle}>List Your Cube</ScreenTitle>
+        <Pressable
+          style={styles.closeButton}
+          onPress={closeSellModal}
+          accessibilityLabel="Close listing form"
+        >
+          <MaterialIcons name="close" size={24} color={colors.text} />
+        </Pressable>
+      </View>
+    );
+  }
+
   if (!currentUser) {
     return (
       <Screen>
         <View style={styles.container}>
-          <ScreenTitle style={styles.pageTitle}>List Your Cube</ScreenTitle>
+          {renderTitleBar()}
           <Text style={styles.emptyText}>Please sign in to create a listing</Text>
         </View>
       </Screen>
@@ -568,7 +601,7 @@ export default function SellScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <ScreenTitle style={styles.pageTitle}>List Your Cube</ScreenTitle>
+          {renderTitleBar()}
 
           {submitNotice ? (
             <View style={styles.notice}>
@@ -961,8 +994,20 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 36,
   },
-  pageTitle: {
+  titleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
     marginBottom: 18,
+  },
+  pageTitle: {
+    flex: 1,
+  },
+  closeButton: {
+    alignItems: "center",
+    height: 42,
+    justifyContent: "center",
+    width: 42,
   },
   notice: {
     backgroundColor: "#fee2e2",
