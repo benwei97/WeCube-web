@@ -14,6 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { getDateTime } from "./listingUtils";
 
 function getUserBlockId(blockerId, blockedUserId) {
   return `${blockerId}_${blockedUserId}`;
@@ -372,19 +373,43 @@ export async function cancelListingReviewPrompts(
 }
 
 export function subscribeToConversationMessages(conversationId, onNext, onError) {
-  const messagesQuery = query(
+  const emitMessages = (snapshot) => {
+    onNext(
+      snapshot.docs
+        .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+        .sort((firstMessage, secondMessage) =>
+          getDateTime(firstMessage.createdAt) - getDateTime(secondMessage.createdAt)
+        )
+    );
+  };
+
+  const orderedMessagesQuery = query(
     collection(db, "messages"),
     where("conversationId", "==", conversationId),
     orderBy("createdAt", "asc")
   );
 
-  return onSnapshot(
-    messagesQuery,
-    (snapshot) => {
-      onNext(snapshot.docs.map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() })));
-    },
-    onError
-  );
+  let fallbackUnsubscribe = null;
+
+  const orderedUnsubscribe = onSnapshot(orderedMessagesQuery, emitMessages, (error) => {
+    if (error?.code !== "failed-precondition") {
+      onError?.(error);
+      return;
+    }
+
+    console.warn("Falling back to unordered mobile messages query:", error);
+    const unorderedMessagesQuery = query(
+      collection(db, "messages"),
+      where("conversationId", "==", conversationId)
+    );
+
+    fallbackUnsubscribe = onSnapshot(unorderedMessagesQuery, emitMessages, onError);
+  });
+
+  return () => {
+    orderedUnsubscribe();
+    fallbackUnsubscribe?.();
+  };
 }
 
 export async function getUserProfile(userId) {

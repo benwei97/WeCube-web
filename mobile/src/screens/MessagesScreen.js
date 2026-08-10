@@ -98,6 +98,31 @@ export default function MessagesScreen({ navigation }) {
   useEffect(() => {
     if (!currentUser?.uid) return undefined;
 
+    let buyerLoaded = false;
+    let sellerLoaded = false;
+    let buyerFailed = false;
+    let sellerFailed = false;
+
+    function finishLoadingIfReady() {
+      if ((buyerLoaded || buyerFailed) && (sellerLoaded || sellerFailed)) {
+        setLoading(false);
+      }
+    }
+
+    function handleQueryError(role, snapshotError) {
+      console.error(`Error loading mobile ${role} conversations:`, snapshotError);
+      if (role === "buyer") {
+        buyerFailed = true;
+      } else {
+        sellerFailed = true;
+      }
+
+      if (buyerFailed && sellerFailed) {
+        setError("Unable to load messages.");
+      }
+      finishLoadingIfReady();
+    }
+
     const buyerQuery = query(
       collection(db, "conversations"),
       where("buyerId", "==", currentUser.uid)
@@ -107,15 +132,12 @@ export default function MessagesScreen({ navigation }) {
       where("sellerId", "==", currentUser.uid)
     );
 
-    const handleError = (snapshotError) => {
-      console.error("Error loading mobile conversations:", snapshotError);
-      setError("Unable to load messages.");
-      setLoading(false);
-    };
-
     const unsubscribeBuyer = onSnapshot(
       buyerQuery,
       (snapshot) => {
+        buyerLoaded = true;
+        buyerFailed = false;
+        setError("");
         setBuyerConversations(
           snapshot.docs.map((conversationDoc) => ({
             id: conversationDoc.id,
@@ -123,14 +145,17 @@ export default function MessagesScreen({ navigation }) {
             userRole: "buyer",
           }))
         );
-        setLoading(false);
+        finishLoadingIfReady();
       },
-      handleError
+      (snapshotError) => handleQueryError("buyer", snapshotError)
     );
 
     const unsubscribeSeller = onSnapshot(
       sellerQuery,
       (snapshot) => {
+        sellerLoaded = true;
+        sellerFailed = false;
+        setError("");
         setSellerConversations(
           snapshot.docs.map((conversationDoc) => ({
             id: conversationDoc.id,
@@ -138,9 +163,9 @@ export default function MessagesScreen({ navigation }) {
             userRole: "seller",
           }))
         );
-        setLoading(false);
+        finishLoadingIfReady();
       },
-      handleError
+      (snapshotError) => handleQueryError("seller", snapshotError)
     );
 
     return () => {
