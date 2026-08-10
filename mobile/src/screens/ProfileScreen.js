@@ -929,14 +929,9 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     alignSelf: "stretch",
-    backgroundColor: "#f8fafc",
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
     marginTop: 14,
-    padding: 4,
   },
   statusSegmentedControl: {
     marginTop: 12,
@@ -950,9 +945,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   segmentButtonSelected: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
+    backgroundColor: "#eff6ff",
   },
   segmentText: {
     color: colors.muted,
@@ -963,12 +956,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   section: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
     marginTop: 14,
-    padding: 14,
   },
   sectionTitle: {
     color: colors.text,

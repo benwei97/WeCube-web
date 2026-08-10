@@ -518,13 +518,8 @@ const styles = StyleSheet.create({
   },
   searchPanel: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: "rgba(148, 163, 184, 0.14)",
-    borderRadius: 8,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 16,
-    padding: 16,
+    gap: 10,
   },
   locationButton: {
     alignItems: "center",

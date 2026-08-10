@@ -198,8 +198,8 @@ export default function CompetitionsScreen({ navigation }) {
       >
         <Text style={styles.title}>Competitions</Text>
 
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Select a Competition</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Select a Competition</Text>
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -242,8 +242,8 @@ export default function CompetitionsScreen({ navigation }) {
           ) : null}
         </View>
 
-        <View style={styles.panel}>
-          <Text style={styles.savedTitle}>Saved Competitions</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Saved Competitions</Text>
           {savedCompetitions.length === 0 ? (
             <View style={styles.savedEmptyBlock}>
               <Text style={styles.emptyText}>
@@ -275,8 +275,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    gap: 16,
-    padding: 12,
+    gap: 22,
+    padding: 16,
     paddingBottom: 32,
   },
   title: {
@@ -285,24 +285,13 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginTop: 4,
   },
-  panel: {
-    backgroundColor: "rgba(255, 255, 255, 0.72)",
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
+  section: {
+    gap: 12,
   },
-  panelTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 14,
-  },
-  savedTitle: {
+  sectionTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: "800",
-    marginBottom: 14,
   },
   searchInput: {
     backgroundColor: colors.surface,
@@ -311,7 +300,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
-    marginBottom: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
@@ -320,13 +308,11 @@ const styles = StyleSheet.create({
   },
   competitionRow: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.76)",
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
     flexDirection: "row",
     gap: 8,
-    padding: 12,
+    paddingVertical: 12,
   },
   competitionBody: {
     flex: 1,
