@@ -10,7 +10,7 @@ export default function BackButton({ navigation, style }) {
       onPress={() => navigation.goBack()}
       accessibilityLabel="Go back"
     >
-      <Text style={styles.text}>{"<"}</Text>
+      <Text style={styles.text}>‹</Text>
     </Pressable>
   );
 }
@@ -18,18 +18,15 @@ export default function BackButton({ navigation, style }) {
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    height: 34,
+    height: 42,
     justifyContent: "center",
     marginBottom: 12,
-    width: 34,
+    width: 42,
   },
   text: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "900",
-    lineHeight: 22,
+    fontSize: 34,
+    fontWeight: "300",
+    lineHeight: 36,
   },
 });
