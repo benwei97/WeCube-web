@@ -1,3 +1,4 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 import { getS3PublicUrl } from "../utils/s3";
@@ -20,9 +21,18 @@ function StatusBadge({ status }) {
 export function ListingFulfillmentLine({ option }) {
   if (!option) return null;
 
+  const iconName =
+    option.type === "shipping"
+      ? "local-shipping"
+      : option.type === "local"
+        ? "location-on"
+        : option.type === "competition"
+          ? "groups"
+          : "info-outline";
+
   return (
     <View style={styles.fulfillmentLine}>
-      <Text style={styles.fulfillmentIcon}>{option.icon}</Text>
+      <MaterialIcons name={iconName} size={14} color={colors.muted} />
       <Text style={styles.fulfillmentText} numberOfLines={1}>
         {option.label}
       </Text>
@@ -154,11 +164,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 5,
     minWidth: 0,
-  },
-  fulfillmentIcon: {
-    color: colors.muted,
-    fontSize: 12,
-    width: 14,
   },
   fulfillmentText: {
     color: colors.muted,
