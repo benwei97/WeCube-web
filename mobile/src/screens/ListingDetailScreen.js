@@ -662,11 +662,15 @@ export default function ListingDetailScreen({ navigation, route }) {
             style={styles.sellerPanel}
             onPress={() => navigation.navigate("SellerProfile", { userId: listing.userId })}
           >
-            <View style={styles.sellerAvatar}>
-              <Text style={styles.sellerAvatarText}>
-                {(seller?.firstName || seller?.displayName || "S").slice(0, 1).toUpperCase()}
-              </Text>
-            </View>
+            {seller?.avatarUrl ? (
+              <Image source={{ uri: seller.avatarUrl }} style={styles.sellerAvatarImage} />
+            ) : (
+              <View style={styles.sellerAvatar}>
+                <Text style={styles.sellerAvatarText}>
+                  {(seller?.firstName || seller?.displayName || "S").slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.sellerInfo}>
               <Text style={styles.sellerLabel}>Seller</Text>
               <Text style={styles.sellerName} numberOfLines={1}>
@@ -1032,6 +1036,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
+    width: 40,
+  },
+  sellerAvatarImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 20,
+    height: 40,
     width: 40,
   },
   sellerAvatarText: {

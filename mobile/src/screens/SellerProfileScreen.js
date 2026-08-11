@@ -335,9 +335,13 @@ export default function SellerProfileScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.content}>
         <BackButton navigation={navigation} />
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
-          </View>
+          {profile?.avatarUrl ? (
+            <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+            </View>
+          )}
           <View style={styles.headerText}>
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.joined}>{getJoinedDate(profile)}</Text>
@@ -551,6 +555,12 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     height: 52,
     justifyContent: "center",
+    width: 52,
+  },
+  avatarImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 26,
+    height: 52,
     width: 52,
   },
   avatarText: {
