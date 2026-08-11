@@ -461,12 +461,12 @@ export default function ConversationScreen({ navigation, route }) {
 
       <ActionSheet
         visible={conversationActionsOpen}
-        title="Conversation options"
         onClose={() => setConversationActionsOpen(false)}
+        showCancel={false}
+        showCloseButton
         actions={[
           {
             label: "Report conversation",
-            destructive: true,
             onPress: openReportModal,
           },
           ...(!blockedMe
