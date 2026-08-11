@@ -48,6 +48,8 @@ const LISTING_REPORT_REASONS = [
   { value: "prohibited_item", label: "Prohibited item" },
   { value: "other", label: "Other" },
 ];
+const DESCRIPTION_PREVIEW_LINES = 4;
+const DESCRIPTION_VIEW_MORE_THRESHOLD = 220;
 
 function formatShipping(listing) {
   if (!listing?.shippingAvailable) return null;
@@ -64,6 +66,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [seller, setSeller] = useState(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -110,6 +113,10 @@ export default function ListingDetailScreen({ navigation, route }) {
 
     return unsubscribe;
   }, [listingId]);
+
+  useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [listing?.id]);
 
   useEffect(() => {
     let active = true;
@@ -173,6 +180,10 @@ export default function ListingDetailScreen({ navigation, route }) {
     "Seller";
   const isListingUnavailable =
     listing?.status === "sold" || listing?.status === "archived";
+  const descriptionText = listing?.description || "No description provided.";
+  const canExpandDescription =
+    Boolean(listing?.description) &&
+    listing.description.length > DESCRIPTION_VIEW_MORE_THRESHOLD;
 
   function openCompetitionListings(competition) {
     if (!competition?.id) return;
@@ -728,9 +739,26 @@ export default function ListingDetailScreen({ navigation, route }) {
 
         <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.bodyText}>
-            {listing.description || "No description provided."}
+          <Text
+            style={styles.bodyText}
+            numberOfLines={
+              canExpandDescription && !descriptionExpanded
+                ? DESCRIPTION_PREVIEW_LINES
+                : undefined
+            }
+          >
+            {descriptionText}
           </Text>
+          {canExpandDescription ? (
+            <Pressable
+              style={styles.viewMoreButton}
+              onPress={() => setDescriptionExpanded((current) => !current)}
+            >
+              <Text style={styles.viewMoreText}>
+                {descriptionExpanded ? "View Less" : "View More..."}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {listing.userId && (
@@ -1139,6 +1167,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
+  },
+  viewMoreButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+  },
+  viewMoreText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
   },
   competitionMeetupList: {
     marginTop: 2,
