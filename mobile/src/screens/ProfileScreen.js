@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { deleteUser } from "firebase/auth";
 import {
@@ -134,14 +135,14 @@ function CompetitionRow({ competition, onOpen, onRemove, loading }) {
   );
 }
 
-function ProfileMenuRow({ title, detail, onPress }) {
+function ProfileMenuRow({ title, detail, iconName, onPress }) {
   return (
     <Pressable style={styles.menuRow} onPress={onPress}>
       <View style={styles.menuRowText}>
         <Text style={styles.menuRowTitle}>{title}</Text>
         {detail ? <Text style={styles.menuRowDetail}>{detail}</Text> : null}
       </View>
-      <Text style={styles.menuRowArrow}>{">"}</Text>
+      <MaterialIcons name={iconName} size={22} color={colors.text} />
     </Pressable>
   );
 }
@@ -801,26 +802,31 @@ export default function ProfileScreen({ navigation, route }) {
           <ProfileMenuRow
             title="My Listings"
             detail={`${listings.length} total`}
+            iconName="inventory-2"
             onPress={() => navigation.navigate("ProfileSection", { section: "listings" })}
           />
           <ProfileMenuRow
             title="My Competitions"
             detail={`${attendingCompetitions.length} saved`}
+            iconName="emoji-events"
             onPress={() => navigation.navigate("ProfileSection", { section: "competitions" })}
           />
           <ProfileMenuRow
             title="My Purchases"
             detail={`${purchases.length} purchase${purchases.length === 1 ? "" : "s"}`}
+            iconName="shopping-bag"
             onPress={() => navigation.navigate("ProfileSection", { section: "purchases" })}
           />
           <ProfileMenuRow
             title="Saved Listings"
             detail={`${savedListings.length} listing${savedListings.length === 1 ? "" : "s"}`}
+            iconName="bookmark"
             onPress={() => navigation.navigate("ProfileSection", { section: "saved" })}
           />
           <ProfileMenuRow
             title="About & Policies"
             detail="Safety, terms, privacy, and support"
+            iconName="policy"
             onPress={() => navigation.navigate("Info")}
           />
         </View>
@@ -1075,6 +1081,7 @@ const styles = StyleSheet.create({
   menuRowText: {
     flex: 1,
     minWidth: 0,
+    paddingRight: 12,
   },
   menuRowTitle: {
     color: colors.text,
@@ -1086,12 +1093,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
-  },
-  menuRowArrow: {
-    color: colors.muted,
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 12,
   },
   segmentedControl: {
     alignSelf: "stretch",
