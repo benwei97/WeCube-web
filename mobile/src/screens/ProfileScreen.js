@@ -628,7 +628,6 @@ export default function ProfileScreen({ navigation, route }) {
   function renderSavedListingsSection() {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Saved Listings</Text>
         {loadingSavedListings ? (
           <View style={styles.loadingBlock}>
             <ActivityIndicator color={colors.primary} />
@@ -663,7 +662,6 @@ export default function ProfileScreen({ navigation, route }) {
   function renderPurchasesSection() {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My Purchases</Text>
         {loadingPurchases ? (
           <View style={styles.loadingBlock}>
             <ActivityIndicator color={colors.primary} />
@@ -698,7 +696,6 @@ export default function ProfileScreen({ navigation, route }) {
   function renderCompetitionsSection() {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My Competitions</Text>
         {attendingCompetitions.length === 0 ? (
           <Text style={styles.emptyText}>
             Mark competitions you are going to from the Competitions tab.
