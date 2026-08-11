@@ -557,21 +557,16 @@ export default function ConversationScreen({ navigation, route }) {
               {[1, 2, 3, 4, 5].map((value) => (
                 <Pressable
                   key={value}
-                  style={[
-                    styles.ratingButton,
-                    value <= reviewRating && styles.ratingButtonSelected,
-                  ]}
+                  style={styles.ratingButton}
                   onPress={() => setReviewRating(value)}
                   disabled={reviewSubmitting}
+                  accessibilityLabel={`${value} star${value === 1 ? "" : "s"}`}
                 >
-                  <Text
-                    style={[
-                      styles.ratingButtonText,
-                      value <= reviewRating && styles.ratingButtonTextSelected,
-                    ]}
-                  >
-                    {value}
-                  </Text>
+                  <MaterialIcons
+                    name={value <= reviewRating ? "star" : "star-border"}
+                    size={34}
+                    color={value <= reviewRating ? colors.text : colors.muted}
+                  />
                 </Pressable>
               ))}
             </View>
@@ -862,30 +857,16 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   ratingRow: {
+    alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 4,
     marginTop: 8,
   },
   ratingButton: {
     alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    height: 40,
+    height: 44,
     justifyContent: "center",
-    width: 40,
-  },
-  ratingButtonSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  ratingButtonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  ratingButtonTextSelected: {
-    color: "#fff",
+    width: 44,
   },
   characterCount: {
     color: colors.muted,
