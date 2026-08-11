@@ -19,7 +19,10 @@ export default function ActionSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+        <View
+          style={[styles.sheet, showCloseButton && styles.sheetWithCloseButton]}
+          onStartShouldSetResponder={() => true}
+        >
           {showCloseButton ? (
             <Pressable
               style={styles.closeButton}
@@ -75,13 +78,16 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
+  sheetWithCloseButton: {
+    paddingTop: 34,
+  },
   closeButton: {
     alignItems: "center",
     height: 36,
     justifyContent: "center",
     position: "absolute",
     right: 12,
-    top: 10,
+    top: 4,
     width: 36,
     zIndex: 2,
   },

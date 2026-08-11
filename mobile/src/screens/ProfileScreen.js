@@ -307,6 +307,16 @@ export default function ProfileScreen({ navigation, route }) {
     }
   }
 
+  function confirmLogout() {
+    Alert.alert("Sign out?", "You will need to sign in again to use your account.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        onPress: handleLogout,
+      },
+    ]);
+  }
+
   function openEditProfileModal() {
     setFirstNameDraft(currentUser?.firstName || "");
     setLastNameDraft(currentUser?.lastName || "");
@@ -841,7 +851,7 @@ export default function ProfileScreen({ navigation, route }) {
         actions={[
           {
             label: "Sign out",
-            onPress: handleLogout,
+            onPress: confirmLogout,
           },
           {
             label: "Delete account",
