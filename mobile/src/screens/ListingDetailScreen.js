@@ -70,6 +70,8 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [messageDraftOpen, setMessageDraftOpen] = useState(false);
+  const [initialMessageDraft, setInitialMessageDraft] = useState("");
   const [savingListingBookmark, setSavingListingBookmark] = useState(false);
   const [existingConversation, setExistingConversation] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -194,7 +196,11 @@ export default function ListingDetailScreen({ navigation, route }) {
     setPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
   }
 
-  async function handleMessageSeller() {
+  function getDefaultInitialMessage() {
+    return `Hi, I'm interested in ${listing?.title || "this listing"}.`;
+  }
+
+  function handleMessageSeller() {
     if (!currentUser) {
       Alert.alert("Sign in required", "Sign in to message sellers.");
       return;
@@ -218,14 +224,30 @@ export default function ListingDetailScreen({ navigation, route }) {
       return;
     }
 
+    setInitialMessageDraft(getDefaultInitialMessage());
+    setMessageDraftOpen(true);
+  }
+
+  function closeMessageDraftModal() {
+    if (creatingConversation) return;
+    setMessageDraftOpen(false);
+    setInitialMessageDraft("");
+  }
+
+  async function sendInitialMessage() {
+    const trimmedMessage = initialMessageDraft.trim();
+    if (!trimmedMessage || !currentUser?.uid || !listing?.id || creatingConversation) return;
+
     setCreatingConversation(true);
     try {
       const conversationId = await createConversation({
         listingId: listing.id,
         sellerId: listing.userId,
         buyerId: currentUser.uid,
-        initialMessage: `Hi, I'm interested in ${listing.title || "this listing"}.`,
+        initialMessage: trimmedMessage,
       });
+      setMessageDraftOpen(false);
+      setInitialMessageDraft("");
       navigation.getParent()?.navigate("Messages", {
         screen: "Conversation",
         params: { conversationId },
@@ -761,7 +783,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                       ? listing.status === "archived"
                         ? "Pending"
                         : "Sold"
-                      : "Message seller"}
+            : "Message seller"}
               </Text>
             </Pressable>
           </>
@@ -804,6 +826,49 @@ export default function ListingDetailScreen({ navigation, route }) {
           },
         ]}
       />
+
+      <Modal visible={messageDraftOpen} transparent animationType="fade" onRequestClose={closeMessageDraftModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Message seller</Text>
+            <Text style={styles.modalBody}>
+              Send a first message to start a conversation about this listing.
+            </Text>
+            <Text style={styles.modalLabel}>Message</Text>
+            <TextInput
+              value={initialMessageDraft}
+              onChangeText={(value) => setInitialMessageDraft(value.slice(0, 500))}
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder={getDefaultInitialMessage()}
+              maxLength={500}
+              multiline
+              editable={!creatingConversation}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={closeMessageDraftModal}
+                disabled={creatingConversation}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalSubmitButton,
+                  (!initialMessageDraft.trim() || creatingConversation) &&
+                    styles.modalSubmitButtonDisabled,
+                ]}
+                onPress={sendInitialMessage}
+                disabled={!initialMessageDraft.trim() || creatingConversation}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {creatingConversation ? "Sending..." : "Send"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
         <View style={styles.modalBackdrop}>
