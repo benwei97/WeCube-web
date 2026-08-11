@@ -20,6 +20,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
+import { MaterialIcons } from "@expo/vector-icons";
 import ActionSheet from "../components/ActionSheet";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
@@ -512,7 +513,37 @@ export default function ListingDetailScreen({ navigation, route }) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <BackButton navigation={navigation} />
+        <View style={styles.topBar}>
+          <BackButton navigation={navigation} style={styles.topBackButton} />
+          <View style={styles.topBarActions}>
+            {!isOwnListing ? (
+              <>
+                <Pressable
+                  style={[
+                    styles.iconButton,
+                    savingListingBookmark && styles.primaryButtonDisabled,
+                  ]}
+                  onPress={handleToggleSavedListing}
+                  disabled={savingListingBookmark}
+                  accessibilityLabel={isSavedListing ? "Unsave listing" : "Save listing"}
+                >
+                  <MaterialIcons
+                    name={isSavedListing ? "bookmark" : "bookmark-border"}
+                    size={26}
+                    color={colors.text}
+                  />
+                </Pressable>
+                <Pressable
+                  style={styles.iconButton}
+                  onPress={() => setViewerActionsOpen(true)}
+                  accessibilityLabel="Listing options"
+                >
+                  <MaterialIcons name="more-horiz" size={26} color={colors.text} />
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </View>
         {activePhotoUrl ? (
           <Image source={{ uri: activePhotoUrl }} style={styles.heroImage} />
         ) : (
@@ -569,21 +600,6 @@ export default function ListingDetailScreen({ navigation, route }) {
         <View style={styles.panel}>
           <Text style={styles.title}>{listing.title || "Untitled listing"}</Text>
           <Text style={styles.price}>{formatListingPrice(listing.price)}</Text>
-          {!isOwnListing ? (
-            <Pressable
-              style={[styles.saveListingButton, savingListingBookmark && styles.primaryButtonDisabled]}
-              onPress={handleToggleSavedListing}
-              disabled={savingListingBookmark}
-            >
-              <Text style={styles.saveListingText}>
-                {savingListingBookmark
-                  ? "Saving..."
-                  : isSavedListing
-                    ? "Saved listing"
-                    : "Save listing"}
-              </Text>
-            </Pressable>
-          ) : null}
           <View style={styles.metaRow}>
             <Text style={styles.metaPill}>{listing.condition || "Condition not set"}</Text>
             {listing.puzzleType ? <Text style={styles.metaPill}>{listing.puzzleType}</Text> : null}
@@ -710,12 +726,6 @@ export default function ListingDetailScreen({ navigation, route }) {
                       : "Message seller"}
               </Text>
             </Pressable>
-            <Pressable
-              style={styles.moreActionsButton}
-              onPress={() => setViewerActionsOpen(true)}
-            >
-              <Text style={styles.moreActionsText}>More</Text>
-            </Pressable>
           </>
         ) : null}
       </ScrollView>
@@ -746,12 +756,12 @@ export default function ListingDetailScreen({ navigation, route }) {
 
       <ActionSheet
         visible={viewerActionsOpen}
-        title="Listing options"
         onClose={() => setViewerActionsOpen(false)}
+        showCancel={false}
+        showCloseButton
         actions={[
           {
             label: "Report listing",
-            destructive: true,
             onPress: openReportModal,
           },
         ]}
@@ -882,6 +892,26 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  topBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  topBackButton: {
+    marginBottom: 0,
+  },
+  topBarActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+  },
+  iconButton: {
+    alignItems: "center",
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
   centerState: {
     alignItems: "center",
     flex: 1,
@@ -933,24 +963,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   price: {
-    color: colors.primary,
+    color: colors.text,
     fontSize: 22,
     fontWeight: "800",
     marginTop: 8,
-  },
-  saveListingButton: {
-    alignSelf: "flex-start",
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  saveListingText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "800",
   },
   metaRow: {
     flexDirection: "row",
