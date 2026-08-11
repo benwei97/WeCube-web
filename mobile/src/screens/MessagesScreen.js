@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -65,9 +66,13 @@ function ConversationRow({ conversation, listing, counterpart, currentUserId, on
 
   return (
     <Pressable style={[styles.row, unread && styles.rowUnread]} onPress={onPress}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{counterpartName.charAt(0).toUpperCase()}</Text>
-      </View>
+      {counterpart?.avatarUrl ? (
+        <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatarImage} />
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{counterpartName.charAt(0).toUpperCase()}</Text>
+        </View>
+      )}
       <View style={styles.rowBody}>
         <Text style={[styles.title, unread && styles.unreadText]} numberOfLines={1}>
           {counterpartName}
@@ -317,6 +322,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 48,
     justifyContent: "center",
+    width: 48,
+  },
+  avatarImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 24,
+    height: 48,
     width: 48,
   },
   avatarText: {
