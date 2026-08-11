@@ -544,13 +544,33 @@ export default function ListingDetailScreen({ navigation, route }) {
             ) : null}
           </View>
         </View>
-        {activePhotoUrl ? (
-          <Image source={{ uri: activePhotoUrl }} style={styles.heroImage} />
-        ) : (
-          <View style={[styles.heroImage, styles.imagePlaceholder]}>
-            <Text style={styles.placeholderText}>No photo</Text>
-          </View>
-        )}
+        <View style={styles.heroFrame}>
+          {activePhotoUrl ? (
+            <Image source={{ uri: activePhotoUrl }} style={styles.heroImage} />
+          ) : (
+            <View style={[styles.heroImage, styles.imagePlaceholder]}>
+              <Text style={styles.placeholderText}>No photo</Text>
+            </View>
+          )}
+          {photos.length > 1 ? (
+            <>
+              <Pressable
+                style={[styles.photoArrowButton, styles.photoArrowLeft]}
+                onPress={handlePreviousPhoto}
+                accessibilityLabel="Previous photo"
+              >
+                <MaterialIcons name="chevron-left" size={30} color="#fff" />
+              </Pressable>
+              <Pressable
+                style={[styles.photoArrowButton, styles.photoArrowRight]}
+                onPress={handleNextPhoto}
+                accessibilityLabel="Next photo"
+              >
+                <MaterialIcons name="chevron-right" size={30} color="#fff" />
+              </Pressable>
+            </>
+          ) : null}
+        </View>
 
         {isOwnListing ? (
           <View style={styles.ownerActionBar}>
@@ -583,19 +603,37 @@ export default function ListingDetailScreen({ navigation, route }) {
           </View>
         ) : null}
 
-        {photos.length > 1 && (
-          <View style={styles.photoControls}>
-            <Pressable style={styles.photoButton} onPress={handlePreviousPhoto}>
-              <Text style={styles.photoButtonText}>Previous</Text>
-            </Pressable>
-            <Text style={styles.photoCount}>
-              {photoIndex + 1} / {photos.length}
-            </Text>
-            <Pressable style={styles.photoButton} onPress={handleNextPhoto}>
-              <Text style={styles.photoButtonText}>Next</Text>
-            </Pressable>
-          </View>
-        )}
+        {photos.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.thumbnailStrip}
+          >
+            {photos.map((photo, index) => {
+              const thumbnailUrl = photo?.s3Key ? getS3PublicUrl(photo.s3Key) : null;
+              const selected = index === photoIndex;
+              return (
+                <Pressable
+                  key={photo.s3Key || `${listing.id}-photo-${index}`}
+                  style={[
+                    styles.photoThumbnailButton,
+                    selected && styles.photoThumbnailButtonSelected,
+                  ]}
+                  onPress={() => setPhotoIndex(index)}
+                  accessibilityLabel={`Show photo ${index + 1}`}
+                >
+                  {thumbnailUrl ? (
+                    <Image source={{ uri: thumbnailUrl }} style={styles.photoThumbnail} />
+                  ) : (
+                    <View style={[styles.photoThumbnail, styles.thumbnailPlaceholder]}>
+                      <Text style={styles.thumbnailPlaceholderText}>{index + 1}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.panel}>
           <Text style={styles.title}>{listing.title || "Untitled listing"}</Text>
@@ -918,10 +956,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  heroImage: {
+  heroFrame: {
     aspectRatio: 1,
     backgroundColor: "#e2e8f0",
     borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    width: "100%",
+  },
+  heroImage: {
+    height: "100%",
     width: "100%",
   },
   imagePlaceholder: {
@@ -933,26 +977,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  photoControls: {
+  photoArrowButton: {
     alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
+    backgroundColor: "rgba(15, 23, 42, 0.48)",
+    borderRadius: 22,
+    height: 44,
+    justifyContent: "center",
+    position: "absolute",
+    top: "50%",
+    transform: [{ translateY: -22 }],
+    width: 44,
   },
-  photoButton: {
-    borderColor: colors.border,
+  photoArrowLeft: {
+    left: 10,
+  },
+  photoArrowRight: {
+    right: 10,
+  },
+  thumbnailStrip: {
+    gap: 8,
+    paddingTop: 10,
+  },
+  photoThumbnailButton: {
+    borderColor: "transparent",
     borderRadius: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderWidth: 2,
+    height: 48,
+    overflow: "hidden",
+    width: 48,
   },
-  photoButtonText: {
-    color: colors.primary,
-    fontWeight: "800",
+  photoThumbnailButtonSelected: {
+    borderColor: colors.text,
   },
-  photoCount: {
+  photoThumbnail: {
+    height: "100%",
+    width: "100%",
+  },
+  thumbnailPlaceholder: {
+    alignItems: "center",
+    backgroundColor: "#e2e8f0",
+    justifyContent: "center",
+  },
+  thumbnailPlaceholderText: {
     color: colors.muted,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
   },
   panel: {
     marginTop: 14,
