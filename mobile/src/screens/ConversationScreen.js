@@ -338,19 +338,31 @@ export default function ConversationScreen({ navigation, route }) {
 
     setReviewSubmitting(true);
     try {
-      await submitTransactionReview({
-        listing: reviewListing,
-        reviewer: currentUser,
-        rating: reviewRating,
-        comment: reviewComment,
-        recipientId: otherUserId,
-        recipientName: otherUserName,
-        recipientRole,
-        saleEventId: reviewMessage.saleEventId || conversation.activeSaleEventId || null,
-      });
+      let alreadyReviewed = false;
+      try {
+        await submitTransactionReview({
+          listing: reviewListing,
+          reviewer: currentUser,
+          rating: reviewRating,
+          comment: reviewComment,
+          recipientId: otherUserId,
+          recipientName: otherUserName,
+          recipientRole,
+          saleEventId: reviewMessage.saleEventId || conversation.activeSaleEventId || null,
+        });
+      } catch (submitError) {
+        if (submitError.message === "You have already reviewed this user") {
+          alreadyReviewed = true;
+        } else {
+          throw submitError;
+        }
+      }
       await updateReviewPromptResponse(reviewMessage.id, currentUser.uid, "reviewed");
       closeReviewModal();
-      Alert.alert("Review submitted", "Your review has been added.");
+      Alert.alert(
+        alreadyReviewed ? "Review already submitted" : "Review submitted",
+        alreadyReviewed ? "Your previous review is already on this profile." : "Your review has been added."
+      );
     } catch (reviewError) {
       console.error("Error submitting mobile review:", reviewError);
       Alert.alert("Unable to submit review", reviewError.message || "Please try again.");

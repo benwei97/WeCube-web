@@ -392,6 +392,22 @@ service cloud.firestore {
         ]);
     }
 
+    function validReviewPromptResponseUpdate() {
+      return signedIn()
+        && resource.data.reviewPrompt == true
+        && resource.data.reviewResponses is map
+        && request.resource.data.reviewResponses is map
+        && conversationExists(resource.data.conversationId)
+        && isConversationParticipantByData(conversationData(resource.data.conversationId))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "reviewResponses",
+          "updatedAt"
+        ])
+        && request.resource.data.reviewResponses.diff(resource.data.reviewResponses).affectedKeys().hasOnly([request.auth.uid])
+        && request.resource.data.reviewResponses[request.auth.uid] == "reviewed"
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function validReviewCreate(reviewId, data) {
       let listing = listingData(data.listingId);
       let isBuyer = listing.buyerId == request.auth.uid;
@@ -643,7 +659,8 @@ service cloud.firestore {
         && conversationExists(resource.data.conversationId)
         && isConversationParticipantByData(conversationData(resource.data.conversationId));
       allow create: if validMessageCreate(request.resource.data);
-      allow update, delete: if false;
+      allow update: if validReviewPromptResponseUpdate();
+      allow delete: if false;
     }
 
     match /reviews/{reviewId} {
