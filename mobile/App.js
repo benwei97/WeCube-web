@@ -148,6 +148,11 @@ function ProfileNavigator() {
         options={{ headerShown: false }}
       />
       <ProfileStack.Screen
+        name="ProfileSection"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
         name="Info"
         component={InfoScreen}
         options={{ headerShown: false }}

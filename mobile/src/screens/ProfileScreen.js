@@ -26,6 +26,7 @@ import {
   where,
 } from "firebase/firestore";
 import ActionSheet from "../components/ActionSheet";
+import BackButton from "../components/BackButton";
 import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
 import ScreenTitle from "../components/ScreenTitle";
@@ -133,8 +134,21 @@ function CompetitionRow({ competition, onOpen, onRemove, loading }) {
   );
 }
 
-export default function ProfileScreen({ navigation }) {
+function ProfileMenuRow({ title, detail, onPress }) {
+  return (
+    <Pressable style={styles.menuRow} onPress={onPress}>
+      <View style={styles.menuRowText}>
+        <Text style={styles.menuRowTitle}>{title}</Text>
+        {detail ? <Text style={styles.menuRowDetail}>{detail}</Text> : null}
+      </View>
+      <Text style={styles.menuRowArrow}>{">"}</Text>
+    </Pressable>
+  );
+}
+
+export default function ProfileScreen({ navigation, route }) {
   const { currentUser, logout } = useAuth();
+  const activeSection = route?.params?.section || "home";
   const [listings, setListings] = useState([]);
   const [savedListings, setSavedListings] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -151,8 +165,6 @@ export default function ProfileScreen({ navigation }) {
   const [savingProfile, setSavingProfile] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileActionsOpen, setProfileActionsOpen] = useState(false);
-  const [profileSection, setProfileSection] = useState("listings");
-  const [listingStatusTab, setListingStatusTab] = useState("active");
   const [competitionSavingId, setCompetitionSavingId] = useState("");
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
   const avatarUrl = currentUser?.avatarUrl || "";
@@ -712,40 +724,51 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  function renderSegmentButton(label, value, selectedValue, onSelect) {
-    const selected = value === selectedValue;
+  function renderMyListingsSection() {
     return (
-      <Pressable
-        style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
-        onPress={() => onSelect(value)}
-      >
-        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
-          {label}
-        </Text>
-      </Pressable>
+      <>
+        {renderListingSection("Active", groupedListings.active)}
+        {renderListingSection("Pending", groupedListings.pending)}
+        {renderListingSection("Sold", groupedListings.sold)}
+      </>
     );
   }
 
-  function renderDashboardContent() {
-    if (profileSection === "saved") return renderSavedListingsSection();
-    if (profileSection === "competitions") return renderCompetitionsSection();
-    if (profileSection === "purchases") return renderPurchasesSection();
-
-    const currentListings = groupedListings[listingStatusTab] || [];
-    const listingTitle =
-      listingStatusTab === "pending"
-        ? "Pending"
-        : listingStatusTab.charAt(0).toUpperCase() + listingStatusTab.slice(1);
-
-    return (
-      <>
-        <View style={[styles.segmentedControl, styles.statusSegmentedControl]}>
-          {renderSegmentButton("Active", "active", listingStatusTab, setListingStatusTab)}
-          {renderSegmentButton("Pending", "pending", listingStatusTab, setListingStatusTab)}
-          {renderSegmentButton("Sold", "sold", listingStatusTab, setListingStatusTab)}
+  function renderSectionContent() {
+    if (activeSection === "listings") {
+      return loadingListings ? (
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-        {renderListingSection(listingTitle, currentListings)}
-      </>
+      ) : (
+        renderMyListingsSection()
+      );
+    }
+
+    if (activeSection === "competitions") return renderCompetitionsSection();
+    if (activeSection === "purchases") return renderPurchasesSection();
+    if (activeSection === "saved") return renderSavedListingsSection();
+
+    return null;
+  }
+
+  function getSectionTitle() {
+    if (activeSection === "listings") return "My Listings";
+    if (activeSection === "competitions") return "My Competitions";
+    if (activeSection === "purchases") return "My Purchases";
+    if (activeSection === "saved") return "Saved Listings";
+    return "Profile";
+  }
+
+  if (activeSection !== "home") {
+    return (
+      <Screen>
+        <ScrollView contentContainerStyle={styles.container}>
+          <BackButton navigation={navigation} />
+          <ScreenTitle>{getSectionTitle()}</ScreenTitle>
+          {renderSectionContent()}
+        </ScrollView>
+      </Screen>
     );
   }
 
@@ -777,28 +800,36 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {loadingListings ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        ) : (
-          <>
-            <View style={styles.segmentedControl}>
-              {renderSegmentButton("Listings", "listings", profileSection, setProfileSection)}
-              {renderSegmentButton("Saved", "saved", profileSection, setProfileSection)}
-              {renderSegmentButton("Going", "competitions", profileSection, setProfileSection)}
-              {renderSegmentButton("Purchases", "purchases", profileSection, setProfileSection)}
-            </View>
-            {renderDashboardContent()}
-          </>
-        )}
+        <View style={styles.menuList}>
+          <ProfileMenuRow
+            title="My Listings"
+            detail={`${listings.length} total`}
+            onPress={() => navigation.navigate("ProfileSection", { section: "listings" })}
+          />
+          <ProfileMenuRow
+            title="My Competitions"
+            detail={`${attendingCompetitions.length} saved`}
+            onPress={() => navigation.navigate("ProfileSection", { section: "competitions" })}
+          />
+          <ProfileMenuRow
+            title="My Purchases"
+            detail={`${purchases.length} purchase${purchases.length === 1 ? "" : "s"}`}
+            onPress={() => navigation.navigate("ProfileSection", { section: "purchases" })}
+          />
+          <ProfileMenuRow
+            title="Saved Listings"
+            detail={`${savedListings.length} listing${savedListings.length === 1 ? "" : "s"}`}
+            onPress={() => navigation.navigate("ProfileSection", { section: "saved" })}
+          />
+          <ProfileMenuRow
+            title="About & Policies"
+            detail="Safety, terms, privacy, and support"
+            onPress={() => navigation.navigate("Info")}
+          />
+        </View>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Sign out</Text>
-        </Pressable>
-
-        <Pressable style={styles.infoButton} onPress={() => navigation.navigate("Info")}>
-          <Text style={styles.infoText}>About & policies</Text>
         </Pressable>
       </ScrollView>
 
@@ -1026,6 +1057,44 @@ const styles = StyleSheet.create({
   },
   loadingBlock: {
     padding: 24,
+  },
+  menuList: {
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 18,
+    overflow: "hidden",
+  },
+  menuRow: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  menuRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  menuRowTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  menuRowDetail: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  menuRowArrow: {
+    color: colors.muted,
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 12,
   },
   segmentedControl: {
     alignSelf: "stretch",
