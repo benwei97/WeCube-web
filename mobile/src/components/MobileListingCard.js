@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   content: {
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 2,
     paddingBottom: 2,
     paddingTop: 8,
@@ -151,7 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 17,
-    minHeight: 34,
   },
   price: {
     color: colors.text,
