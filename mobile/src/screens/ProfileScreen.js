@@ -831,16 +831,18 @@ export default function ProfileScreen({ navigation, route }) {
           />
         </View>
 
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Sign out</Text>
-        </Pressable>
       </ScrollView>
 
       <ActionSheet
         visible={profileActionsOpen}
-        title="Account options"
         onClose={() => setProfileActionsOpen(false)}
+        showCancel={false}
+        showCloseButton
         actions={[
+          {
+            label: "Sign out",
+            onPress: handleLogout,
+          },
           {
             label: "Delete account",
             destructive: true,
@@ -1242,18 +1244,6 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.muted,
     fontSize: 14,
-  },
-  logoutButton: {
-    alignItems: "center",
-    borderColor: colors.danger,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginTop: 18,
-    paddingVertical: 12,
-  },
-  logoutText: {
-    color: colors.danger,
-    fontWeight: "800",
   },
   infoButton: {
     alignItems: "center",

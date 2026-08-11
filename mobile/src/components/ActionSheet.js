@@ -1,7 +1,15 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 
-export default function ActionSheet({ visible, title, actions = [], onClose }) {
+export default function ActionSheet({
+  visible,
+  title,
+  actions = [],
+  onClose,
+  showCancel = true,
+  showCloseButton = false,
+}) {
   function runAction(action) {
     if (action.disabled) return;
     onClose?.();
@@ -12,6 +20,15 @@ export default function ActionSheet({ visible, title, actions = [], onClose }) {
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+          {showCloseButton ? (
+            <Pressable
+              style={styles.closeButton}
+              onPress={onClose}
+              accessibilityLabel="Close menu"
+            >
+              <MaterialIcons name="close" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
           <View style={styles.handle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
           <View style={styles.actionList}>
@@ -34,9 +51,11 @@ export default function ActionSheet({ visible, title, actions = [], onClose }) {
               </Pressable>
             ))}
           </View>
-          <Pressable style={styles.cancelButton} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </Pressable>
+          {showCancel ? (
+            <Pressable style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     </Modal>
@@ -55,6 +74,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 14,
     padding: 16,
     paddingBottom: 24,
+  },
+  closeButton: {
+    alignItems: "center",
+    height: 36,
+    justifyContent: "center",
+    position: "absolute",
+    right: 12,
+    top: 10,
+    width: 36,
+    zIndex: 2,
   },
   handle: {
     alignSelf: "center",
