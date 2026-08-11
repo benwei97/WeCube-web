@@ -783,7 +783,6 @@ export default function ListingDetailScreen({ navigation, route }) {
                   "Seller profile"}
               </Text>
             </View>
-            <Text style={styles.sellerAction}>View</Text>
           </Pressable>
         )}
 
@@ -1250,11 +1249,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     marginTop: 2,
-  },
-  sellerAction: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
   },
   ownerActionBar: {
     flexDirection: "row",
