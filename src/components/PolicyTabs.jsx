@@ -23,8 +23,12 @@ export default function PolicyTabs() {
           display: "inline-flex",
           flexWrap: "wrap",
           justifyContent: "center",
-          borderBottom: "1px solid",
+          gap: 0.5,
+          p: 0.5,
+          bgcolor: "rgba(255, 255, 255, 0.82)",
+          border: "1px solid",
           borderColor: "divider",
+          borderRadius: 2,
         }}
       >
         {POLICY_TABS.map((tab) => {
@@ -41,17 +45,17 @@ export default function PolicyTabs() {
               sx={{
                 minWidth: 0,
                 width: { xs: 112, sm: 170 },
-                borderRadius: 0,
-                borderBottom: "2px solid",
-                borderColor: isActive ? "primary.main" : "transparent",
+                borderRadius: 1.5,
                 color: isActive ? "primary.main" : "text.secondary",
+                bgcolor: isActive ? "primary.50" : "transparent",
                 fontWeight: isActive ? 700 : 500,
                 textTransform: "none",
                 px: 1,
-                pb: 0.75,
+                py: 0.9,
                 textAlign: "center",
+                boxShadow: "none",
                 "&:hover": {
-                  bgcolor: "transparent",
+                  bgcolor: "primary.50",
                   color: "primary.main",
                 },
               }}

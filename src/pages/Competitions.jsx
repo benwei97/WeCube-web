@@ -239,9 +239,20 @@ function Competitions() {
 
           {loadingCompetitions ? (
             <Stack spacing={1.5}>
-              <Skeleton variant="rectangular" height={56} />
+              <Skeleton
+                variant="rounded"
+                height={52}
+                animation="wave"
+                sx={{ borderRadius: 2, bgcolor: "rgba(47, 107, 255, 0.08)" }}
+              />
               {[...Array(6)].map((_, index) => (
-                <Skeleton key={index} variant="rectangular" height={74} />
+                <Skeleton
+                  key={index}
+                  variant="rounded"
+                  height={72}
+                  animation="wave"
+                  sx={{ borderRadius: 2, bgcolor: "rgba(16, 16, 16, 0.07)" }}
+                />
               ))}
             </Stack>
           ) : (

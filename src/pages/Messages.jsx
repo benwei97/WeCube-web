@@ -56,6 +56,7 @@ import {
   clampText,
   INPUT_LIMITS,
 } from "../utils/inputLimits";
+import PageState from "../components/PageState";
 
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 const REVIEW_PROMPT_RESPONSE_STORAGE_KEY = "wecubeReviewPromptResponses";
@@ -1022,7 +1023,11 @@ function Messages() {
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Loading...</Typography>
+        <PageState
+          variant="loading"
+          title="Loading messages"
+          message="Opening your conversations."
+        />
       </Box>
     );
   }

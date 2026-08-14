@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
-import { Box } from "@mui/material";
+import { Box, CssBaseline } from "@mui/material";
 import "./App.css";
 import theme from "./theme";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -23,6 +23,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 function App() {
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AuthProvider>
         <Router>
           <Header />
@@ -35,7 +36,7 @@ function App() {
               justifyContent: "center",
               width: "100vw",
               minHeight: "100vh",
-              bgcolor: "#ffffff",
+              bgcolor: "background.default",
             }}
           >
             <Routes>

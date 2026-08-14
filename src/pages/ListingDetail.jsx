@@ -101,6 +101,7 @@ import {
 } from "../utils/wcaApi";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
+import PageState from "../components/PageState";
 import {
   characterCountText,
   clampText,
@@ -1344,7 +1345,11 @@ function ListingDetail() {
   if (loading) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Loading...</Typography>
+        <PageState
+          variant="loading"
+          title="Loading listing"
+          message="Getting listing photos, seller details, and fulfillment options."
+        />
       </Box>
     );
   }
@@ -1352,10 +1357,12 @@ function ListingDetail() {
   if (!listing) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Listing not found</Typography>
-        <Button onClick={() => navigate(-1)} variant="outlined" sx={{ mt: 2, ...BACK_BUTTON_SX }}>
-          Back
-        </Button>
+        <PageState
+          title="Listing not found"
+          message="This listing may have been removed or the link may be outdated."
+          actionLabel="Back"
+          onAction={() => navigate(-1)}
+        />
       </Box>
     );
   }
@@ -1399,10 +1406,12 @@ function ListingDetail() {
   if (isHiddenByModeration && !canViewHiddenListing) {
     return (
       <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
-        <Typography variant="h4">Listing not found</Typography>
-        <Button onClick={() => navigate(-1)} variant="outlined" sx={{ mt: 2, ...BACK_BUTTON_SX }}>
-          Back
-        </Button>
+        <PageState
+          title="Listing not found"
+          message="This listing may have been removed or is no longer visible."
+          actionLabel="Back"
+          onAction={() => navigate(-1)}
+        />
       </Box>
     );
   }

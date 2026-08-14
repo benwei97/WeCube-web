@@ -1,11 +1,11 @@
 import { Box, Button, Divider, Stack, Typography } from "@mui/material";
 
 const PAGE_SX = {
-  width: { xs: "100%", md: "80vw" },
-  maxWidth: 900,
+  width: "100%",
+  maxWidth: 880,
   mx: "auto",
-  p: { xs: 2, sm: 3 },
-  mt: 2,
+  px: { xs: 2, sm: 3 },
+  py: { xs: 3, md: 5 },
 };
 
 const DONATION_URL = import.meta.env.VITE_DONATION_URL;
@@ -13,12 +13,12 @@ const DONATION_URL = import.meta.env.VITE_DONATION_URL;
 export default function About() {
   return (
     <Box sx={PAGE_SX}>
-      <Stack spacing={3}>
+      <Stack spacing={{ xs: 3, md: 3.5 }}>
         <Box>
-          <Typography variant="h3" component="h1" fontWeight={700}>
+          <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
             About WeCube
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
             WeCube is a community-first marketplace built for speedcubers to
             buy, sell, and discover puzzles in a simpler, more focused place.
           </Typography>
@@ -30,7 +30,7 @@ export default function About() {
           <Typography variant="h5" component="h2" fontWeight={700}>
             Why WeCube Exists
           </Typography>
-          <Typography variant="body1" sx={{ mt: 1 }}>
+          <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
             Speedcubers often buy, sell, trade, and discover puzzles through
             scattered chats, social posts, and general marketplaces. WeCube was
             built to give the cubing community a dedicated place for puzzle
@@ -43,7 +43,7 @@ export default function About() {
           <Typography variant="h5" component="h2" fontWeight={700}>
             Community-First
           </Typography>
-          <Typography variant="body1" sx={{ mt: 1 }}>
+          <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
             WeCube is currently run as a community-first project. The goal is to
             support the cubing community, keep casual marketplace listings
             accessible, and build tools that make buying and selling puzzles
@@ -55,7 +55,7 @@ export default function About() {
           <Typography variant="h5" component="h2" fontWeight={700}>
             Support WeCube
           </Typography>
-          <Typography variant="body1" sx={{ mt: 1 }}>
+          <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
             Optional donations help cover hosting, tools, maintenance, and
             continued development. Donations do not unlock marketplace
             advantages, listing boosts, badges, or special treatment.

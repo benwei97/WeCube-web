@@ -69,6 +69,7 @@ import {
 } from "../utils/s3";
 import AccountDeletionDialog from "../components/AccountDeletionDialog";
 import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
+import PageState from "../components/PageState";
 
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
@@ -925,10 +926,10 @@ function Dashboard() {
   if (!currentUser) {
     return (
       <Box sx={LISTING_PAGE_SX}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-          Dashboard
-        </Typography>
-        <Alert severity="info">Sign in to view your dashboard.</Alert>
+        <PageState
+          title="Sign in to view your dashboard"
+          message="Your dashboard keeps your listings, purchases, saved listings, and competition plans together."
+        />
       </Box>
     );
   }
@@ -936,7 +937,11 @@ function Dashboard() {
   if (loading) {
     return (
       <Box sx={LISTING_PAGE_SX}>
-        <Typography variant="h4">Loading...</Typography>
+        <PageState
+          variant="loading"
+          title="Loading dashboard"
+          message="Gathering your listings, purchases, saved items, and account details."
+        />
       </Box>
     );
   }

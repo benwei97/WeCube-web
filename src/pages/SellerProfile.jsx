@@ -51,6 +51,7 @@ import {
   INPUT_LIMITS,
 } from "../utils/inputLimits";
 import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
+import PageState from "../components/PageState";
 
 const SECTION_SX = {
   py: 2.25,
@@ -366,7 +367,11 @@ function SellerProfile() {
   if (loading) {
     return (
       <Box sx={LISTING_PAGE_SX}>
-        <Typography variant="h4">Loading...</Typography>
+        <PageState
+          variant="loading"
+          title="Loading profile"
+          message="Getting seller listings, reviews, and profile details."
+        />
       </Box>
     );
   }
@@ -374,10 +379,12 @@ function SellerProfile() {
   if (!seller) {
     return (
       <Box sx={LISTING_PAGE_SX}>
-        <Typography variant="h4">Profile not found</Typography>
-        <Button onClick={() => navigate(-1)} sx={{ mt: 2, ...BACK_BUTTON_SX }} variant="outlined">
-          Back
-        </Button>
+        <PageState
+          title="Profile not found"
+          message="This profile may have been removed or the link may be outdated."
+          actionLabel="Back"
+          onAction={() => navigate(-1)}
+        />
       </Box>
     );
   }

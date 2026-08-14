@@ -224,11 +224,33 @@ function Header() {
           <Box sx={{ flexGrow: 1 }} />
 
           <Box sx={{ display: { xs: "none", md: "flex" }, gap: 3, mr: 3 }}>
-            {desktopNavItems.map((item) => (
-              <Button key={item.path} component={Link} to={item.path} color="inherit">
-                {item.label}
-              </Button>
-            ))}
+            {desktopNavItems.map((item) => {
+              const isActive =
+                item.path === "/"
+                  ? location.pathname === "/"
+                  : location.pathname.startsWith(item.path);
+
+              return (
+                <Button
+                  key={item.path}
+                  component={Link}
+                  to={item.path}
+                  color="inherit"
+                  sx={{
+                    minHeight: 36,
+                    px: 1.5,
+                    color: isActive ? "primary.main" : "text.primary",
+                    bgcolor: isActive ? "primary.50" : "transparent",
+                    "&:hover": {
+                      bgcolor: "primary.50",
+                      color: "primary.main",
+                    },
+                  }}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
           </Box>
 
           <Box sx={{ display: { xs: "none", md: "block" }, flexGrow: 1 }} />
@@ -240,7 +262,13 @@ function Header() {
               to="/messages"
               onClick={handleMessagesClick}
               aria-label="Messages"
-              sx={{ position: "relative" }}
+              sx={{
+                position: "relative",
+                color: location.pathname.startsWith("/messages")
+                  ? "primary.main"
+                  : "text.primary",
+                "&:hover": { bgcolor: "primary.50" },
+              }}
             >
               <Badge
                 badgeContent={unreadConversationCount}
@@ -388,11 +416,17 @@ function Header() {
                   minWidth: 0,
                   px: 0.5,
                   py: 0.75,
-                  borderRadius: 1,
+                  borderRadius: 1.5,
                   fontSize: "0.78rem",
                   fontWeight: isActive ? 700 : 500,
                   color: isActive ? "primary.main" : "text.secondary",
+                  bgcolor: isActive ? "primary.50" : "transparent",
                   textTransform: "none",
+                  boxShadow: "none",
+                  "&:hover": {
+                    bgcolor: "primary.50",
+                    color: "primary.main",
+                  },
                 }}
               >
                 {item.label}

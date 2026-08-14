@@ -50,6 +50,7 @@ import {
   formatCurrencyInputFromDigits,
   INPUT_LIMITS,
 } from "../utils/inputLimits";
+import PageState from "../components/PageState";
 
 const SUPPORTED_PHOTO_TYPES = new Set([
   "image/jpeg",
@@ -622,12 +623,10 @@ function Sell() {
   if (!currentUser) {
     return (
       <Box sx={SELL_PAGE_CONTAINER_SX}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
-          List Your Cube
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Please sign in to create a listing
-        </Typography>
+        <PageState
+          title="Sign in to list your cube"
+          message="Create an account or sign in to add photos, choose fulfillment options, and publish a listing."
+        />
       </Box>
     );
   }

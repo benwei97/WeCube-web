@@ -2,11 +2,11 @@ import { Box, Divider, Stack, Typography } from "@mui/material";
 import PolicyTabs from "../components/PolicyTabs";
 
 const PAGE_SX = {
-  width: { xs: "100%", md: "80vw" },
-  maxWidth: 900,
+  width: "100%",
+  maxWidth: 880,
   mx: "auto",
-  p: { xs: 2, sm: 3 },
-  mt: 2,
+  px: { xs: 2, sm: 3 },
+  py: { xs: 3, md: 5 },
 };
 
 const SECTIONS = [
@@ -39,14 +39,14 @@ const SECTIONS = [
 export default function Terms() {
   return (
     <Box sx={PAGE_SX}>
-      <Stack spacing={3}>
+      <Stack spacing={{ xs: 3, md: 3.5 }}>
         <PolicyTabs />
 
         <Box>
-          <Typography variant="h3" component="h1" fontWeight={700}>
+          <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
             Terms & Conditions
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
             These terms summarize how WeCube should be used and what users are
             responsible for.
           </Typography>
@@ -59,7 +59,7 @@ export default function Terms() {
             <Typography variant="h5" component="h2" fontWeight={700}>
               {section.title}
             </Typography>
-            <Typography variant="body1" sx={{ mt: 1 }}>
+            <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
               {section.body}
             </Typography>
           </Box>

@@ -10,7 +10,7 @@
 
   color-scheme: light;
   color: var(--wecube-ink);
-  background-color: #ffffff;
+  background-color: var(--wecube-paper);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -29,11 +29,9 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #ffffff;
+  background-color: var(--wecube-paper);
 }
 
 h1 {

@@ -51,6 +51,7 @@ import {
 } from "../utils/locationSearch";
 import { getS3PublicUrl } from "../utils/s3";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
+import PageState from "../components/PageState";
 
 const EARTH_RADIUS_MILES = 3958.8;
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
@@ -587,7 +588,11 @@ function Browse() {
   if (loading) {
     return (
       <Box sx={LISTING_PAGE_SX}>
-        <Typography variant="h4">Loading...</Typography>
+        <PageState
+          variant="loading"
+          title="Loading listings"
+          message="Finding the newest cubes in the marketplace."
+        />
       </Box>
     );
   }
