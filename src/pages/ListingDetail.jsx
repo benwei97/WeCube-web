@@ -113,13 +113,13 @@ const BACK_BUTTON_SX = {
   borderColor: "rgba(148, 163, 184, 0.22)",
   "&:hover": {
     borderColor: "primary.main",
-    bgcolor: "rgba(100, 108, 255, 0.04)",
+    bgcolor: "rgba(47, 107, 255, 0.04)",
   },
 };
 const COMPETITION_CHIP_SX = {
   borderRadius: 1,
-  borderColor: "rgba(100, 108, 255, 0.32)",
-  bgcolor: "rgba(100, 108, 255, 0.08)",
+  borderColor: "rgba(47, 107, 255, 0.32)",
+  bgcolor: "rgba(47, 107, 255, 0.08)",
   color: "primary.main",
   fontWeight: 600,
   "& .MuiChip-label": {
@@ -1512,12 +1512,12 @@ function ListingDetail() {
                 borderColor: isSavedListing ? "primary.main" : "divider",
                 color: isSavedListing ? "primary.main" : "text.secondary",
                 bgcolor: isSavedListing
-                  ? "rgba(100, 108, 255, 0.08)"
+                  ? "rgba(47, 107, 255, 0.08)"
                   : "transparent",
                 "&:hover": {
                   bgcolor: isSavedListing
-                    ? "rgba(100, 108, 255, 0.12)"
-                    : "rgba(100, 108, 255, 0.04)",
+                    ? "rgba(47, 107, 255, 0.12)"
+                    : "rgba(47, 107, 255, 0.04)",
                 },
               }}
             >

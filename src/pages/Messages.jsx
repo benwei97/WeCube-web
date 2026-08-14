@@ -126,12 +126,12 @@ function ConversationIdentityThumb({
           "&:hover": onListingClick
             ? {
                 outlineColor: "primary.main",
-                boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.14)",
+                boxShadow: "0 0 0 4px rgba(47, 107, 255, 0.14)",
               }
             : undefined,
           "&:focus-visible": {
             outlineColor: "primary.main",
-            boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.18)",
+            boxShadow: "0 0 0 4px rgba(47, 107, 255, 0.18)",
           },
         }}
       >
@@ -167,13 +167,13 @@ function ConversationIdentityThumb({
           "&:hover": onUserClick
             ? {
                 outlineColor: "primary.main",
-                boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.2)",
+                boxShadow: "0 0 0 4px rgba(47, 107, 255, 0.2)",
                 transform: "scale(1.08)",
               }
             : undefined,
           "&:focus-visible": {
             outlineColor: "primary.main",
-            boxShadow: "0 0 0 4px rgba(100, 108, 255, 0.24)",
+            boxShadow: "0 0 0 4px rgba(47, 107, 255, 0.24)",
             transform: "scale(1.08)",
           },
         }}
@@ -1528,7 +1528,7 @@ function Messages() {
                               : "text.primary",
                           boxShadow:
                             isCurrentUserMessage
-                              ? "0 4px 12px rgba(25, 118, 210, 0.18)"
+                              ? "0 4px 12px rgba(47, 107, 255, 0.18)"
                               : "none",
                         }}
                       >

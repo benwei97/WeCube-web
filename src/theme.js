@@ -3,9 +3,10 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#646cff',
-      light: '#7c84ff',
-      dark: '#5a5fcf',
+      50: '#eef4ff',
+      main: '#2F6BFF',
+      light: '#6f95ff',
+      dark: '#1f4fd6',
     },
     secondary: {
       main: '#f50057',
@@ -15,12 +16,12 @@ const theme = createTheme({
       paper: '#ffffff',
     },
     text: {
-      primary: '#213547',
-      secondary: '#666',
+      primary: '#101010',
+      secondary: '#5f6470',
     },
   },
   typography: {
-    fontFamily: 'system-ui, Avenir, Helvetica, Arial, sans-serif',
+    fontFamily: '"DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h1: {
       fontSize: '3.2rem',
       fontWeight: 600,
@@ -53,7 +54,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundColor: '#ffffff',
-          color: '#213547',
+          color: '#101010',
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
         },
       },

@@ -101,8 +101,8 @@ const SELL_MEDIA_TILE_SX = {
 };
 const COMPETITION_CHIP_SX = {
   borderRadius: 1,
-  borderColor: "rgba(100, 108, 255, 0.32)",
-  bgcolor: "rgba(100, 108, 255, 0.08)",
+  borderColor: "rgba(47, 107, 255, 0.32)",
+  bgcolor: "rgba(47, 107, 255, 0.08)",
   color: "primary.main",
   fontWeight: 600,
   "& .MuiChip-label": {
@@ -996,7 +996,7 @@ function Sell() {
                       pt: 1,
                       pb: 0.5,
                       borderLeft: "1px solid",
-                      borderColor: "rgba(100, 108, 255, 0.28)",
+                      borderColor: "rgba(47, 107, 255, 0.28)",
                     }}
                   >
                     <TextField

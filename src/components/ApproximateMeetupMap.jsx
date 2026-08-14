@@ -156,7 +156,7 @@ function InteractiveMapboxArea({ location, radiusMiles }) {
             type: "fill",
             source: APPROXIMATE_AREA_SOURCE_ID,
             paint: {
-              "fill-color": "#1976d2",
+              "fill-color": "#2F6BFF",
               "fill-opacity": 0.18,
             },
           });
@@ -166,7 +166,7 @@ function InteractiveMapboxArea({ location, radiusMiles }) {
             type: "line",
             source: APPROXIMATE_AREA_SOURCE_ID,
             paint: {
-              "line-color": "#1976d2",
+              "line-color": "#2F6BFF",
               "line-width": 2,
             },
           });

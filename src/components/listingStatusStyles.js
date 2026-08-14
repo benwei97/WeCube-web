@@ -42,10 +42,10 @@ export const LISTING_CARD_SX = {
     pointerEvents: "none",
     opacity: 0,
     zIndex: 3,
-    outline: "2px solid rgba(78, 91, 214, 0.45)",
+    outline: "2px solid rgba(47, 107, 255, 0.45)",
     outlineOffset: "-2px",
     boxShadow:
-      "0 18px 38px rgba(31, 53, 99, 0.18), 0 0 0 4px rgba(78, 91, 214, 0.08)",
+      "0 18px 38px rgba(31, 53, 99, 0.18), 0 0 0 4px rgba(47, 107, 255, 0.08)",
     transition: "opacity 180ms ease",
   },
   "&:hover": {

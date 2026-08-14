@@ -79,7 +79,7 @@ const BACK_BUTTON_SX = {
   borderColor: "rgba(148, 163, 184, 0.22)",
   "&:hover": {
     borderColor: "primary.main",
-    bgcolor: "rgba(100, 108, 255, 0.04)",
+    bgcolor: "rgba(47, 107, 255, 0.04)",
   },
 };
 const USER_REPORT_REASONS = [

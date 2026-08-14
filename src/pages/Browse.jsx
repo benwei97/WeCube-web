@@ -83,17 +83,17 @@ const LOCATION_FILTER_BUTTON_SX = {
   },
   "&:hover": {
     borderColor: "primary.main",
-    bgcolor: "rgba(100, 108, 255, 0.04)",
+    bgcolor: "rgba(47, 107, 255, 0.04)",
   },
   "&.MuiButton-contained": {
     color: "text.primary",
     border: "1px solid",
     borderColor: "primary.main",
-    bgcolor: "rgba(100, 108, 255, 0.08)",
+    bgcolor: "rgba(47, 107, 255, 0.08)",
     boxShadow: "none",
     "&:hover": {
       borderColor: "primary.main",
-      bgcolor: "rgba(100, 108, 255, 0.12)",
+      bgcolor: "rgba(47, 107, 255, 0.12)",
       boxShadow: "none",
     },
   },
