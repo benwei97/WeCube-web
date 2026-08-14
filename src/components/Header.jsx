@@ -25,7 +25,7 @@ import {
 } from "../utils/messaging";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
-import logo from "../assets/wecube-logo.png";
+import logo from "../assets/wecube-logo.svg";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 
@@ -217,11 +217,8 @@ function Header() {
             <img
               src={logo}
               alt="WeCube Logo"
-              style={{ height: 40, marginRight: 12 }}
+              style={{ height: 34, width: "auto" }}
             />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              WeCube
-            </Typography>
           </Box>
 
           <Box sx={{ flexGrow: 1 }} />

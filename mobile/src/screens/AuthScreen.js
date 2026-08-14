@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +14,7 @@ import {
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { colors } from "../theme/colors";
+import logoMark from "../../assets/icon.png";
 
 export default function AuthScreen() {
   const { login, signup, resetPassword } = useAuth();
@@ -89,6 +91,7 @@ export default function AuthScreen() {
         style={styles.container}
       >
         <View style={styles.card}>
+          <Image source={logoMark} style={styles.logo} />
           <Text style={styles.title}>{isSignup ? "Create account" : "Sign in"}</Text>
           <Text style={styles.subtitle}>
             Sign in before using WeCube.
@@ -192,6 +195,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 18,
+  },
+  logo: {
+    alignSelf: "center",
+    borderRadius: 16,
+    height: 64,
+    marginBottom: 20,
+    width: 64,
   },
   title: {
     color: colors.text,

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="312" height="80" viewBox="0 0 312 80" role="img" aria-labelledby="title">
+  <title id="title">WeCube</title>
+  <rect width="312" height="80" fill="none"/>
+  <g transform="translate(6 12)">
+    <g transform="translate(0 3)">
+      <rect x="10" y="0" width="46" height="16" rx="8" fill="#101010"/>
+      <rect x="0" y="22" width="46" height="16" rx="8" fill="#2F6BFF"/>
+      <rect x="10" y="44" width="46" height="16" rx="8" fill="#101010"/>
+    </g>
+    <text x="76" y="51" font-family="'DM Sans', Inter, Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="-1.8">
+      <tspan fill="#101010">we</tspan><tspan fill="#2F6BFF">cube</tspan>
+    </text>
+  </g>
+</svg>

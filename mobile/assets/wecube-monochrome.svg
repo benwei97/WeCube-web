@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432" viewBox="0 0 432 432" role="img" aria-labelledby="title">
+  <title id="title">WeCube monochrome mark</title>
+  <rect width="432" height="432" fill="none"/>
+  <g transform="translate(62 124) scale(0.5274)">
+    <rect x="104" y="0" width="480" height="116" rx="58" fill="#FFFFFF"/>
+    <rect x="0" y="152" width="480" height="116" rx="58" fill="#FFFFFF"/>
+    <rect x="104" y="304" width="480" height="116" rx="58" fill="#FFFFFF"/>
+  </g>
+</svg>
