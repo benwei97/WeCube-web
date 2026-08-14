@@ -6,7 +6,6 @@ import {
   Skeleton,
   Alert,
   Stack,
-  Button,
   IconButton,
 } from "@mui/material";
 import {
@@ -55,6 +54,15 @@ function Competitions() {
   const [showAuth, setShowAuth] = useState(false);
 
   const savedCompetitions = optimisticSavedCompetitions;
+  const savedCompetitionIds = new Set(
+    savedCompetitions.map((competition) => competition.id)
+  );
+  const displayedCompetitionOptions = [
+    ...savedCompetitions,
+    ...competitionOptions.filter(
+      (competition) => !savedCompetitionIds.has(competition.id)
+    ),
+  ];
 
   useEffect(() => {
     setOptimisticSavedCompetitions(currentUser?.attendingCompetitions || []);
@@ -223,20 +231,10 @@ function Competitions() {
 
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            lg: "minmax(0, 2fr) minmax(300px, 0.8fr)",
-          },
-          gap: { xs: 2.25, md: 3 },
-          alignItems: "start",
+          width: "100%",
         }}
       >
         <Card sx={{ p: { xs: 2, sm: 2.5, md: 3 }, ...SOFT_PANEL_SX }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>
-            Select a Competition
-          </Typography>
-
           {loadingCompetitions ? (
             <Stack spacing={1.5}>
               <Skeleton
@@ -278,7 +276,7 @@ function Competitions() {
                 }}
               >
                 <Stack spacing={1.25}>
-                  {competitionOptions.length === 0 ? (
+                  {displayedCompetitionOptions.length === 0 ? (
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -287,13 +285,19 @@ function Competitions() {
                       No competitions found.
                     </Typography>
                   ) : (
-                    competitionOptions.map((competition) => (
+                    displayedCompetitionOptions.map((competition) => {
+                      const isSaved = isCompetitionSaved(competition.id);
+                      return (
                         <Card
                           key={competition.id}
                           variant="outlined"
                           sx={{
-                            borderColor: "divider",
-                            bgcolor: "rgba(255, 255, 255, 0.76)",
+                            borderColor: isSaved
+                              ? "rgba(47, 107, 255, 0.42)"
+                              : "divider",
+                            bgcolor: isSaved
+                              ? "rgba(47, 107, 255, 0.06)"
+                              : "rgba(255, 255, 255, 0.76)",
                             transition:
                               "border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease",
                             "&:hover": {
@@ -356,13 +360,13 @@ function Competitions() {
                                 handleToggleSavedCompetition(event, competition)
                               }
                               color={
-                                isCompetitionSaved(competition.id)
+                                isSaved
                                   ? "primary"
                                   : "default"
                               }
                               size="small"
                             >
-                              {isCompetitionSaved(competition.id) ? (
+                              {isSaved ? (
                                 <Bookmark fontSize="small" />
                               ) : (
                                 <BookmarkBorder fontSize="small" />
@@ -371,127 +375,11 @@ function Competitions() {
                             <KeyboardArrowRight color="action" />
                           </Stack>
                         </Card>
-                      ))
+                      );
+                    })
                   )}
                 </Stack>
               </Box>
-            </Stack>
-          )}
-        </Card>
-
-        <Card sx={{ p: { xs: 2, sm: 2.5, md: 3 }, ...SOFT_PANEL_SX }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Saved Competitions
-          </Typography>
-
-          {!currentUser ? (
-            <Box
-              sx={{
-                py: 2.5,
-                px: 2,
-                borderRadius: 1.5,
-                bgcolor: "rgba(248, 250, 252, 0.72)",
-                border: "1px solid rgba(148, 163, 184, 0.18)",
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => setShowAuth(true)}
-                  sx={{
-                    minWidth: 0,
-                    p: 0,
-                    mr: 0.35,
-                    verticalAlign: "baseline",
-                    textTransform: "none",
-                    font: "inherit",
-                    fontWeight: 600,
-                  }}
-                >
-                  Sign in
-                </Button>
-                to save competitions.
-              </Typography>
-            </Box>
-          ) : (
-            <Stack spacing={1.25}>
-              {savedCompetitions.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  Bookmark competitions from the list to keep them here.
-                </Typography>
-              ) : (
-                savedCompetitions.map((competition) => (
-                  <Card
-                    key={competition.id}
-                    variant="outlined"
-                    sx={{
-                      borderColor: "divider",
-                      bgcolor: "rgba(255, 255, 255, 0.7)",
-                      transition:
-                        "border-color 160ms ease, box-shadow 160ms ease",
-                      "&:hover": {
-                        borderColor: "primary.main",
-                        boxShadow: "0 8px 20px rgba(31, 53, 99, 0.08)",
-                      },
-                    }}
-                  >
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      sx={{ p: 1.4 }}
-                    >
-                      <Box
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleViewCompetitionListings(competition)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleViewCompetitionListings(competition);
-                          }
-                        }}
-                        sx={{
-                          minWidth: 0,
-                          flex: 1,
-                          cursor: "pointer",
-                          "&:focus-visible": {
-                            outline: "2px solid",
-                            outlineColor: "primary.main",
-                            outlineOffset: 3,
-                            borderRadius: 1,
-                          },
-                        }}
-                      >
-                        <Typography variant="body2" fontWeight={600} noWrap>
-                          {competition.displayName || competition.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          component="div"
-                          noWrap
-                        >
-                          {getCompetitionMeta(competition)}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        aria-label={`Remove ${
-                          competition.displayName || competition.name
-                        } from saved competitions`}
-                        onClick={(event) =>
-                          handleToggleSavedCompetition(event, competition)
-                        }
-                        color="primary"
-                        size="small"
-                      >
-                        <Bookmark fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </Card>
-                ))
-              )}
             </Stack>
           )}
         </Card>

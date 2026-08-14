@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Delete,
   Edit,
+  EventAvailable,
   Bookmark,
   MoreVert,
   PendingActions,
@@ -74,6 +75,7 @@ import PageState from "../components/PageState";
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
 const SAVED_LISTING_PREVIEW_LIMIT = 6;
+const SAVED_COMPETITION_PREVIEW_LIMIT = 6;
 const COMPACT_CARD_GRID_SX = {
   display: "grid",
   gridTemplateColumns: {
@@ -137,6 +139,7 @@ function Dashboard() {
   const [showAllListings, setShowAllListings] = useState(false);
   const [showAllPurchases, setShowAllPurchases] = useState(false);
   const [showAllSavedListings, setShowAllSavedListings] = useState(false);
+  const [showAllSavedCompetitions, setShowAllSavedCompetitions] = useState(false);
   const [statusActionLoading, setStatusActionLoading] = useState({});
   const [deleteDialog, setDeleteDialog] = useState({ open: false, listing: null });
   const [statusConfirmDialog, setStatusConfirmDialog] = useState({
@@ -314,6 +317,12 @@ function Dashboard() {
   const displayedSavedListings = showAllSavedListings
     ? savedListings
     : savedListings.slice(0, SAVED_LISTING_PREVIEW_LIMIT);
+  const savedCompetitions = Array.isArray(currentUser?.attendingCompetitions)
+    ? currentUser.attendingCompetitions
+    : [];
+  const displayedSavedCompetitions = showAllSavedCompetitions
+    ? savedCompetitions
+    : savedCompetitions.slice(0, SAVED_COMPETITION_PREVIEW_LIMIT);
 
   const reviewSummary = useMemo(() => {
     const reviewCount = receivedReviews.length;
@@ -336,6 +345,11 @@ function Dashboard() {
     const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
     return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString();
   };
+
+  const getCompetitionMeta = (competition) =>
+    [competition.city, competition.country, competition.dateRange]
+      .filter(Boolean)
+      .join(" • ");
 
   const handleAvatarButtonClick = () => avatarInputRef.current?.click();
 
@@ -923,6 +937,70 @@ function Dashboard() {
     );
   };
 
+  const renderSavedCompetitionCard = (competition) => (
+    <Card
+      key={competition.id}
+      role="button"
+      tabIndex={0}
+      onClick={() =>
+        navigate(`/competitions/${competition.id}/listings`, {
+          state: { competition },
+        })
+      }
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          navigate(`/competitions/${competition.id}/listings`, {
+            state: { competition },
+          });
+        }
+      }}
+      variant="outlined"
+      sx={DASHBOARD_COMPACT_CARD_SX}
+    >
+      <CardContent sx={DASHBOARD_COMPACT_CONTENT_SX}>
+        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+          <Box
+            sx={{
+              alignItems: "center",
+              bgcolor: "primary.50",
+              borderRadius: 1,
+              color: "primary.main",
+              display: "flex",
+              flexShrink: 0,
+              height: 48,
+              justifyContent: "center",
+              width: 48,
+            }}
+          >
+            <EventAvailable fontSize="small" />
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              variant="subtitle1"
+              fontWeight={500}
+              sx={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {competition.displayName || competition.name}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="div"
+              sx={DASHBOARD_CARD_META_SX}
+            >
+              {getCompetitionMeta(competition) || "Saved competition"}
+            </Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+
   if (!currentUser) {
     return (
       <Box sx={LISTING_PAGE_SX}>
@@ -1217,6 +1295,38 @@ function Dashboard() {
                   {showAllSavedListings
                     ? "Show Less"
                     : `View ${savedListings.length - SAVED_LISTING_PREVIEW_LIMIT} More`}
+                </Button>
+              )}
+            </>
+          )}
+        </Box>
+
+        <Box sx={{ pt: 2, pb: 1 }}>
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+            Saved Competitions
+          </Typography>
+          {savedCompetitions.length === 0 ? (
+            <Box sx={EMPTY_STATE_SX}>
+              <Typography variant="body2">No saved competitions yet.</Typography>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => navigate("/competitions")}
+                sx={{ mt: 0.75, px: 0 }}
+              >
+                Browse competitions
+              </Button>
+            </Box>
+          ) : (
+            <>
+              <Box sx={COMPACT_CARD_GRID_SX}>
+                {displayedSavedCompetitions.map(renderSavedCompetitionCard)}
+              </Box>
+              {savedCompetitions.length > SAVED_COMPETITION_PREVIEW_LIMIT && (
+                <Button sx={{ mt: 2 }} onClick={() => setShowAllSavedCompetitions((prev) => !prev)}>
+                  {showAllSavedCompetitions
+                    ? "Show Less"
+                    : `View ${savedCompetitions.length - SAVED_COMPETITION_PREVIEW_LIMIT} More`}
                 </Button>
               )}
             </>
