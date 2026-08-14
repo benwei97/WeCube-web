@@ -18,6 +18,7 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ActionSheet from "../components/ActionSheet";
 import BackButton from "../components/BackButton";
+import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -374,9 +375,11 @@ export default function ConversationScreen({ navigation, route }) {
   if (loading) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <PageState
+          variant="loading"
+          title="Loading conversation"
+          message="Opening messages and seller details."
+        />
       </Screen>
     );
   }

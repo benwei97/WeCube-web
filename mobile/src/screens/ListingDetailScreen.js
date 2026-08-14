@@ -24,6 +24,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import ActionSheet from "../components/ActionSheet";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
+import PageState from "../components/PageState";
 import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
@@ -526,9 +527,11 @@ export default function ListingDetailScreen({ navigation, route }) {
   if (loading) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <PageState
+          variant="loading"
+          title="Loading listing"
+          message="Getting listing photos, seller details, and fulfillment options."
+        />
       </Screen>
     );
   }
@@ -536,9 +539,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   if (error) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
+        <PageState title="Unable to load listing" message={error} />
       </Screen>
     );
   }

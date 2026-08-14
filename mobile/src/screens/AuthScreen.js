@@ -192,9 +192,13 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 18,
+    padding: 20,
+    shadowColor: "#1F3563",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 22,
   },
   logo: {
     alignSelf: "center",
@@ -206,7 +210,8 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "900",
+    letterSpacing: 0,
   },
   subtitle: {
     color: colors.muted,
@@ -215,7 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   segment: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.softSurface,
     borderRadius: 8,
     flexDirection: "row",
     marginTop: 18,
@@ -245,7 +250,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.softSurface,
     borderColor: colors.border,
     borderRadius: 6,
     borderWidth: 1,
@@ -258,7 +263,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: 8,
     marginTop: 16,
     minHeight: 48,
     justifyContent: "center",

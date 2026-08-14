@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   Pressable,
@@ -11,6 +10,7 @@ import {
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ScreenTitle from "../components/ScreenTitle";
+import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -250,9 +250,11 @@ export default function MessagesScreen({ navigation }) {
   if (loading) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <PageState
+          variant="loading"
+          title="Loading messages"
+          message="Opening your conversations."
+        />
       </Screen>
     );
   }
@@ -260,9 +262,7 @@ export default function MessagesScreen({ navigation }) {
   if (error) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
+        <PageState title="Unable to load messages" message={error} />
       </Screen>
     );
   }
@@ -286,10 +286,10 @@ export default function MessagesScreen({ navigation }) {
         )}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <View style={styles.centerState}>
-            <Text style={styles.emptyTitle}>No messages yet</Text>
-            <Text style={styles.emptyText}>Message a seller from a listing to start a conversation.</Text>
-          </View>
+          <PageState
+            title="No messages yet"
+            message="Message a seller from a listing to start a conversation."
+          />
         }
       />
     </Screen>

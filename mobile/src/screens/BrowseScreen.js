@@ -16,6 +16,7 @@ import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
+import PageState from "../components/PageState";
 import { db } from "../lib/firebase";
 import {
   getLocationMatchInfo,
@@ -284,17 +285,17 @@ export default function BrowseScreen({ navigation }) {
   const content = useMemo(() => {
     if (loading) {
       return (
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <PageState
+          variant="loading"
+          title="Loading listings"
+          message="Finding the newest cubes in the marketplace."
+        />
       );
     }
 
     if (error) {
       return (
-        <View style={styles.centerState}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
+        <PageState title="Unable to load listings" message={error} />
       );
     }
 
@@ -354,10 +355,10 @@ export default function BrowseScreen({ navigation }) {
         )}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <View style={styles.centerState}>
-            <Text style={styles.emptyTitle}>No cubes found matching your criteria</Text>
-            <Text style={styles.emptyText}>Try adjusting your filters or search terms.</Text>
-          </View>
+          <PageState
+            title="No cubes found"
+            message="Try adjusting your filters or search terms."
+          />
         }
         ListFooterComponent={
           hasMoreListings ? (

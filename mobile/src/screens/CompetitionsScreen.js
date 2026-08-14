@@ -12,6 +12,7 @@ import {
 import { doc, updateDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ScreenTitle from "../components/ScreenTitle";
+import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -225,14 +226,16 @@ export default function CompetitionsScreen({ navigation }) {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           {loading ? (
-            <View style={styles.centerState}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
+            <PageState
+              variant="loading"
+              title="Loading competitions"
+              message="Finding upcoming competitions and your saved events."
+            />
           ) : displayedCompetitions.length === 0 ? (
-            <View style={styles.emptyBlock}>
-              <Text style={styles.emptyTitle}>No competitions found</Text>
-              <Text style={styles.emptyText}>Try a different competition or city.</Text>
-            </View>
+            <PageState
+              title="No competitions found"
+              message="Try a different competition or city."
+            />
           ) : (
             <View style={styles.listStack}>
               {displayedCompetitions.map((competition) => (

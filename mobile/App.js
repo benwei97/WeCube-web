@@ -3,9 +3,10 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
+import PageState from "./src/components/PageState";
 import { useAuth } from "./src/contexts/useAuth";
 import BrowseScreen from "./src/screens/BrowseScreen";
 import CompetitionsScreen from "./src/screens/CompetitionsScreen";
@@ -32,8 +33,12 @@ function AppContent() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={styles.loadingShell}>
+        <PageState
+          variant="loading"
+          title="Loading WeCube"
+          message="Preparing your marketplace."
+        />
       </View>
     );
   }
@@ -181,7 +186,18 @@ function AppTabs() {
         headerTitleStyle: { fontWeight: "700" },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 84,
+          paddingBottom: 18,
+          paddingTop: 8,
+        },
+        tabBarItemStyle: {
+          borderRadius: 12,
+          marginHorizontal: 3,
+        },
       }}
     >
       <Tab.Screen
@@ -258,6 +274,10 @@ function AppTabs() {
 }
 
 const styles = StyleSheet.create({
+  loadingShell: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   tabAvatar: {
     borderRadius: 999,
     borderWidth: 1.5,

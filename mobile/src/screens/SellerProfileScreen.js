@@ -33,6 +33,7 @@ import {
 import { blockUser, subscribeToUserBlock, unblockUser } from "../utils/messaging";
 import { getS3PublicUrl } from "../utils/s3";
 import BackButton from "../components/BackButton";
+import PageState from "../components/PageState";
 
 const USER_REPORT_REASONS = [
   { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
@@ -313,9 +314,11 @@ export default function SellerProfileScreen({ navigation, route }) {
   if (loadingProfile) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <PageState
+          variant="loading"
+          title="Loading profile"
+          message="Getting seller listings, reviews, and profile details."
+        />
       </Screen>
     );
   }
@@ -323,9 +326,7 @@ export default function SellerProfileScreen({ navigation, route }) {
   if (error) {
     return (
       <Screen>
-        <View style={styles.centerState}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
+        <PageState title="Unable to load profile" message={error} />
       </Screen>
     );
   }

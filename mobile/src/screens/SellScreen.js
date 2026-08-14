@@ -19,6 +19,7 @@ import { addDoc, collection } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
+import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -732,7 +733,10 @@ export default function SellScreen({ navigation }) {
       <Screen>
         <View style={styles.container}>
           {renderTitleBar()}
-          <Text style={styles.emptyText}>Please sign in to create a listing</Text>
+          <PageState
+            title="Sign in to list your cube"
+            message="Create an account or sign in to add photos, choose fulfillment options, and publish a listing."
+          />
         </View>
       </Screen>
     );
