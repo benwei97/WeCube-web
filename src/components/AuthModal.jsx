@@ -275,7 +275,7 @@ export function AuthModal({ open, onClose, initialMode = "login" }) {
       slotProps={{
         paper: {
           sx: {
-            transition: "height 0.3s ease-in-out",
+            transition: "transform 180ms ease, opacity 180ms ease",
             overflow: "visible",
           },
         },
