@@ -41,6 +41,23 @@ const COMPETITIONS_PAGE_CONTAINER_SX = {
 
 const COMPETITION_BATCH_SIZE = 50;
 
+function competitionMatchesSearch(competition, searchInput) {
+  const normalizedSearch = searchInput.trim().toLowerCase();
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  return [
+    competition.name,
+    competition.displayName,
+    competition.city,
+    competition.country,
+    competition.dateRange,
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+}
+
 function Competitions() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -54,11 +71,14 @@ function Competitions() {
   const [showAuth, setShowAuth] = useState(false);
 
   const savedCompetitions = optimisticSavedCompetitions;
+  const pinnedSavedCompetitions = savedCompetitions.filter((competition) =>
+    competitionMatchesSearch(competition, competitionSearchInput)
+  );
   const savedCompetitionIds = new Set(
-    savedCompetitions.map((competition) => competition.id)
+    pinnedSavedCompetitions.map((competition) => competition.id)
   );
   const displayedCompetitionOptions = [
-    ...savedCompetitions,
+    ...pinnedSavedCompetitions,
     ...competitionOptions.filter(
       (competition) => !savedCompetitionIds.has(competition.id)
     ),

@@ -44,6 +44,23 @@ function getCompetitionForStorage(competition) {
   };
 }
 
+function competitionMatchesSearch(competition, searchInput) {
+  const normalizedSearch = searchInput.trim().toLowerCase();
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  return [
+    competition.name,
+    competition.displayName,
+    competition.city,
+    competition.country,
+    competition.dateRange,
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+}
+
 function CompetitionRow({
   competition,
   saved,
@@ -104,15 +121,22 @@ export default function CompetitionsScreen({ navigation }) {
     [savedCompetitions]
   );
   const displayedCompetitions = useMemo(() => {
-    if (!savedCompetitions.length) return competitions;
+    const pinnedSavedCompetitions = savedCompetitions.filter((competition) =>
+      competitionMatchesSearch(competition, query)
+    );
+    const pinnedSavedCompetitionIds = new Set(
+      pinnedSavedCompetitions.map((competition) => competition.id)
+    );
+
+    if (!pinnedSavedCompetitions.length) return competitions;
 
     return [
-      ...savedCompetitions,
+      ...pinnedSavedCompetitions,
       ...competitions.filter(
-        (competition) => competition?.id && !savedCompetitionIds.has(competition.id)
+        (competition) => competition?.id && !pinnedSavedCompetitionIds.has(competition.id)
       ),
     ];
-  }, [competitions, savedCompetitionIds, savedCompetitions]);
+  }, [competitions, query, savedCompetitions]);
 
   useEffect(() => {
     setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
