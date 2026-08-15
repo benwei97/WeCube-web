@@ -167,22 +167,6 @@ function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
   return [...competitionsById.values()];
 }
 
-function FulfillmentInfoTitle({ children }) {
-  return (
-    <Typography
-      variant="subtitle2"
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        mb: 0.55,
-        fontWeight: 600,
-      }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
 function ListingDetail() {
   const COMPETITION_BATCH_SIZE = 50;
   const { id } = useParams();
@@ -234,6 +218,7 @@ function ListingDetail() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllCompetitionMeetups, setShowAllCompetitionMeetups] =
     useState(false);
+  const [activeFulfillmentOption, setActiveFulfillmentOption] = useState("");
   const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
   const competitionOptions =
     bookmarkedCompetitions.length > 0
@@ -1402,6 +1387,20 @@ function ListingDetail() {
   const ownerPrimaryActionText = listing.status === "sold"
     ? "Mark as Available"
     : "Mark as Sold";
+  const fulfillmentOptions = [
+    listing.localMeetupAvailable
+      ? { value: "local", label: "Local Meetup" }
+      : null,
+    listing.competitionMeetupAvailable
+      ? { value: "competition", label: "Competition Meetup" }
+      : null,
+    listing.shippingAvailable ? { value: "shipping", label: "Shipping" } : null,
+  ].filter(Boolean);
+  const selectedFulfillmentOption =
+    fulfillmentOptions.find(
+      (option) => option.value === activeFulfillmentOption
+    ) || fulfillmentOptions[0];
+  const selectedFulfillmentValue = selectedFulfillmentOption?.value;
 
   if (isHiddenByModeration && !canViewHiddenListing) {
     return (
@@ -1843,127 +1842,175 @@ function ListingDetail() {
                   Fulfillment Options
                 </Typography>
 
-                <Stack spacing={0.9}>
-                  {listing.localMeetupAvailable && (
-                    <Box>
-                      <FulfillmentInfoTitle>
-                        Local Meetup
-                      </FulfillmentInfoTitle>
-                      <Typography
-                        variant="body2"
-                        sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500, mb: 0.75 }}
-                      >
-                        <LocationOn fontSize="small" />
-                        {listing.meetupLocationLabel || "Meetup area"}
-                      </Typography>
-                      <ApproximateMeetupMap
-                        location={listing.meetupLocation}
-                        label={listing.meetupLocationLabel}
-                      />
-                    </Box>
-                  )}
+                {fulfillmentOptions.length > 0 ? (
+                  <Stack spacing={1.15}>
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignSelf: "center",
+                        flexWrap: "wrap",
+                        justifyContent: "center",
+                        gap: 0.5,
+                        p: 0.5,
+                        bgcolor: "rgba(255, 255, 255, 0.82)",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {fulfillmentOptions.map((option) => {
+                        const isActive = selectedFulfillmentValue === option.value;
 
-                  {listing.competitionMeetupAvailable && (
+                        return (
+                          <Button
+                            key={option.value}
+                            variant="text"
+                            color="inherit"
+                            size="small"
+                            onClick={() => setActiveFulfillmentOption(option.value)}
+                            sx={{
+                              minWidth: 0,
+                              width: { xs: 152, sm: 164 },
+                              borderRadius: 1.5,
+                              color: isActive ? "primary.main" : "text.secondary",
+                              bgcolor: isActive ? "primary.50" : "transparent",
+                              fontWeight: isActive ? 700 : 500,
+                              lineHeight: 1.2,
+                              px: 1,
+                              py: 0.9,
+                              textAlign: "center",
+                              whiteSpace: "nowrap",
+                              boxShadow: "none",
+                              "&:hover": {
+                                bgcolor: "primary.50",
+                                color: "primary.main",
+                              },
+                            }}
+                          >
+                            {option.label}
+                          </Button>
+                        );
+                      })}
+                    </Box>
+
                     <Box>
-                      <FulfillmentInfoTitle>
-                        Competition Meetup
-                      </FulfillmentInfoTitle>
-                      {meetupCompetitionTags.length > 0 ? (
-                        <Stack spacing={0.4}>
-                          {visibleCompetitionMeetups.map((competition) => (
-                            <Box
-                              key={competition.id || competition.name}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => handleViewCompetitionListings(competition)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  handleViewCompetitionListings(competition);
-                                }
-                              }}
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 0.9,
-                                minWidth: 0,
-                                py: 0.55,
-                                px: 0.6,
-                                mx: -0.6,
-                                borderRadius: 1,
-                                cursor: "pointer",
-                                transition: "background-color 0.2s, color 0.2s",
-                                "&:hover": {
-                                  bgcolor: "action.hover",
-                                  color: "primary.main",
-                                },
-                                "&:focus-visible": {
-                                  outline: "2px solid",
-                                  outlineColor: "primary.main",
-                                  outlineOffset: 2,
-                                },
-                              }}
+                      {selectedFulfillmentValue === "local" && (
+                        <Box>
+                          <Typography
+                            variant="body2"
+                            sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500, mb: 0.75 }}
+                          >
+                            <LocationOn fontSize="small" />
+                            {listing.meetupLocationLabel || "Meetup area"}
+                          </Typography>
+                          <ApproximateMeetupMap
+                            location={listing.meetupLocation}
+                            label={listing.meetupLocationLabel}
+                          />
+                        </Box>
+                      )}
+
+                      {selectedFulfillmentValue === "competition" && (
+                        <Box>
+                          {meetupCompetitionTags.length > 0 ? (
+                            <Stack spacing={0.4}>
+                              {visibleCompetitionMeetups.map((competition) => (
+                                <Box
+                                  key={competition.id || competition.name}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => handleViewCompetitionListings(competition)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      handleViewCompetitionListings(competition);
+                                    }
+                                  }}
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.9,
+                                    minWidth: 0,
+                                    py: 0.55,
+                                    px: 0.6,
+                                    mx: -0.6,
+                                    borderRadius: 1,
+                                    cursor: "pointer",
+                                    transition: "background-color 0.2s, color 0.2s",
+                                    "&:hover": {
+                                      bgcolor: "action.hover",
+                                      color: "primary.main",
+                                    },
+                                    "&:focus-visible": {
+                                      outline: "2px solid",
+                                      outlineColor: "primary.main",
+                                      outlineOffset: 2,
+                                    },
+                                  }}
+                                >
+                                  <Groups sx={{ fontSize: 18, color: "text.primary", flexShrink: 0 }} />
+                                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant="body2" fontWeight={500} noWrap>
+                                      {competition.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" noWrap component="div">
+                                      {[competition.city, competition.country]
+                                        .filter(Boolean)
+                                        .join(", ")}
+                                      {competition.dateRange ? ` • ${competition.dateRange}` : ""}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              ))}
+                              {meetupCompetitionTags.length > 3 && (
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={() =>
+                                    setShowAllCompetitionMeetups((prev) => !prev)
+                                  }
+                                  sx={{ alignSelf: "flex-start", px: 0 }}
+                                >
+                                  {showAllCompetitionMeetups
+                                    ? "Show fewer competitions"
+                                    : `Show ${hiddenCompetitionMeetupCount} more ${
+                                        hiddenCompetitionMeetupCount === 1
+                                          ? "competition"
+                                          : "competitions"
+                                      }`}
+                                </Button>
+                              )}
+                            </Stack>
+                          ) : (
+                            <Typography
+                              variant="body2"
+                              sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
                             >
-                              <Groups sx={{ fontSize: 18, color: "text.primary", flexShrink: 0 }} />
-                              <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Typography variant="body2" fontWeight={500} noWrap>
-                                  {competition.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap component="div">
-                                  {[competition.city, competition.country]
-                                    .filter(Boolean)
-                                    .join(", ")}
-                                  {competition.dateRange ? ` • ${competition.dateRange}` : ""}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          ))}
-                          {meetupCompetitionTags.length > 3 && (
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() =>
-                                setShowAllCompetitionMeetups((prev) => !prev)
-                              }
-                              sx={{ alignSelf: "flex-start", px: 0 }}
-                            >
-                              {showAllCompetitionMeetups
-                                ? "Show fewer competitions"
-                                : `Show ${hiddenCompetitionMeetupCount} more ${
-                                    hiddenCompetitionMeetupCount === 1
-                                      ? "competition"
-                                      : "competitions"
-                                  }`}
-                            </Button>
+                              <Groups fontSize="small" />
+                              Available at selected competitions
+                            </Typography>
                           )}
-                        </Stack>
-                      ) : (
-                        <Typography
-                          variant="body2"
-                          sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
-                        >
-                          <Groups fontSize="small" />
-                          Available at selected competitions
-                        </Typography>
+                        </Box>
+                      )}
+
+                      {selectedFulfillmentValue === "shipping" && (
+                        <Box>
+                          <Typography
+                            variant="body2"
+                            sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
+                          >
+                            <LocalShipping fontSize="small" />
+                            {formatShippingDetail(listing)}
+                          </Typography>
+                        </Box>
                       )}
                     </Box>
-                  )}
-
-                  {listing.shippingAvailable && (
-                    <Box>
-                      <FulfillmentInfoTitle>
-                        Ships to You
-                      </FulfillmentInfoTitle>
-                      <Typography
-                        variant="body2"
-                        sx={{ display: "flex", alignItems: "center", gap: 0.75, fontWeight: 500 }}
-                      >
-                        <LocalShipping fontSize="small" />
-                        {formatShippingDetail(listing)}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No fulfillment options listed.
+                  </Typography>
+                )}
               </Box>
 
               <Box sx={{ pt: 1.2, borderTop: 1, borderColor: "divider" }}>
