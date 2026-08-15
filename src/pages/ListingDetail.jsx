@@ -1418,8 +1418,8 @@ function ListingDetail() {
   return (
     <Box
       sx={{
-        width: { xs: "100%", lg: "86vw" },
-        maxWidth: 1180,
+        width: { xs: "100%", lg: "94vw" },
+        maxWidth: 1320,
         height: { lg: "calc(100dvh - 64px)" },
         boxSizing: "border-box",
         overflow: { lg: "hidden" },
@@ -1579,7 +1579,7 @@ function ListingDetail() {
         }}
       >
         {/* Images Section */}
-        <Grid size={{ xs: 12, lg: 7 }} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
+        <Grid size={{ xs: 12, lg: 6.5 }} sx={{ height: { lg: "100%" }, minHeight: 0 }}>
           <Paper
             variant="outlined"
             sx={{
@@ -1717,7 +1717,7 @@ function ListingDetail() {
 
         {/* Details Section */}
         <Grid
-          size={{ xs: 12, lg: 5 }}
+          size={{ xs: 12, lg: 5.5 }}
           sx={{
             height: { lg: "100%" },
             minHeight: 0,
@@ -1848,14 +1848,20 @@ function ListingDetail() {
                       sx={{
                         display: "inline-flex",
                         alignSelf: "center",
-                        flexWrap: "wrap",
-                        justifyContent: "center",
-                        gap: 0.5,
-                        p: 0.5,
+                        maxWidth: "100%",
+                        overflowX: "auto",
+                        flexWrap: "nowrap",
+                        justifyContent: "flex-start",
+                        gap: 0.6,
+                        p: 0.6,
                         bgcolor: "rgba(255, 255, 255, 0.82)",
                         border: "1px solid",
                         borderColor: "divider",
                         borderRadius: 2,
+                        scrollbarWidth: "none",
+                        "&::-webkit-scrollbar": {
+                          display: "none",
+                        },
                       }}
                     >
                       {fulfillmentOptions.map((option) => {
@@ -1870,7 +1876,8 @@ function ListingDetail() {
                             onClick={() => setActiveFulfillmentOption(option.value)}
                             sx={{
                               minWidth: 0,
-                              width: { xs: 152, sm: 164 },
+                              flex: "0 0 auto",
+                              width: { xs: 138, sm: 148 },
                               borderRadius: 1.5,
                               color: isActive ? "primary.main" : "text.secondary",
                               bgcolor: isActive ? "primary.50" : "transparent",
