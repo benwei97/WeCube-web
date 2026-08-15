@@ -55,9 +55,9 @@ const DESCRIPTION_VIEW_MORE_THRESHOLD = 220;
 function formatShipping(listing) {
   if (!listing?.shippingAvailable) return null;
   if (listing.shippingIncluded || Number(listing.shippingCost || 0) === 0) {
-    return "Shipping: free";
+    return "Free shipping";
   }
-  return `Shipping: +${formatListingPrice(listing.shippingCost)}`;
+  return `+${formatListingPrice(listing.shippingCost)} shipping`;
 }
 
 export default function ListingDetailScreen({ navigation, route }) {
@@ -85,6 +85,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [deletingListing, setDeletingListing] = useState(false);
   const [ownerActionsOpen, setOwnerActionsOpen] = useState(false);
   const [viewerActionsOpen, setViewerActionsOpen] = useState(false);
+  const [activeFulfillmentOption, setActiveFulfillmentOption] = useState("");
 
   useEffect(() => {
     if (!listingId) {
@@ -185,6 +186,19 @@ export default function ListingDetailScreen({ navigation, route }) {
   const canExpandDescription =
     Boolean(listing?.description) &&
     listing.description.length > DESCRIPTION_VIEW_MORE_THRESHOLD;
+  const fulfillmentOptions = [
+    listing?.localMeetupAvailable
+      ? { value: "local", label: "Local" }
+      : null,
+    listing?.competitionMeetupAvailable
+      ? { value: "competition", label: "Competition" }
+      : null,
+    listing?.shippingAvailable ? { value: "shipping", label: "Shipping" } : null,
+  ].filter(Boolean);
+  const selectedFulfillmentOption =
+    fulfillmentOptions.find((option) => option.value === activeFulfillmentOption) ||
+    fulfillmentOptions[0];
+  const selectedFulfillmentValue = selectedFulfillmentOption?.value;
 
   function openCompetitionListings(competition) {
     if (!competition?.id) return;
@@ -680,62 +694,89 @@ export default function ListingDetailScreen({ navigation, route }) {
 
         <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Fulfillment</Text>
-          {listing.shippingAvailable ? (
-            <View style={styles.fulfillmentBlock}>
-              <Text style={styles.fulfillmentTitle}>Shipping</Text>
-              <Text style={styles.bodyText}>{formatShipping(listing)}</Text>
-            </View>
-          ) : null}
+          {fulfillmentOptions.length ? (
+            <View style={styles.fulfillmentTabsSection}>
+              <ScrollView
+                horizontal
+                style={styles.fulfillmentTabScroller}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.fulfillmentTabList}
+              >
+                {fulfillmentOptions.map((option) => {
+                  const selected = selectedFulfillmentValue === option.value;
 
-          {listing.localMeetupAvailable ? (
-            <View style={styles.fulfillmentBlock}>
-              <Text style={styles.fulfillmentTitle}>Local Meetup</Text>
-              <Text style={styles.bodyText}>
-                {listing.meetupLocationLabel || "Meetup area"}
-              </Text>
-              <ApproximateMeetupMap
-                location={listing.meetupLocation}
-                label={listing.meetupLocationLabel}
-              />
-            </View>
-          ) : null}
-
-          {listing.competitionMeetupAvailable ? (
-            <View style={styles.fulfillmentBlock}>
-              <Text style={styles.fulfillmentTitle}>Competition Meetup</Text>
-              {meetupCompetitionTags.length ? (
-                <View style={styles.competitionMeetupList}>
-                  {meetupCompetitionTags.map((competition) => (
+                  return (
                     <Pressable
-                      key={competition.id}
-                      style={styles.competitionMeetupRow}
-                      onPress={() => openCompetitionListings(competition)}
+                      key={option.value}
+                      style={[
+                        styles.fulfillmentTab,
+                        selected && styles.fulfillmentTabSelected,
+                      ]}
+                      onPress={() => setActiveFulfillmentOption(option.value)}
                     >
-                      <View style={styles.competitionMeetupBody}>
-                        <Text style={styles.competitionMeetupTitle} numberOfLines={1}>
-                          {competition.displayName || competition.name || "Competition"}
-                        </Text>
-                        <Text style={styles.competitionMeetupMeta} numberOfLines={1}>
-                          {[competition.city, competition.country, competition.dateRange]
-                            .filter(Boolean)
-                            .join(" · ") || "View competition listings"}
-                        </Text>
-                      </View>
-                      <Text style={styles.competitionMeetupChevron}>›</Text>
+                      <Text
+                        style={[
+                          styles.fulfillmentTabText,
+                          selected && styles.fulfillmentTabTextSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {option.label}
+                      </Text>
                     </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.bodyText}>Available at selected competitions.</Text>
-              )}
-            </View>
-          ) : null}
+                  );
+                })}
+              </ScrollView>
 
-          {!listing.shippingAvailable &&
-          !listing.localMeetupAvailable &&
-          !listing.competitionMeetupAvailable ? (
+              {selectedFulfillmentValue === "shipping" ? (
+                <Text style={styles.bodyText}>{formatShipping(listing)}</Text>
+              ) : null}
+
+              {selectedFulfillmentValue === "local" ? (
+                <View>
+                  <Text style={[styles.bodyText, styles.fulfillmentDetailLine]}>
+                    {listing.meetupLocationLabel || "Meetup area"}
+                  </Text>
+                  <ApproximateMeetupMap
+                    location={listing.meetupLocation}
+                    label={listing.meetupLocationLabel}
+                  />
+                </View>
+              ) : null}
+
+              {selectedFulfillmentValue === "competition" ? (
+                <View>
+                  {meetupCompetitionTags.length ? (
+                    <View style={styles.competitionMeetupList}>
+                      {meetupCompetitionTags.map((competition) => (
+                        <Pressable
+                          key={competition.id}
+                          style={styles.competitionMeetupRow}
+                          onPress={() => openCompetitionListings(competition)}
+                        >
+                          <View style={styles.competitionMeetupBody}>
+                            <Text style={styles.competitionMeetupTitle} numberOfLines={1}>
+                              {competition.displayName || competition.name || "Competition"}
+                            </Text>
+                            <Text style={styles.competitionMeetupMeta} numberOfLines={1}>
+                              {[competition.city, competition.country, competition.dateRange]
+                                .filter(Boolean)
+                                .join(" · ") || "View competition listings"}
+                            </Text>
+                          </View>
+                          <Text style={styles.competitionMeetupChevron}>›</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.bodyText}>Available at selected competitions.</Text>
+                  )}
+                </View>
+              ) : null}
+            </View>
+          ) : (
             <Text style={styles.bodyText}>Fulfillment options not set.</Text>
-          ) : null}
+          )}
         </View>
 
         <View style={styles.panel}>
@@ -1154,14 +1195,44 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 8,
   },
-  fulfillmentBlock: {
-    marginTop: 12,
+  fulfillmentTabsSection: {
+    gap: 12,
   },
-  fulfillmentTitle: {
-    color: colors.text,
-    fontSize: 15,
+  fulfillmentTabScroller: {
+    alignSelf: "center",
+    maxWidth: "100%",
+  },
+  fulfillmentTabList: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+    justifyContent: "center",
+    padding: 6,
+  },
+  fulfillmentTab: {
+    alignItems: "center",
+    borderRadius: 6,
+    justifyContent: "center",
+    minHeight: 36,
+    paddingHorizontal: 8,
+    width: 112,
+  },
+  fulfillmentTabSelected: {
+    backgroundColor: colors.primarySoft,
+  },
+  fulfillmentTabText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  fulfillmentTabTextSelected: {
+    color: colors.primary,
     fontWeight: "800",
-    marginBottom: 4,
+  },
+  fulfillmentDetailLine: {
+    marginBottom: 8,
   },
   bodyText: {
     color: colors.text,

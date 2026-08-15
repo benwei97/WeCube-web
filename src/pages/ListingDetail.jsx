@@ -1389,12 +1389,18 @@ function ListingDetail() {
     : "Mark as Sold";
   const fulfillmentOptions = [
     listing.localMeetupAvailable
-      ? { value: "local", label: "Local Meetup" }
+      ? { value: "local", label: "Local Meetup", shortLabel: "Local" }
       : null,
     listing.competitionMeetupAvailable
-      ? { value: "competition", label: "Competition Meetup" }
+      ? {
+          value: "competition",
+          label: "Competition Meetup",
+          shortLabel: "Competition",
+        }
       : null,
-    listing.shippingAvailable ? { value: "shipping", label: "Shipping" } : null,
+    listing.shippingAvailable
+      ? { value: "shipping", label: "Shipping", shortLabel: "Shipping" }
+      : null,
   ].filter(Boolean);
   const selectedFulfillmentOption =
     fulfillmentOptions.find(
@@ -1877,7 +1883,7 @@ function ListingDetail() {
                             sx={{
                               minWidth: 0,
                               flex: "0 0 auto",
-                              width: { xs: 138, sm: 148 },
+                              width: { xs: 112, sm: 148 },
                               borderRadius: 1.5,
                               color: isActive ? "primary.main" : "text.secondary",
                               bgcolor: isActive ? "primary.50" : "transparent",
@@ -1894,7 +1900,12 @@ function ListingDetail() {
                               },
                             }}
                           >
-                            {option.label}
+                            <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>
+                              {option.shortLabel}
+                            </Box>
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                              {option.label}
+                            </Box>
                           </Button>
                         );
                       })}
