@@ -138,9 +138,6 @@ export default function InfoScreen({ navigation }) {
       return (
         <>
           <Text style={styles.title}>Safety Guidelines</Text>
-          <Text style={styles.subtitle}>
-            Use these guidelines when buying, selling, shipping, or meeting through WeCube.
-          </Text>
           <SectionList sections={SAFETY_SECTIONS} />
         </>
       );
@@ -150,9 +147,6 @@ export default function InfoScreen({ navigation }) {
       return (
         <>
           <Text style={styles.title}>Terms & Conditions</Text>
-          <Text style={styles.subtitle}>
-            These terms summarize how WeCube should be used and what users are responsible for.
-          </Text>
           <SectionList sections={TERMS_SECTIONS} />
         </>
       );
@@ -162,9 +156,6 @@ export default function InfoScreen({ navigation }) {
       return (
         <>
           <Text style={styles.title}>Privacy Policy</Text>
-          <Text style={styles.subtitle}>
-            This policy summarizes what information WeCube collects and how it is used.
-          </Text>
           <SectionList sections={PRIVACY_SECTIONS} />
         </>
       );
