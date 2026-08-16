@@ -1167,10 +1167,13 @@ function Sell() {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Search competitions"
                         placeholder="Search competitions..."
                         variant="outlined"
                         error={hasAttemptedSubmit && !isCompetitionValid}
+                        inputProps={{
+                          ...params.inputProps,
+                          "aria-label": "Search competitions",
+                        }}
                         helperText={
                           hasAttemptedSubmit && !isCompetitionValid
                             ? "Select at least one competition."

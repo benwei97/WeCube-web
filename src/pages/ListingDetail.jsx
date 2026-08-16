@@ -2693,9 +2693,12 @@ function ListingDetail() {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Search competitions"
                         placeholder="Search competitions..."
                         error={hasAttemptedEditSave && !isEditCompetitionValid}
+                        inputProps={{
+                          ...params.inputProps,
+                          "aria-label": "Search competitions",
+                        }}
                         helperText={
                           hasAttemptedEditSave && !isEditCompetitionValid
                             ? "Select at least one competition."

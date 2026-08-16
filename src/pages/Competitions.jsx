@@ -276,13 +276,17 @@ function Competitions() {
           ) : (
             <Stack spacing={2}>
               <TextField
-                label="Search competitions"
                 placeholder="Search competitions..."
                 value={competitionSearchInput}
                 onChange={(event) =>
                   handleCompetitionSearch(event.target.value)
                 }
                 fullWidth
+                slotProps={{
+                  htmlInput: {
+                    "aria-label": "Search competitions",
+                  },
+                }}
               />
 
               <Box

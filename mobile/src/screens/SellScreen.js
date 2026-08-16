@@ -1009,7 +1009,7 @@ export default function SellScreen({ navigation }) {
               </View>
               {competitionMeetupAvailable ? (
                 <View style={styles.competitionSection}>
-                  <RequiredLabel>Search competitions</RequiredLabel>
+                  <RequiredLabel>Competitions</RequiredLabel>
                   <TextInput
                     value={competitionSearchInput}
                     onChangeText={(value) => {

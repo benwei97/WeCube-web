@@ -709,8 +709,11 @@ function Browse() {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Search location"
                     placeholder="Search location"
+                    inputProps={{
+                      ...params.inputProps,
+                      "aria-label": "Search location",
+                    }}
                   />
                 )}
               />
