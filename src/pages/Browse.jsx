@@ -30,6 +30,7 @@ import {
   LISTING_PAGE_SX,
   LISTING_CARD_CONTENT_SX,
   LISTING_CARD_GRID_SX,
+  LISTING_CARD_PRICE_SX,
   LISTING_CARD_SX,
   LISTING_CARD_TEXT_STACK_SX,
   LISTING_CARD_TITLE_SX,
@@ -886,7 +887,7 @@ function Browse() {
                     variant="h5"
                     color="text.primary"
                     fontWeight={600}
-                    sx={{ mb: 0, lineHeight: 1.05, fontSize: { xs: "1.05rem", sm: "1.18rem" } }}
+                    sx={LISTING_CARD_PRICE_SX}
                   >
                     {formatPrice(listing.price)}
                   </Typography>

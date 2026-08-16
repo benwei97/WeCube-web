@@ -68,10 +68,12 @@ export default function MobileListingCard({ listing, onPress, style }) {
     <Pressable style={[styles.card, style]} onPress={onPress}>
       <ListingCardMediaFrame listing={listing} />
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
           {listing.title || "Untitled listing"}
         </Text>
-        <Text style={styles.price}>{formatListingPrice(listing.price)}</Text>
+        <Text style={styles.price} numberOfLines={1} ellipsizeMode="tail">
+          {formatListingPrice(listing.price)}
+        </Text>
         <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
       </View>
     </Pressable>
@@ -157,6 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     lineHeight: 17,
+    minWidth: 0,
   },
   fulfillmentLine: {
     alignItems: "center",

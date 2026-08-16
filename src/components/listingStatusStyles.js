@@ -81,14 +81,22 @@ export const LISTING_CARD_CONTENT_SX = {
 };
 
 export const LISTING_CARD_TITLE_SX = {
-  display: "-webkit-box",
-  WebkitBoxOrient: "vertical",
-  WebkitLineClamp: 2,
   overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
   lineHeight: 1.18,
   fontSize: { xs: "0.92rem", sm: "0.98rem" },
   fontWeight: 500,
   mb: 0,
+};
+
+export const LISTING_CARD_PRICE_SX = {
+  mb: 0,
+  lineHeight: 1.05,
+  fontSize: { xs: "1.05rem", sm: "1.18rem" },
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
 export const LISTING_CARD_TEXT_STACK_SX = {
