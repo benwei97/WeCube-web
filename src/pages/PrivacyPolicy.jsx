@@ -54,10 +54,6 @@ export default function PrivacyPolicy() {
           <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
             Privacy Policy
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
-            This policy summarizes what information WeCube collects and how it is
-            used to operate the marketplace.
-          </Typography>
         </Box>
 
         <Divider />

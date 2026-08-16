@@ -46,10 +46,6 @@ export default function Terms() {
           <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
             Terms & Conditions
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
-            These terms summarize how WeCube should be used and what users are
-            responsible for.
-          </Typography>
         </Box>
 
         <Divider />

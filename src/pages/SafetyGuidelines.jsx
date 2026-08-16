@@ -69,10 +69,6 @@ export default function SafetyGuidelines() {
           <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
             Safety Guidelines
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
-            Use these guidelines when buying, selling, shipping, or meeting
-            through WeCube.
-          </Typography>
         </Box>
 
         <Divider />
