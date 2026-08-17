@@ -445,20 +445,25 @@ export default function BrowseScreen({ navigation }) {
               </Pressable>
             </View>
 
-            <TextInput
-              value={locationDraft.locationInput}
-              onChangeText={(value) =>
-                setLocationDraft((prev) => ({
-                  ...prev,
-                  locationInput: value,
-                  locationOption:
-                    value === prev.locationOption?.label ? prev.locationOption : null,
-                }))
-              }
-              style={styles.searchInput}
-              placeholder="Search location"
-              autoCapitalize="words"
-            />
+            <View style={styles.searchPanel}>
+              <TextInput
+                value={locationDraft.locationInput}
+                onChangeText={(value) =>
+                  setLocationDraft((prev) => ({
+                    ...prev,
+                    locationInput: value,
+                    locationOption:
+                      value === prev.locationOption?.label ? prev.locationOption : null,
+                  }))
+                }
+                style={styles.searchInput}
+                placeholder="Search location"
+                autoCapitalize="words"
+              />
+              <View style={styles.locationSearchIcon}>
+                <MaterialIcons name="search" size={22} color={colors.text} />
+              </View>
+            </View>
 
             {loadingLocations ? (
               <ActivityIndicator color={colors.primary} style={styles.locationLoader} />
@@ -633,6 +638,16 @@ const styles = StyleSheet.create({
   locationButtonActive: {
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
+  },
+  locationSearchIcon: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
   },
   resultCount: {
     color: colors.muted,
