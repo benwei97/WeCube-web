@@ -258,6 +258,8 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [buyerOptions, setBuyerOptions] = useState([]);
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
   const [loadingBuyerOptions, setLoadingBuyerOptions] = useState(false);
+  const [soldMethodChoice, setSoldMethodChoice] = useState("in_app");
+  const [selectedBuyerConversationId, setSelectedBuyerConversationId] = useState("");
   const [deletingListing, setDeletingListing] = useState(false);
   const [ownerActionsOpen, setOwnerActionsOpen] = useState(false);
   const [viewerActionsOpen, setViewerActionsOpen] = useState(false);
@@ -886,6 +888,8 @@ export default function ListingDetailScreen({ navigation, route }) {
 
     setLoadingBuyerOptions(true);
     setMarkSoldOpen(true);
+    setSoldMethodChoice("in_app");
+    setSelectedBuyerConversationId("");
     try {
       const options = await getListingBuyerOptions(listing.id, listing.userId);
       setBuyerOptions(options);
@@ -902,19 +906,38 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (statusUpdating) return;
     setMarkSoldOpen(false);
     setBuyerOptions([]);
+    setSoldMethodChoice("in_app");
+    setSelectedBuyerConversationId("");
   }
 
-  function confirmBuyerSoldSelection(selectedBuyer) {
-    if (!selectedBuyer || statusUpdating) return;
+  function confirmMarkSoldSelection() {
+    if (!listing?.id || !isOwnListing || statusUpdating) return;
 
-    const buyerName = selectedBuyer.buyerName || "this buyer";
+    const soldInApp = soldMethodChoice === "in_app";
+    const selectedBuyer = soldInApp
+      ? buyerOptions.find(
+          (buyer) => buyer.conversationId === selectedBuyerConversationId
+        ) || null
+      : null;
+
+    if (soldInApp && !selectedBuyer) {
+      Alert.alert(
+        "Select a buyer",
+        "Choose who bought the puzzle, or switch to sold off app."
+      );
+      return;
+    }
+
+    const buyerName = selectedBuyer?.buyerName || "";
     Alert.alert(
-      "Mark sold to buyer?",
-      `This will mark "${listing?.title || "this listing"}" as sold to ${buyerName} and send a review request in that chat.`,
+      "Mark listing as sold?",
+      selectedBuyer
+        ? `This will mark "${listing.title || "this listing"}" as sold to ${buyerName} and send a review request in that chat.`
+        : `This will mark "${listing.title || "this listing"}" as sold off app.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: `Sold to ${buyerName}`,
+          text: "Mark Sold",
           onPress: () => markListingSold(selectedBuyer),
         },
       ]
@@ -1951,31 +1974,76 @@ export default function ListingDetailScreen({ navigation, route }) {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Mark Listing as Sold</Text>
             <Text style={styles.modalBody}>
-              Select the buyer if this sale happened through a WeCube chat, or mark it sold off app.
+              Choose how this sale happened before marking the listing sold.
             </Text>
+            <View style={styles.soldMethodRow}>
+              {[
+                { value: "in_app", label: "Sold in app" },
+                { value: "off_app", label: "Sold off app" },
+              ].map((option) => {
+                const selected = soldMethodChoice === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.soldMethodButton,
+                      selected && styles.soldMethodButtonSelected,
+                    ]}
+                    onPress={() => {
+                      setSoldMethodChoice(option.value);
+                      if (option.value === "off_app") {
+                        setSelectedBuyerConversationId("");
+                      }
+                    }}
+                    disabled={statusUpdating}
+                  >
+                    <Text
+                      style={[
+                        styles.soldMethodText,
+                        selected && styles.soldMethodTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             {loadingBuyerOptions ? (
               <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
-            ) : buyerOptions.length > 0 ? (
+            ) : soldMethodChoice === "in_app" && buyerOptions.length > 0 ? (
               <View style={styles.buyerList}>
+                <Text style={styles.buyerListLabel}>Choose who bought the puzzle.</Text>
                 {buyerOptions.map((buyer) => (
                   <Pressable
                     key={buyer.conversationId}
-                    style={styles.buyerOption}
-                    onPress={() => confirmBuyerSoldSelection(buyer)}
+                    style={[
+                      styles.buyerOption,
+                      selectedBuyerConversationId === buyer.conversationId &&
+                        styles.buyerOptionSelected,
+                    ]}
+                    onPress={() => setSelectedBuyerConversationId(buyer.conversationId)}
                     disabled={statusUpdating}
                   >
-                    <Text style={styles.buyerName}>{buyer.buyerName}</Text>
-                    <Text style={styles.buyerMeta} numberOfLines={1}>
-                      {buyer.lastMessage || buyer.buyerEmail || "Buyer chat"}
-                    </Text>
+                    <View style={styles.buyerOptionRadio}>
+                      {selectedBuyerConversationId === buyer.conversationId ? (
+                        <View style={styles.buyerOptionRadioDot} />
+                      ) : null}
+                    </View>
+                    <View style={styles.buyerOptionCopy}>
+                      <Text style={styles.buyerName}>{buyer.buyerName}</Text>
+                      <Text style={styles.buyerMeta} numberOfLines={1}>
+                        {buyer.lastMessage || buyer.buyerEmail || "Buyer chat"}
+                      </Text>
+                    </View>
                   </Pressable>
                 ))}
               </View>
-            ) : (
+            ) : soldMethodChoice === "in_app" ? (
               <Text style={styles.emptyModalText}>
-                No buyer chats were found.
+                No buyer chats were found. Choose sold off app if this sale happened outside WeCube.
               </Text>
-            )}
+            ) : null}
             <View style={styles.modalActions}>
               <Pressable
                 style={styles.modalCancelButton}
@@ -1985,12 +2053,22 @@ export default function ListingDetailScreen({ navigation, route }) {
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.modalSubmitButton, statusUpdating && styles.modalSubmitButtonDisabled]}
-                onPress={() => markListingSold(null)}
-                disabled={statusUpdating}
+                style={[
+                  styles.modalSubmitButton,
+                  (statusUpdating ||
+                    (soldMethodChoice === "in_app" &&
+                      (loadingBuyerOptions || !selectedBuyerConversationId))) &&
+                    styles.modalSubmitButtonDisabled,
+                ]}
+                onPress={confirmMarkSoldSelection}
+                disabled={
+                  statusUpdating ||
+                  (soldMethodChoice === "in_app" &&
+                    (loadingBuyerOptions || !selectedBuyerConversationId))
+                }
               >
                 <Text style={styles.modalSubmitText}>
-                  {statusUpdating ? "Saving..." : "Sold Off App"}
+                  {statusUpdating ? "Saving..." : "Mark as Sold"}
                 </Text>
               </Pressable>
             </View>
@@ -2419,16 +2497,73 @@ const styles = StyleSheet.create({
   inlineLoader: {
     marginTop: 16,
   },
+  soldMethodRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  soldMethodButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  soldMethodButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  soldMethodText: {
+    ...typography.button,
+    color: colors.text,
+    textAlign: "center",
+  },
+  soldMethodTextSelected: {
+    color: "#fff",
+  },
   buyerList: {
     gap: 8,
     marginTop: 14,
   },
+  buyerListLabel: {
+    ...typography.caption,
+    color: colors.muted,
+  },
   buyerOption: {
+    alignItems: "center",
     borderColor: colors.border,
     borderRadius: radii.control,
     borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  buyerOptionSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  buyerOptionRadio: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 20,
+    justifyContent: "center",
+    width: 20,
+  },
+  buyerOptionRadioDot: {
+    backgroundColor: colors.primary,
+    borderRadius: 5,
+    height: 10,
+    width: 10,
+  },
+  buyerOptionCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   buyerName: {
     ...typography.bodyStrong,
