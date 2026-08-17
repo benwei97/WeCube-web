@@ -802,7 +802,18 @@ function Messages() {
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     const date = getTimestampDate(timestamp);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(date);
+    }
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(date);
   };
 
   const formatTranscriptTimeDivider = (timestamp) => {
