@@ -33,7 +33,7 @@ import {
   unblockUser,
   updateReviewPromptResponse,
 } from "../utils/messaging";
-import { submitTransactionReview } from "../utils/reviews";
+import { getExistingReview, submitTransactionReview } from "../utils/reviews";
 import { getS3PublicUrl } from "../utils/s3";
 
 const CONVERSATION_REPORT_REASONS = [
@@ -459,7 +459,19 @@ export default function ConversationScreen({ navigation, route }) {
     }
   }
 
-  function openReviewModal(message) {
+  async function openReviewModal(message) {
+    if (currentUser?.uid && otherUserId) {
+      try {
+        const existingReview = await getExistingReview(currentUser.uid, otherUserId);
+        if (existingReview) {
+          await updateReviewPromptResponse(message.id, currentUser.uid, "reviewed");
+          return;
+        }
+      } catch (reviewCheckError) {
+        console.error("Error checking existing mobile review:", reviewCheckError);
+      }
+    }
+
     setReviewMessage(message);
     setReviewRating(5);
     setReviewComment("");
@@ -516,10 +528,9 @@ export default function ConversationScreen({ navigation, route }) {
       }
       await updateReviewPromptResponse(reviewMessage.id, currentUser.uid, "reviewed");
       closeReviewModal();
-      Alert.alert(
-        alreadyReviewed ? "Review already submitted" : "Review submitted",
-        alreadyReviewed ? "Your previous review is already on this profile." : "Your review has been added."
-      );
+      if (!alreadyReviewed) {
+        Alert.alert("Review submitted", "Your review has been added.");
+      }
     } catch (reviewError) {
       console.error("Error submitting mobile review:", reviewError);
       Alert.alert("Unable to submit review", reviewError.message || "Please try again.");
