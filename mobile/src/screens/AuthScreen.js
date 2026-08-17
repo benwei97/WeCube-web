@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,9 +11,9 @@ import {
   View,
 } from "react-native";
 import Screen from "../components/Screen";
+import BrandLogo from "../components/BrandLogo";
 import { useAuth } from "../contexts/useAuth";
 import { colors } from "../theme/colors";
-import logoMark from "../../assets/icon.png";
 
 export default function AuthScreen() {
   const { login, signup, resetPassword } = useAuth();
@@ -91,7 +90,7 @@ export default function AuthScreen() {
         style={styles.container}
       >
         <View style={styles.card}>
-          <Image source={logoMark} style={styles.logo} />
+          <BrandLogo style={styles.logo} markHeight={58} markWidth={76} wordmarkSize={30} />
           <Text style={styles.title}>{isSignup ? "Create account" : "Sign in"}</Text>
           <Text style={styles.subtitle}>
             Sign in before using WeCube.
@@ -202,10 +201,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignSelf: "center",
-    borderRadius: 16,
-    height: 64,
     marginBottom: 20,
-    width: 64,
   },
   title: {
     color: colors.text,

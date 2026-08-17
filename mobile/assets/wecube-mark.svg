@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
   <title id="title">WeCube mark</title>
-  <rect width="1024" height="1024" fill="#2F6BFF"/>
+  <rect width="1024" height="1024" fill="none"/>
   <g transform="translate(220 302)">
-    <rect x="104" y="0" width="480" height="116" rx="58" fill="#FFFFFF"/>
-    <rect x="0" y="152" width="480" height="116" rx="58" fill="#101010"/>
-    <rect x="104" y="304" width="480" height="116" rx="58" fill="#FFFFFF"/>
+    <rect x="104" y="0" width="480" height="116" rx="58" fill="#101010"/>
+    <rect x="0" y="152" width="480" height="116" rx="58" fill="#2F6BFF"/>
+    <rect x="104" y="304" width="480" height="116" rx="58" fill="#101010"/>
   </g>
 </svg>

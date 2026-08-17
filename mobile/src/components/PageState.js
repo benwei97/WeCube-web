@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import BrandLogo from "./BrandLogo";
 import { colors } from "../theme/colors";
 
 function BrandMark() {
@@ -23,9 +24,16 @@ export default function PageState({
   return (
     <View style={styles.wrapper}>
       <View style={styles.card}>
-        <View style={styles.iconBox}>
-          {isLoading ? <ActivityIndicator color={colors.primary} /> : <BrandMark />}
-        </View>
+        {isLoading ? (
+          <>
+            <BrandLogo style={styles.loadingLogo} markHeight={50} markWidth={66} wordmarkSize={26} />
+            <ActivityIndicator color={colors.primary} style={styles.loadingSpinner} />
+          </>
+        ) : (
+          <View style={styles.iconBox}>
+            <BrandMark />
+          </View>
+        )}
         <Text style={styles.title}>{title}</Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
         {actionLabel && onAction ? (
@@ -60,6 +68,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 22,
     width: "100%",
+  },
+  loadingLogo: {
+    marginBottom: 12,
+  },
+  loadingSpinner: {
+    marginBottom: 14,
   },
   iconBox: {
     alignItems: "center",
