@@ -3,7 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,11 +28,27 @@ import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
 import PageState from "../components/PageState";
 import Screen from "../components/Screen";
+import Toggle from "../components/Toggle";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { radii, typography } from "../theme/design";
-import { formatListingPrice, getCompetitionTags } from "../utils/listingUtils";
+import {
+  CONDITION_OPTIONS,
+  PUZZLE_TYPE_OPTIONS,
+  formatListingPrice,
+  getCompetitionTags,
+} from "../utils/listingUtils";
+import {
+  characterCountText,
+  clampText,
+  formatCurrencyInputFromDigits,
+  INPUT_LIMITS,
+} from "../utils/inputLimits";
+import {
+  fetchLocationSuggestionOptions,
+  getLocationOptionLabel,
+} from "../utils/locationSearch";
 import {
   cancelListingReviewPrompts,
   closeListingConversationsForDeletedListing,
@@ -41,6 +59,7 @@ import {
   getUserProfile,
 } from "../utils/messaging";
 import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
+import { searchCompetitions } from "../utils/wcaApi";
 
 const LISTING_REPORT_REASONS = [
   { value: "inappropriate_image", label: "Inappropriate image" },
@@ -52,6 +71,156 @@ const LISTING_REPORT_REASONS = [
 ];
 const DESCRIPTION_PREVIEW_LINES = 4;
 const DESCRIPTION_VIEW_MORE_THRESHOLD = 220;
+const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
+const COMPETITION_BATCH_SIZE = 25;
+const INITIAL_COMPETITION_LIMIT = 50;
+
+const MY_COMPETITIONS_OPTION = {
+  id: MY_COMPETITIONS_OPTION_ID,
+  name: "My competitions",
+  displayName: "My competitions",
+  isMyCompetitionsOption: true,
+};
+
+function parseNonNegativeCurrencyAmount(value) {
+  const amount = Number.parseFloat(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+function getListingCompetitionPayload(competition = {}, options = {}) {
+  const payload = {
+    id: competition.id || "",
+    name: competition.name || "",
+    city: competition.city || "",
+    country: competition.country || competition.countryIso2 || "",
+    latitude:
+      typeof competition.latitude === "number" ? competition.latitude : null,
+    longitude:
+      typeof competition.longitude === "number" ? competition.longitude : null,
+    displayName:
+      competition.displayName || competition.name || "Competition meetup",
+    dateRange: competition.dateRange || "",
+  };
+
+  if (options.includeSchedule) {
+    payload.startDate = competition.startDate || null;
+    payload.endDate = competition.endDate || null;
+  }
+
+  return payload;
+}
+
+function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
+  const competitionsById = new Map(
+    currentCompetitions
+      .filter((competition) => !competition.isMyCompetitionsOption)
+      .map((competition) => [competition.id, competition])
+  );
+
+  competitionsToAdd.forEach((competition) => {
+    if (competition?.id && !competitionsById.has(competition.id)) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
+
+  return [...competitionsById.values()];
+}
+
+function RequiredLabel({ children }) {
+  return (
+    <Text style={styles.editLabel}>
+      {children}
+      <Text style={styles.required}>*</Text>
+    </Text>
+  );
+}
+
+function HelperText({ children, error }) {
+  if (!children) return null;
+  return <Text style={[styles.editHelper, error && styles.editErrorText]}>{children}</Text>;
+}
+
+function SelectField({
+  label,
+  required,
+  value,
+  placeholder,
+  error,
+  helperText,
+  options,
+  onChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <View>
+      {required ? (
+        <RequiredLabel>{label}</RequiredLabel>
+      ) : (
+        <Text style={styles.editLabel}>{label}</Text>
+      )}
+      <Pressable
+        style={[styles.editInput, styles.editSelectInput, error && styles.editInputError]}
+        onPress={() => setOpen(true)}
+      >
+        <Text
+          style={[
+            styles.editSelectText,
+            !selectedOption && styles.editPlaceholderText,
+          ]}
+        >
+          {selectedOption?.label || placeholder}
+        </Text>
+        <MaterialIcons name="keyboard-arrow-down" size={22} color={colors.muted} />
+      </Pressable>
+      <HelperText error={error}>{helperText}</HelperText>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={open}
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.selectBackdrop}>
+          <View style={styles.selectPanel}>
+            <View style={styles.selectHeader}>
+              <Text style={styles.modalTitle}>{label}</Text>
+              <Pressable style={styles.selectCloseButton} onPress={() => setOpen(false)}>
+                <MaterialIcons name="close" size={22} color={colors.text} />
+              </Pressable>
+            </View>
+            {options.map((option) => {
+              const selected = option.value === value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.selectOption,
+                    selected && styles.selectOptionSelected,
+                  ]}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.selectOptionText,
+                      selected && styles.selectOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 function formatShipping(listing) {
   if (!listing?.shippingAvailable) return null;
@@ -93,6 +262,31 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [ownerActionsOpen, setOwnerActionsOpen] = useState(false);
   const [viewerActionsOpen, setViewerActionsOpen] = useState(false);
   const [activeFulfillmentOption, setActiveFulfillmentOption] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    title: "",
+    price: "",
+    description: "",
+    condition: "",
+    puzzleType: "",
+    meetupLocationLabel: "",
+    meetupLocation: null,
+    shippingAvailable: false,
+    shippingCost: "0.00",
+    localMeetupAvailable: false,
+    competitionMeetupAvailable: false,
+  });
+  const [editNotice, setEditNotice] = useState("");
+  const [hasAttemptedEditSave, setHasAttemptedEditSave] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editLocationOptions, setEditLocationOptions] = useState([]);
+  const [loadingEditLocations, setLoadingEditLocations] = useState(false);
+  const [editCompetitions, setEditCompetitions] = useState([]);
+  const [editCompetitionSearchInput, setEditCompetitionSearchInput] = useState("");
+  const [editCompetitionLimit, setEditCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
+  const [loadingEditCompetitions, setLoadingEditCompetitions] = useState(false);
+  const [selectedEditCompetitions, setSelectedEditCompetitions] = useState([]);
+  const isOwnListing = currentUser?.uid && currentUser.uid === listing?.userId;
 
   useEffect(() => {
     if (!listingId) {
@@ -177,11 +371,92 @@ export default function ListingDetailScreen({ navigation, route }) {
     };
   }, [currentUser?.uid, isOwnListing, listing?.id]);
 
+  useEffect(() => {
+    let active = true;
+    const query = editData.meetupLocationLabel.trim();
+
+    if (!editOpen || !editData.localMeetupAvailable || query.length < 2) {
+      setEditLocationOptions([]);
+      setLoadingEditLocations(false);
+      return undefined;
+    }
+
+    setLoadingEditLocations(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const options = await fetchLocationSuggestionOptions(query);
+        if (active) setEditLocationOptions(options);
+      } catch (locationError) {
+        console.error("Error loading mobile edit meetup locations:", locationError);
+        if (active) setEditLocationOptions([]);
+      } finally {
+        if (active) setLoadingEditLocations(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [editData.localMeetupAvailable, editData.meetupLocationLabel, editOpen]);
+
+  useEffect(() => {
+    if (!editOpen || !editData.competitionMeetupAvailable) return;
+    setEditCompetitionLimit(INITIAL_COMPETITION_LIMIT);
+  }, [editData.competitionMeetupAvailable, editCompetitionSearchInput, editOpen]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!editOpen || !editData.competitionMeetupAvailable) {
+      setEditCompetitions([]);
+      setLoadingEditCompetitions(false);
+      return undefined;
+    }
+
+    setLoadingEditCompetitions(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchCompetitions(
+          editCompetitionSearchInput,
+          editCompetitionLimit
+        );
+        if (active) setEditCompetitions(results);
+      } catch (competitionError) {
+        console.error("Error loading mobile edit competitions:", competitionError);
+        if (active) setEditCompetitions([]);
+      } finally {
+        if (active) setLoadingEditCompetitions(false);
+      }
+    }, editCompetitionSearchInput.trim().length >= 2 ? 300 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [
+    editCompetitionLimit,
+    editCompetitionSearchInput,
+    editData.competitionMeetupAvailable,
+    editOpen,
+  ]);
+
   const photos = listing?.photos || [];
   const activePhoto = photos[photoIndex];
   const activePhotoUrl = activePhoto?.s3Key ? getS3PublicUrl(activePhoto.s3Key) : null;
   const meetupCompetitionTags = useMemo(() => getCompetitionTags(listing), [listing]);
-  const isOwnListing = currentUser?.uid && currentUser.uid === listing?.userId;
+  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const editCompetitionOptions = useMemo(
+    () =>
+      bookmarkedCompetitions.length > 0
+        ? [MY_COMPETITIONS_OPTION, ...editCompetitions]
+        : editCompetitions,
+    [bookmarkedCompetitions.length, editCompetitions]
+  );
+  const selectedEditCompetitionIds = useMemo(
+    () => new Set(selectedEditCompetitions.map((competition) => competition.id)),
+    [selectedEditCompetitions]
+  );
   const isSavedListing = Boolean(currentUser?.savedListings?.includes(listing?.id));
   const sellerFirstName =
     `${seller?.firstName || ""}`.trim() ||
@@ -206,6 +481,32 @@ export default function ListingDetailScreen({ navigation, route }) {
     fulfillmentOptions.find((option) => option.value === activeFulfillmentOption) ||
     fulfillmentOptions[0];
   const selectedFulfillmentValue = selectedFulfillmentOption?.value;
+  const isEditDeliveryValid =
+    editData.shippingAvailable ||
+    editData.localMeetupAvailable ||
+    editData.competitionMeetupAvailable;
+  const isEditMeetupLocationValid =
+    !editData.localMeetupAvailable ||
+    (Boolean(editData.meetupLocationLabel.trim()) &&
+      editData.meetupLocation?.label === editData.meetupLocationLabel.trim());
+  const isEditCompetitionValid =
+    !editData.competitionMeetupAvailable || selectedEditCompetitions.length > 0;
+  const isEditShippingCostValid =
+    !editData.shippingAvailable ||
+    (parseNonNegativeCurrencyAmount(editData.shippingCost) !== null &&
+      parseNonNegativeCurrencyAmount(editData.shippingCost) <=
+        INPUT_LIMITS.SHIPPING_COST_MAX);
+  const isEditTitleInvalid = hasAttemptedEditSave && !editData.title.trim();
+  const isEditPriceInvalid =
+    hasAttemptedEditSave &&
+    (!editData.price ||
+      parseNonNegativeCurrencyAmount(editData.price) === null ||
+      parseNonNegativeCurrencyAmount(editData.price) >
+        INPUT_LIMITS.LISTING_PRICE_MAX);
+  const isEditPuzzleTypeInvalid = hasAttemptedEditSave && !editData.puzzleType;
+  const isEditConditionInvalid = hasAttemptedEditSave && !editData.condition;
+  const isEditDescriptionInvalid =
+    hasAttemptedEditSave && !editData.description.trim();
 
   function openCompetitionListings(competition) {
     if (!competition?.id) return;
@@ -227,6 +528,202 @@ export default function ListingDetailScreen({ navigation, route }) {
   function handleNextPhoto() {
     if (photos.length <= 1) return;
     setPhotoIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
+  }
+
+  function clearEditNotice() {
+    if (editNotice) setEditNotice("");
+  }
+
+  function openEditListingModal() {
+    if (!listing || !isOwnListing) return;
+
+    const shippingCost = Number(listing.shippingCost || 0);
+    setEditData({
+      title: listing.title || "",
+      price: Number.isFinite(Number(listing.price))
+        ? Number(listing.price).toFixed(2)
+        : "",
+      description: listing.description || "",
+      condition: listing.condition || "",
+      puzzleType: listing.puzzleType || "",
+      meetupLocationLabel: listing.meetupLocationLabel || "",
+      meetupLocation: listing.meetupLocation || null,
+      shippingAvailable: Boolean(listing.shippingAvailable),
+      shippingCost: shippingCost > 0 ? shippingCost.toFixed(2) : "0.00",
+      localMeetupAvailable: Boolean(listing.localMeetupAvailable),
+      competitionMeetupAvailable: Boolean(listing.competitionMeetupAvailable),
+    });
+    setSelectedEditCompetitions(getCompetitionTags(listing));
+    setEditCompetitionSearchInput("");
+    setEditCompetitions([]);
+    setEditLocationOptions([]);
+    setEditNotice("");
+    setHasAttemptedEditSave(false);
+    setOwnerActionsOpen(false);
+    setEditOpen(true);
+  }
+
+  function closeEditListingModal() {
+    if (savingEdit) return;
+    setEditOpen(false);
+    setEditNotice("");
+    setHasAttemptedEditSave(false);
+  }
+
+  function handleEditTitleChange(value) {
+    clearEditNotice();
+    setEditData((current) => ({
+      ...current,
+      title: clampText(value, INPUT_LIMITS.LISTING_TITLE),
+    }));
+  }
+
+  function handleEditDescriptionChange(value) {
+    clearEditNotice();
+    setEditData((current) => ({
+      ...current,
+      description: clampText(value, INPUT_LIMITS.LISTING_DESCRIPTION),
+    }));
+  }
+
+  function handleEditPriceChange(value) {
+    const formattedValue = formatCurrencyInputFromDigits(
+      value,
+      INPUT_LIMITS.LISTING_PRICE_MAX
+    );
+    if (formattedValue === null) return;
+    clearEditNotice();
+    setEditData((current) => ({ ...current, price: formattedValue }));
+  }
+
+  function handleEditShippingCostChange(value) {
+    const formattedValue = formatCurrencyInputFromDigits(
+      value,
+      INPUT_LIMITS.SHIPPING_COST_MAX
+    );
+    if (formattedValue === null) return;
+    clearEditNotice();
+    setEditData((current) => ({
+      ...current,
+      shippingCost: formattedValue || "0.00",
+    }));
+  }
+
+  function handleEditLocalMeetupChange(value) {
+    clearEditNotice();
+    setEditData((current) => ({
+      ...current,
+      localMeetupAvailable: value,
+      meetupLocationLabel: value ? current.meetupLocationLabel : "",
+      meetupLocation: value ? current.meetupLocation : null,
+    }));
+    if (!value) setEditLocationOptions([]);
+  }
+
+  function handleEditCompetitionMeetupChange(value) {
+    clearEditNotice();
+    setEditData((current) => ({
+      ...current,
+      competitionMeetupAvailable: value,
+    }));
+    if (!value) {
+      setSelectedEditCompetitions([]);
+      setEditCompetitionSearchInput("");
+      setEditCompetitions([]);
+    }
+  }
+
+  function handleEditCompetitionSelect(competition) {
+    clearEditNotice();
+    if (competition.isMyCompetitionsOption) {
+      setSelectedEditCompetitions((current) =>
+        mergeCompetitionsById(current, bookmarkedCompetitions)
+      );
+      return;
+    }
+
+    setSelectedEditCompetitions((current) =>
+      selectedEditCompetitionIds.has(competition.id)
+        ? current.filter((item) => item.id !== competition.id)
+        : [...current, competition]
+    );
+  }
+
+  async function saveListingEdits() {
+    setHasAttemptedEditSave(true);
+
+    const parsedPrice = parseNonNegativeCurrencyAmount(editData.price);
+    const parsedShippingCost = editData.shippingAvailable
+      ? parseNonNegativeCurrencyAmount(editData.shippingCost)
+      : 0;
+
+    if (
+      !listing?.id ||
+      !isOwnListing ||
+      !editData.title.trim() ||
+      parsedPrice === null ||
+      parsedPrice > INPUT_LIMITS.LISTING_PRICE_MAX ||
+      !editData.puzzleType ||
+      !editData.condition ||
+      !editData.description.trim() ||
+      !isEditDeliveryValid ||
+      !isEditMeetupLocationValid ||
+      !isEditCompetitionValid ||
+      !isEditShippingCostValid
+    ) {
+      setEditNotice(
+        !isEditDeliveryValid
+          ? "Select at least one fulfillment method."
+          : "Fill in all required fields before saving."
+      );
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditNotice("");
+    try {
+      const shippingCost = editData.shippingAvailable ? parsedShippingCost : 0;
+      const meetupLocation =
+        editData.localMeetupAvailable && editData.meetupLocation
+          ? editData.meetupLocation
+          : null;
+      const competitions = editData.competitionMeetupAvailable
+        ? selectedEditCompetitions
+        : [];
+
+      await updateDoc(doc(db, "listings", listing.id), {
+        title: editData.title.trim(),
+        price: parsedPrice,
+        description: editData.description.trim(),
+        condition: editData.condition,
+        puzzleType: editData.puzzleType,
+        meetupLocationLabel: editData.localMeetupAvailable
+          ? editData.meetupLocationLabel.trim()
+          : "",
+        meetupLocation,
+        shippingAvailable: editData.shippingAvailable,
+        shippingIncluded: editData.shippingAvailable && shippingCost === 0,
+        shippingCost,
+        localMeetupAvailable: editData.localMeetupAvailable,
+        competitionMeetupAvailable: editData.competitionMeetupAvailable,
+        competitions: competitions.map((competition) =>
+          getListingCompetitionPayload(competition, { includeSchedule: true })
+        ),
+        meetupCompetitionTags: competitions.map((competition) =>
+          getListingCompetitionPayload(competition)
+        ),
+        updatedAt: new Date(),
+      });
+
+      setEditOpen(false);
+      setHasAttemptedEditSave(false);
+      Alert.alert("Listing updated", "Your changes have been saved.");
+    } catch (editError) {
+      console.error("Error updating mobile listing:", editError);
+      setEditNotice(editError.message || "Unable to update listing. Please try again.");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function getDefaultInitialMessage() {
@@ -881,11 +1378,386 @@ export default function ListingDetailScreen({ navigation, route }) {
         ) : null}
       </ScrollView>
 
+      <Modal
+        visible={editOpen}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={closeEditListingModal}
+      >
+        <Screen>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.editKeyboardView}
+          >
+            <ScrollView contentContainerStyle={styles.editContent}>
+              <View style={styles.editTitleRow}>
+                <Text style={styles.editTitle}>Edit Listing</Text>
+                <Pressable
+                  style={styles.editCloseButton}
+                  onPress={closeEditListingModal}
+                  accessibilityLabel="Close edit listing"
+                >
+                  <MaterialIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
+
+              {editNotice ? (
+                <View style={styles.editNotice}>
+                  <Text style={styles.editNoticeText}>{editNotice}</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.editSection}>
+                <Text style={styles.editSectionTitle}>Basic Information</Text>
+
+                <RequiredLabel>Title</RequiredLabel>
+                <TextInput
+                  value={editData.title}
+                  onChangeText={handleEditTitleChange}
+                  style={[styles.editInput, isEditTitleInvalid && styles.editInputError]}
+                  placeholder="ex. Gan 16 Maglev UV"
+                  maxLength={INPUT_LIMITS.LISTING_TITLE}
+                />
+                <HelperText error={isEditTitleInvalid}>
+                  {isEditTitleInvalid ? "Enter a title." : ""}
+                </HelperText>
+
+                <View style={styles.editInlineFields}>
+                  <View style={styles.editPriceField}>
+                    <RequiredLabel>Price</RequiredLabel>
+                    <View
+                      style={[
+                        styles.editCurrencyInputFrame,
+                        isEditPriceInvalid && styles.editInputError,
+                      ]}
+                    >
+                      <Text style={styles.editCurrencyPrefix}>$</Text>
+                      <TextInput
+                        value={editData.price}
+                        onChangeText={handleEditPriceChange}
+                        style={styles.editCurrencyTextInput}
+                        keyboardType="number-pad"
+                        placeholder="0.00"
+                      />
+                    </View>
+                    <HelperText error={isEditPriceInvalid}>
+                      {isEditPriceInvalid
+                        ? `Enter a price from $0 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
+                        : ""}
+                    </HelperText>
+                  </View>
+                </View>
+
+                <SelectField
+                  label="Puzzle Type"
+                  required
+                  value={editData.puzzleType}
+                  placeholder="Select puzzle type"
+                  error={isEditPuzzleTypeInvalid}
+                  helperText={isEditPuzzleTypeInvalid ? "Select a puzzle type." : ""}
+                  options={PUZZLE_TYPE_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
+                  }))}
+                  onChange={(value) => {
+                    clearEditNotice();
+                    setEditData((current) => ({ ...current, puzzleType: value }));
+                  }}
+                />
+
+                <SelectField
+                  label="Condition"
+                  required
+                  value={editData.condition}
+                  placeholder="Select condition"
+                  error={isEditConditionInvalid}
+                  helperText={isEditConditionInvalid ? "Select a condition." : ""}
+                  options={CONDITION_OPTIONS}
+                  onChange={(value) => {
+                    clearEditNotice();
+                    setEditData((current) => ({ ...current, condition: value }));
+                  }}
+                />
+
+                <RequiredLabel>Description</RequiredLabel>
+                <TextInput
+                  value={editData.description}
+                  onChangeText={handleEditDescriptionChange}
+                  style={[
+                    styles.editInput,
+                    styles.editTextArea,
+                    isEditDescriptionInvalid && styles.editInputError,
+                  ]}
+                  maxLength={INPUT_LIMITS.LISTING_DESCRIPTION}
+                  multiline
+                  placeholder="Describe your cube's condition, features, and any included accessories..."
+                  textAlignVertical="top"
+                />
+                <HelperText error={isEditDescriptionInvalid}>
+                  {isEditDescriptionInvalid
+                    ? "Enter a description."
+                    : characterCountText(
+                        editData.description,
+                        INPUT_LIMITS.LISTING_DESCRIPTION
+                      )}
+                </HelperText>
+              </View>
+
+              <View style={[styles.editSection, styles.editSectionBorder]}>
+                <Text style={styles.editSectionTitle}>Fulfillment Methods</Text>
+
+                <View style={styles.editSwitchRow}>
+                  <Text style={styles.editSwitchLabel}>Shipping</Text>
+                  <Toggle
+                    value={editData.shippingAvailable}
+                    onValueChange={(value) => {
+                      clearEditNotice();
+                      setEditData((current) => ({
+                        ...current,
+                        shippingAvailable: value,
+                        shippingCost: value ? current.shippingCost : "0.00",
+                      }));
+                    }}
+                  />
+                </View>
+                {editData.shippingAvailable ? (
+                  <View style={styles.editNestedSection}>
+                    <RequiredLabel>Shipping Price</RequiredLabel>
+                    <View
+                      style={[
+                        styles.editCurrencyInputFrame,
+                        styles.editShippingInput,
+                        !isEditShippingCostValid && styles.editInputError,
+                      ]}
+                    >
+                      <Text style={styles.editCurrencyPrefix}>$</Text>
+                      <TextInput
+                        value={editData.shippingCost}
+                        onChangeText={handleEditShippingCostChange}
+                        style={styles.editCurrencyTextInput}
+                        keyboardType="number-pad"
+                        placeholder="0.00"
+                      />
+                    </View>
+                    <HelperText error={!isEditShippingCostValid && hasAttemptedEditSave}>
+                      {!isEditShippingCostValid && hasAttemptedEditSave
+                        ? `Enter a shipping price from $0 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
+                        : "Keep at $0 if there is no additional shipping cost."}
+                    </HelperText>
+                  </View>
+                ) : null}
+
+                <View style={styles.editSwitchRow}>
+                  <Text style={styles.editSwitchLabel}>Local Meetup</Text>
+                  <Toggle
+                    value={editData.localMeetupAvailable}
+                    onValueChange={handleEditLocalMeetupChange}
+                  />
+                </View>
+                {editData.localMeetupAvailable ? (
+                  <View style={styles.editNestedSection}>
+                    <RequiredLabel>General Meetup Area</RequiredLabel>
+                    <TextInput
+                      value={editData.meetupLocationLabel}
+                      onChangeText={(value) => {
+                        clearEditNotice();
+                        const nextValue = clampText(value, INPUT_LIMITS.LOCATION_LABEL);
+                        setEditData((current) => ({
+                          ...current,
+                          meetupLocationLabel: nextValue,
+                          meetupLocation:
+                            nextValue === current.meetupLocation?.label
+                              ? current.meetupLocation
+                              : null,
+                        }));
+                      }}
+                      style={[
+                        styles.editInput,
+                        hasAttemptedEditSave &&
+                          !isEditMeetupLocationValid &&
+                          styles.editInputError,
+                      ]}
+                      placeholder="ex. Los Angeles, CA"
+                    />
+                    {loadingEditLocations ? (
+                      <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
+                    ) : null}
+                    {editLocationOptions.length > 0 ? (
+                      <View style={styles.editOptionList}>
+                        {editLocationOptions.map((option) => {
+                          const selected = editData.meetupLocation?.label === option.label;
+                          return (
+                            <Pressable
+                              key={option.label}
+                              style={[
+                                styles.editInlineOption,
+                                selected && styles.editInlineOptionSelected,
+                              ]}
+                              onPress={() => {
+                                clearEditNotice();
+                                setEditData((current) => ({
+                                  ...current,
+                                  meetupLocation: option,
+                                  meetupLocationLabel: getLocationOptionLabel(option),
+                                }));
+                                setEditLocationOptions([]);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.editInlineOptionText,
+                                  selected && styles.editInlineOptionTextSelected,
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                    <HelperText error={hasAttemptedEditSave && !isEditMeetupLocationValid}>
+                      {hasAttemptedEditSave && !isEditMeetupLocationValid
+                        ? "Select a location from the list."
+                        : ""}
+                    </HelperText>
+                  </View>
+                ) : null}
+
+                <View style={styles.editSwitchRow}>
+                  <Text style={styles.editSwitchLabel}>Competition Meetup</Text>
+                  <Toggle
+                    value={editData.competitionMeetupAvailable}
+                    onValueChange={handleEditCompetitionMeetupChange}
+                  />
+                </View>
+                {editData.competitionMeetupAvailable ? (
+                  <View style={styles.editCompetitionSection}>
+                    <RequiredLabel>Competitions</RequiredLabel>
+                    <TextInput
+                      value={editCompetitionSearchInput}
+                      onChangeText={(value) => {
+                        clearEditNotice();
+                        setEditCompetitionSearchInput(value);
+                      }}
+                      style={[
+                        styles.editInput,
+                        hasAttemptedEditSave &&
+                          !isEditCompetitionValid &&
+                          styles.editInputError,
+                      ]}
+                      placeholder="Search competitions..."
+                    />
+                    {loadingEditCompetitions ? (
+                      <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
+                    ) : null}
+                    {selectedEditCompetitions.length > 0 ? (
+                      <View style={styles.editSelectedCompetitionWrap}>
+                        {selectedEditCompetitions.map((competition) => (
+                          <Pressable
+                            key={competition.id}
+                            style={styles.editSelectedCompetitionPill}
+                            onPress={() => handleEditCompetitionSelect(competition)}
+                          >
+                            <Text style={styles.editSelectedCompetitionText} numberOfLines={1}>
+                              {competition.displayName || competition.name}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                    <View style={styles.editOptionList}>
+                      {editCompetitionOptions.map((competition) => {
+                        const selected = selectedEditCompetitionIds.has(competition.id);
+                        return (
+                          <Pressable
+                            key={competition.id}
+                            style={[
+                              styles.editCompetitionOption,
+                              selected && styles.editInlineOptionSelected,
+                            ]}
+                            onPress={() => handleEditCompetitionSelect(competition)}
+                          >
+                            <Text
+                              style={[
+                                styles.editCompetitionOptionTitle,
+                                selected && styles.editInlineOptionTextSelected,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {competition.displayName || competition.name}
+                            </Text>
+                            <Text style={styles.editCompetitionOptionMeta} numberOfLines={1}>
+                              {competition.isMyCompetitionsOption
+                                ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
+                                : [competition.city, competition.country, competition.dateRange]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {editCompetitions.length >= editCompetitionLimit ? (
+                      <Pressable
+                        style={styles.editLoadMoreButton}
+                        onPress={() =>
+                          setEditCompetitionLimit(
+                            (currentLimit) => currentLimit + COMPETITION_BATCH_SIZE
+                          )
+                        }
+                      >
+                        <Text style={styles.editLoadMoreText}>Load more competitions</Text>
+                      </Pressable>
+                    ) : null}
+                    <HelperText error={hasAttemptedEditSave && !isEditCompetitionValid}>
+                      {hasAttemptedEditSave && !isEditCompetitionValid
+                        ? "Select at least one competition."
+                        : ""}
+                    </HelperText>
+                  </View>
+                ) : null}
+
+                {!isEditDeliveryValid && hasAttemptedEditSave ? (
+                  <HelperText error>Select at least one fulfillment method.</HelperText>
+                ) : null}
+              </View>
+
+              <View style={styles.editActionRow}>
+                <Pressable
+                  style={styles.editCancelButton}
+                  onPress={closeEditListingModal}
+                  disabled={savingEdit}
+                >
+                  <Text style={styles.editCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.editSaveButton, savingEdit && styles.primaryButtonDisabled]}
+                  onPress={saveListingEdits}
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.editSaveText}>Save Changes</Text>
+                  )}
+                </Pressable>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Screen>
+      </Modal>
+
       <ActionSheet
         visible={ownerActionsOpen}
         title="Listing actions"
         onClose={() => setOwnerActionsOpen(false)}
         actions={[
+          {
+            label: "Edit Listing",
+            disabled: statusUpdating || deletingListing,
+            onPress: openEditListingModal,
+          },
           ...(listing.status !== "sold"
             ? [
                 {
@@ -1528,5 +2400,303 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 15,
     fontWeight: "700",
+  },
+  editKeyboardView: {
+    flex: 1,
+  },
+  editContent: {
+    padding: 16,
+    paddingBottom: 32,
+    paddingTop: 72,
+  },
+  editTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 18,
+  },
+  editTitle: {
+    ...typography.screenTitle,
+    color: colors.text,
+    flex: 1,
+  },
+  editCloseButton: {
+    alignItems: "center",
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  editNotice: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#fecaca",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 12,
+  },
+  editNoticeText: {
+    ...typography.caption,
+    color: colors.danger,
+  },
+  editSection: {
+    paddingVertical: 6,
+  },
+  editSectionBorder: {
+    borderColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 22,
+  },
+  editSectionTitle: {
+    ...typography.bodyStrong,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  editLabel: {
+    ...typography.caption,
+    color: colors.text,
+    marginTop: 16,
+  },
+  required: {
+    color: colors.danger,
+  },
+  editHelper: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: 5,
+  },
+  editErrorText: {
+    color: colors.danger,
+    fontWeight: "700",
+  },
+  editInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    color: colors.text,
+    fontFamily: typography.body.fontFamily,
+    fontSize: 16,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  editInputError: {
+    borderColor: colors.danger,
+  },
+  editInlineFields: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  editPriceField: {
+    width: 118,
+  },
+  editCurrencyInputFrame: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  editCurrencyPrefix: {
+    fontFamily: typography.bodyStrong.fontFamily,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  editCurrencyTextInput: {
+    color: colors.text,
+    flex: 1,
+    fontFamily: typography.body.fontFamily,
+    fontSize: 16,
+    lineHeight: 20,
+    minWidth: 0,
+    padding: 0,
+  },
+  editSelectInput: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  editSelectText: {
+    ...typography.bodyStrong,
+    color: colors.text,
+    flex: 1,
+  },
+  editPlaceholderText: {
+    color: colors.muted,
+    fontWeight: "500",
+  },
+  editTextArea: {
+    minHeight: 118,
+  },
+  editSwitchRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 48,
+  },
+  editSwitchLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  editNestedSection: {
+    marginBottom: 12,
+    marginTop: 2,
+    paddingBottom: 4,
+  },
+  editShippingInput: {
+    width: 180,
+  },
+  editOptionList: {
+    gap: 8,
+    marginTop: 10,
+  },
+  editInlineOption: {
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  editInlineOptionSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+  },
+  editInlineOptionText: {
+    ...typography.caption,
+    color: colors.text,
+  },
+  editInlineOptionTextSelected: {
+    color: colors.primary,
+  },
+  editCompetitionSection: {
+    marginTop: 4,
+  },
+  editSelectedCompetitionWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  editSelectedCompetitionPill: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    maxWidth: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  editSelectedCompetitionText: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  editCompetitionOption: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    paddingVertical: 11,
+  },
+  editCompetitionOptionTitle: {
+    ...typography.caption,
+    color: colors.text,
+  },
+  editCompetitionOptionMeta: {
+    ...typography.caption,
+    color: colors.muted,
+    marginTop: 3,
+  },
+  editLoadMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  editLoadMoreText: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  editActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  editCancelButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  editCancelText: {
+    ...typography.button,
+    color: colors.text,
+  },
+  editSaveButton: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: radii.control,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  editSaveText: {
+    ...typography.button,
+    color: "#fff",
+  },
+  selectBackdrop: {
+    backgroundColor: "rgba(15, 23, 42, 0.38)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  selectPanel: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: "82%",
+    padding: 18,
+  },
+  selectHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  selectCloseButton: {
+    alignItems: "center",
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  selectOption: {
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+  },
+  selectOptionSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+  },
+  selectOptionText: {
+    ...typography.bodyStrong,
+    color: colors.text,
+  },
+  selectOptionTextSelected: {
+    color: colors.primary,
   },
 });
