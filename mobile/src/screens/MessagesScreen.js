@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ScreenTitle from "../components/ScreenTitle";
@@ -15,6 +16,7 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { getDateTime } from "../utils/listingUtils";
+import { getS3PublicUrl } from "../utils/s3";
 import {
   getListing,
   getUserProfile,
@@ -50,6 +52,40 @@ function getDisplayName(user) {
   );
 }
 
+function getListingPhotoUrl(listing, conversation) {
+  const s3Key =
+    listing?.photos?.[0]?.s3Key ||
+    conversation?.listingPhotoS3Key ||
+    conversation?.listingPhotoKey ||
+    "";
+
+  return s3Key ? getS3PublicUrl(s3Key) : "";
+}
+
+function ConversationImage({ listing, conversation, counterpart, counterpartName }) {
+  const listingPhotoUrl = getListingPhotoUrl(listing, conversation);
+  const avatarInitial = counterpartName.charAt(0).toUpperCase() || "W";
+
+  return (
+    <View style={styles.conversationImage}>
+      {listingPhotoUrl ? (
+        <Image source={{ uri: listingPhotoUrl }} style={styles.listingImage} />
+      ) : (
+        <View style={styles.listingImagePlaceholder}>
+          <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
+        </View>
+      )}
+      {counterpart?.avatarUrl ? (
+        <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatarOverlayImage} />
+      ) : (
+        <View style={styles.avatarOverlay}>
+          <Text style={styles.avatarOverlayText}>{avatarInitial}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function ConversationRow({ conversation, listing, counterpart, currentUserId, onPress }) {
   const unread = isConversationUnread(conversation, currentUserId);
   const counterpartName = getDisplayName(counterpart);
@@ -66,13 +102,12 @@ function ConversationRow({ conversation, listing, counterpart, currentUserId, on
 
   return (
     <Pressable style={[styles.row, unread && styles.rowUnread]} onPress={onPress}>
-      {counterpart?.avatarUrl ? (
-        <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{counterpartName.charAt(0).toUpperCase()}</Text>
-        </View>
-      )}
+      <ConversationImage
+        conversation={conversation}
+        counterpart={counterpart}
+        counterpartName={counterpartName}
+        listing={listing}
+      />
       <View style={styles.rowBody}>
         <Text style={[styles.title, unread && styles.unreadText]} numberOfLines={1}>
           {counterpartName}
@@ -313,25 +348,55 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: "#f8faff",
   },
-  avatar: {
+  conversationImage: {
+    height: 56,
+    position: "relative",
+    width: 56,
+  },
+  listingImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 8,
+    height: 52,
+    width: 52,
+  },
+  listingImagePlaceholder: {
     alignItems: "center",
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 24,
+    borderRadius: 8,
     borderWidth: 1,
-    height: 48,
+    height: 52,
     justifyContent: "center",
-    width: 48,
+    width: 52,
   },
-  avatarImage: {
+  avatarOverlay: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderColor: colors.surface,
+    borderRadius: 13,
+    borderWidth: 2,
+    bottom: 0,
+    height: 26,
+    justifyContent: "center",
+    position: "absolute",
+    right: 0,
+    width: 26,
+  },
+  avatarOverlayImage: {
     backgroundColor: "#e2e8f0",
-    borderRadius: 24,
-    height: 48,
-    width: 48,
+    borderColor: colors.surface,
+    borderRadius: 13,
+    borderWidth: 2,
+    bottom: 0,
+    height: 26,
+    position: "absolute",
+    right: 0,
+    width: 26,
   },
-  avatarText: {
-    color: colors.primary,
-    fontWeight: "800",
+  avatarOverlayText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "900",
   },
   rowBody: {
     flex: 1,

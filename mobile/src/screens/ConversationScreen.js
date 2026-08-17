@@ -33,6 +33,7 @@ import {
   updateReviewPromptResponse,
 } from "../utils/messaging";
 import { submitTransactionReview } from "../utils/reviews";
+import { getS3PublicUrl } from "../utils/s3";
 
 const CONVERSATION_REPORT_REASONS = [
   { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
@@ -41,6 +42,40 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "suspicious_messages", label: "Suspicious messages" },
   { value: "other", label: "Other" },
 ];
+
+function getListingPhotoUrl(listing, conversation) {
+  const s3Key =
+    listing?.photos?.[0]?.s3Key ||
+    conversation?.listingPhotoS3Key ||
+    conversation?.listingPhotoKey ||
+    "";
+
+  return s3Key ? getS3PublicUrl(s3Key) : "";
+}
+
+function HeaderConversationImage({ listing, conversation, userAvatarUrl, userName }) {
+  const listingPhotoUrl = getListingPhotoUrl(listing, conversation);
+  const avatarInitial = userName.charAt(0).toUpperCase() || "W";
+
+  return (
+    <View style={styles.headerPreview}>
+      {listingPhotoUrl ? (
+        <Image source={{ uri: listingPhotoUrl }} style={styles.headerListingImage} />
+      ) : (
+        <View style={styles.headerListingPlaceholder}>
+          <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
+        </View>
+      )}
+      {userAvatarUrl ? (
+        <Image source={{ uri: userAvatarUrl }} style={styles.headerAvatarOverlayImage} />
+      ) : (
+        <View style={styles.headerAvatarOverlay}>
+          <Text style={styles.headerAvatarOverlayText}>{avatarInitial}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
   if (reviewPromptState?.hidden) return null;
@@ -193,6 +228,7 @@ export default function ConversationScreen({ navigation, route }) {
     "this user";
   const headerUserName = otherUserName === "this user" ? "WeCube user" : otherUserName;
   const otherUserAvatarUrl = otherUser?.avatarUrl || "";
+  const listingTitle = listing?.title || conversation?.listingTitle || "Listing";
 
   function getReviewPromptState(message) {
     const isReviewPrompt = message.type === "review_prompt" || message.reviewPrompt;
@@ -393,18 +429,20 @@ export default function ConversationScreen({ navigation, route }) {
         <View style={styles.topBar}>
           <BackButton navigation={navigation} style={styles.backButton} />
           <View style={styles.headerUser}>
-            {otherUserAvatarUrl ? (
-              <Image source={{ uri: otherUserAvatarUrl }} style={styles.headerAvatarImage} />
-            ) : (
-              <View style={styles.headerAvatar}>
-                <Text style={styles.headerAvatarText}>
-                  {headerUserName.charAt(0).toUpperCase() || "W"}
-                </Text>
-              </View>
-            )}
-            <Text style={styles.headerName} numberOfLines={1}>
-              {headerUserName}
-            </Text>
+            <HeaderConversationImage
+              conversation={conversation}
+              listing={listing}
+              userAvatarUrl={otherUserAvatarUrl}
+              userName={headerUserName}
+            />
+            <View style={styles.headerCopy}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {headerUserName}
+              </Text>
+              <Text style={styles.headerListingTitle} numberOfLines={1}>
+                {listingTitle}
+              </Text>
+            </View>
           </View>
           <Pressable
             style={styles.moreButton}
@@ -640,30 +678,70 @@ const styles = StyleSheet.create({
     gap: 10,
     minWidth: 0,
   },
-  headerAvatar: {
+  headerPreview: {
+    height: 54,
+    position: "relative",
+    width: 54,
+  },
+  headerListingImage: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 8,
+    height: 50,
+    width: 50,
+  },
+  headerListingPlaceholder: {
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 50,
+    justifyContent: "center",
+    width: 50,
+  },
+  headerAvatarOverlay: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 18,
-    height: 36,
+    borderColor: colors.surface,
+    borderRadius: 13,
+    borderWidth: 2,
+    bottom: 0,
+    height: 26,
     justifyContent: "center",
-    width: 36,
+    position: "absolute",
+    right: 0,
+    width: 26,
   },
-  headerAvatarImage: {
+  headerAvatarOverlayImage: {
     backgroundColor: "#e2e8f0",
-    borderRadius: 18,
-    height: 36,
-    width: 36,
+    borderColor: colors.surface,
+    borderRadius: 13,
+    borderWidth: 2,
+    bottom: 0,
+    height: 26,
+    position: "absolute",
+    right: 0,
+    width: 26,
   },
-  headerAvatarText: {
+  headerAvatarOverlayText: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: "900",
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   headerName: {
     color: colors.text,
-    flex: 1,
     fontSize: 17,
     fontWeight: "900",
+  },
+  headerListingTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
   },
   moreButton: {
     alignItems: "center",
