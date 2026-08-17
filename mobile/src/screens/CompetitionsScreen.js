@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { doc, updateDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ScreenTitle from "../components/ScreenTitle";
@@ -88,9 +89,15 @@ function CompetitionRow({
             : `Mark ${competition.name} as going`
         }
       >
-        <Text style={[styles.iconButtonText, saved && styles.iconButtonTextSaved]}>
-          {saving ? "..." : saved ? "✓" : "+"}
-        </Text>
+        {saving ? (
+          <Text style={styles.iconButtonText}>...</Text>
+        ) : (
+          <MaterialIcons
+            name={saved ? "bookmark" : "bookmark-border"}
+            size={21}
+            color={saved ? colors.primary : colors.muted}
+          />
+        )}
       </Pressable>
       <Pressable style={styles.chevronButton} onPress={() => onOpen(competition)}>
         <Text style={styles.chevronText}>›</Text>
@@ -351,9 +358,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 15,
     fontWeight: "900",
-  },
-  iconButtonTextSaved: {
-    color: colors.primary,
   },
   chevronButton: {
     alignItems: "center",
