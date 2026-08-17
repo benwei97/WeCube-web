@@ -821,13 +821,21 @@ export default function SellScreen({ navigation }) {
               <View style={styles.inlineFields}>
                 <View style={styles.priceField}>
                   <RequiredLabel>Price</RequiredLabel>
-                  <TextInput
-                    value={price}
-                    onChangeText={handlePriceChange}
-                    style={[styles.input, isPriceInvalid && styles.inputError]}
-                    keyboardType="number-pad"
-                    placeholder="0.00"
-                  />
+                  <View
+                    style={[
+                      styles.currencyInputFrame,
+                      isPriceInvalid && styles.inputError,
+                    ]}
+                  >
+                    <Text style={styles.currencyPrefix}>$</Text>
+                    <TextInput
+                      value={price}
+                      onChangeText={handlePriceChange}
+                      style={styles.currencyTextInput}
+                      keyboardType="number-pad"
+                      placeholder="0.00"
+                    />
+                  </View>
                   <HelperText error={isPriceInvalid}>
                     {isPriceInvalid
                       ? `Enter a price from $0 to $${INPUT_LIMITS.LISTING_PRICE_MAX.toLocaleString()}.`
@@ -908,17 +916,22 @@ export default function SellScreen({ navigation }) {
               {shippingAvailable ? (
                 <View style={styles.nestedSection}>
                   <RequiredLabel>Shipping Price</RequiredLabel>
-                  <TextInput
-                    value={shippingCost}
-                    onChangeText={handleShippingCostChange}
+                  <View
                     style={[
-                      styles.input,
+                      styles.currencyInputFrame,
                       styles.shippingInput,
                       isShippingCostValid ? null : styles.inputError,
                     ]}
-                    keyboardType="number-pad"
-                    placeholder="0.00"
-                  />
+                  >
+                    <Text style={styles.currencyPrefix}>$</Text>
+                    <TextInput
+                      value={shippingCost}
+                      onChangeText={handleShippingCostChange}
+                      style={styles.currencyTextInput}
+                      keyboardType="number-pad"
+                      placeholder="0.00"
+                    />
+                  </View>
                   <HelperText error={!isShippingCostValid && hasAttemptedSubmit}>
                     {!isShippingCostValid && hasAttemptedSubmit
                       ? `Enter a shipping price from $0 to $${INPUT_LIMITS.SHIPPING_COST_MAX}.`
@@ -1226,6 +1239,32 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: colors.danger,
+  },
+  currencyInputFrame: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  currencyPrefix: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  currencyTextInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 20,
+    minWidth: 0,
+    padding: 0,
   },
   selectInput: {
     alignItems: "center",
