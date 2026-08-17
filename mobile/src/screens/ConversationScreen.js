@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +43,85 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "suspicious_messages", label: "Suspicious messages" },
   { value: "other", label: "Other" },
 ];
+const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
+
+function getTimestampDate(timestamp) {
+  if (!timestamp) return null;
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isSameCalendarDay(firstDate, secondDate) {
+  return (
+    firstDate?.getFullYear() === secondDate?.getFullYear() &&
+    firstDate?.getMonth() === secondDate?.getMonth() &&
+    firstDate?.getDate() === secondDate?.getDate()
+  );
+}
+
+function formatTranscriptTimeDivider(timestamp) {
+  const date = getTimestampDate(timestamp);
+  if (!date) return "";
+
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+
+  const dayLabel = isSameCalendarDay(date, now)
+    ? "Today"
+    : isSameCalendarDay(date, yesterday)
+      ? "Yesterday"
+      : date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+        });
+
+  return `${dayLabel} ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
+function getTranscriptItems(messages) {
+  const transcriptItems = [];
+  let previousMessageDate = null;
+
+  messages.forEach((message) => {
+    const messageDate = getTimestampDate(message.createdAt);
+    const previousMessageTime = previousMessageDate?.getTime?.() || 0;
+    const messageTime = messageDate?.getTime?.() || 0;
+    const minutesSincePrevious =
+      previousMessageTime && messageTime
+        ? (messageTime - previousMessageTime) / 60000
+        : 0;
+    const shouldShowDivider =
+      messageDate &&
+      (!previousMessageDate ||
+        !isSameCalendarDay(messageDate, previousMessageDate) ||
+        minutesSincePrevious >= MESSAGE_TIME_DIVIDER_GAP_MINUTES);
+
+    if (shouldShowDivider) {
+      transcriptItems.push({
+        id: `time-${message.id}`,
+        type: "timeDivider",
+        label: formatTranscriptTimeDivider(message.createdAt),
+      });
+    }
+
+    transcriptItems.push({
+      id: message.id,
+      type: "message",
+      message,
+    });
+
+    if (messageDate) {
+      previousMessageDate = messageDate;
+    }
+  });
+
+  return transcriptItems;
+}
 
 function getListingPhotoUrl(listing, conversation) {
   const s3Key =
@@ -277,6 +356,14 @@ export default function ConversationScreen({ navigation, route }) {
     };
   }
 
+  const transcriptItems = useMemo(
+    () =>
+      getTranscriptItems(
+        messages.filter((message) => !getReviewPromptState(message)?.hidden)
+      ),
+    [conversation?.activeSaleEventId, currentUser?.uid, messages]
+  );
+
   async function handleSend() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || !currentUser?.uid || sending) return;
@@ -497,16 +584,26 @@ export default function ConversationScreen({ navigation, route }) {
           </Text>
         ) : null}
         <FlatList
-          data={messages}
+          data={transcriptItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MessageBubble
-              message={item}
-              isMine={item.senderId === currentUser?.uid}
-              reviewPromptState={getReviewPromptState(item)}
-              onReviewPress={openReviewModal}
-            />
-          )}
+          renderItem={({ item }) => {
+            if (item.type === "timeDivider") {
+              return (
+                <View style={styles.timeDivider}>
+                  <Text style={styles.timeDividerText}>{item.label}</Text>
+                </View>
+              );
+            }
+
+            return (
+              <MessageBubble
+                message={item.message}
+                isMine={item.message.senderId === currentUser?.uid}
+                reviewPromptState={getReviewPromptState(item.message)}
+                onReviewPress={openReviewModal}
+              />
+            );
+          }}
           contentContainerStyle={styles.messageList}
         />
         <View style={styles.composer}>
@@ -803,6 +900,15 @@ const styles = StyleSheet.create({
   messageList: {
     gap: 8,
     padding: 16,
+  },
+  timeDivider: {
+    alignItems: "center",
+    marginVertical: 8,
+  },
+  timeDividerText: {
+    ...typography.caption,
+    color: colors.muted,
+    textAlign: "center",
   },
   bubble: {
     borderRadius: radii.card,
