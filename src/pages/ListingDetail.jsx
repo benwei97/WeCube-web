@@ -1388,17 +1388,28 @@ function ListingDetail() {
     : "Mark as Sold";
   const fulfillmentOptions = [
     listing.localMeetupAvailable
-      ? { value: "local", label: "Local Meetup", shortLabel: "Local" }
+      ? {
+          value: "local",
+          label: "Local Meetup",
+          shortLabel: "Local",
+          icon: LocationOn,
+        }
       : null,
     listing.competitionMeetupAvailable
       ? {
           value: "competition",
           label: "Competition Meetup",
           shortLabel: "Competition",
+          icon: Groups,
         }
       : null,
     listing.shippingAvailable
-      ? { value: "shipping", label: "Shipping", shortLabel: "Shipping" }
+      ? {
+          value: "shipping",
+          label: "Shipping",
+          shortLabel: "Shipping",
+          icon: LocalShipping,
+        }
       : null,
   ].filter(Boolean);
   const selectedFulfillmentOption =
@@ -1871,6 +1882,7 @@ function ListingDetail() {
                     >
                       {fulfillmentOptions.map((option) => {
                         const isActive = selectedFulfillmentValue === option.value;
+                        const FulfillmentIcon = option.icon;
 
                         return (
                           <Button
@@ -1879,6 +1891,7 @@ function ListingDetail() {
                             color="inherit"
                             size="small"
                             onClick={() => setActiveFulfillmentOption(option.value)}
+                            aria-label={option.label}
                             sx={{
                               minWidth: 0,
                               flex: "0 0 auto",
@@ -1893,18 +1906,21 @@ function ListingDetail() {
                               textAlign: "center",
                               whiteSpace: "nowrap",
                               boxShadow: "none",
+                              gap: 0.55,
                               "&:hover": {
                                 bgcolor: "primary.50",
                                 color: "primary.main",
                               },
                             }}
                           >
-                            <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>
-                              {option.shortLabel}
-                            </Box>
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                              {option.label}
-                            </Box>
+                            <FulfillmentIcon
+                              aria-hidden="true"
+                              sx={{
+                                fontSize: 17,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Box component="span">{option.shortLabel}</Box>
                           </Button>
                         );
                       })}
