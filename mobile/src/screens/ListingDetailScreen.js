@@ -61,6 +61,12 @@ function formatShipping(listing) {
   return `+${formatListingPrice(listing.shippingCost)} shipping`;
 }
 
+function getFulfillmentIconName(value) {
+  if (value === "shipping") return "local-shipping";
+  if (value === "competition") return "groups";
+  return "location-on";
+}
+
 export default function ListingDetailScreen({ navigation, route }) {
   const { currentUser } = useAuth();
   const { listingId } = route.params || {};
@@ -714,6 +720,12 @@ export default function ListingDetailScreen({ navigation, route }) {
                       ]}
                       onPress={() => setActiveFulfillmentOption(option.value)}
                     >
+                      <MaterialIcons
+                        name={getFulfillmentIconName(option.value)}
+                        size={16}
+                        color={selected ? colors.primary : colors.muted}
+                        style={styles.fulfillmentTabIcon}
+                      />
                       <Text
                         style={[
                           styles.fulfillmentTabText,
@@ -729,14 +741,20 @@ export default function ListingDetailScreen({ navigation, route }) {
               </ScrollView>
 
               {selectedFulfillmentValue === "shipping" ? (
-                <Text style={styles.bodyText}>{formatShipping(listing)}</Text>
+                <View style={styles.fulfillmentInfoRow}>
+                  <MaterialIcons name="local-shipping" size={18} color={colors.text} />
+                  <Text style={styles.bodyText}>{formatShipping(listing)}</Text>
+                </View>
               ) : null}
 
               {selectedFulfillmentValue === "local" ? (
                 <View>
-                  <Text style={[styles.bodyText, styles.fulfillmentDetailLine]}>
-                    {listing.meetupLocationLabel || "Meetup area"}
-                  </Text>
+                  <View style={[styles.fulfillmentInfoRow, styles.fulfillmentDetailLine]}>
+                    <MaterialIcons name="location-on" size={18} color={colors.text} />
+                    <Text style={styles.bodyText}>
+                      {listing.meetupLocationLabel || "Meetup area"}
+                    </Text>
+                  </View>
                   <ApproximateMeetupMap
                     location={listing.meetupLocation}
                     label={listing.meetupLocationLabel}
@@ -754,6 +772,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                           style={styles.competitionMeetupRow}
                           onPress={() => openCompetitionListings(competition)}
                         >
+                          <MaterialIcons name="groups" size={18} color={colors.text} />
                           <View style={styles.competitionMeetupBody}>
                             <Text style={styles.competitionMeetupTitle} numberOfLines={1}>
                               {competition.displayName || competition.name || "Competition"}
@@ -769,7 +788,10 @@ export default function ListingDetailScreen({ navigation, route }) {
                       ))}
                     </View>
                   ) : (
-                    <Text style={styles.bodyText}>Available at selected competitions.</Text>
+                    <View style={styles.fulfillmentInfoRow}>
+                      <MaterialIcons name="groups" size={18} color={colors.text} />
+                      <Text style={styles.bodyText}>Available at selected competitions.</Text>
+                    </View>
                   )}
                 </View>
               ) : null}
@@ -1215,10 +1237,15 @@ const styles = StyleSheet.create({
   fulfillmentTab: {
     alignItems: "center",
     borderRadius: radii.control,
+    flexDirection: "row",
+    gap: 5,
     justifyContent: "center",
     minHeight: 36,
     paddingHorizontal: 8,
     width: 112,
+  },
+  fulfillmentTabIcon: {
+    flexShrink: 0,
   },
   fulfillmentTabSelected: {
     backgroundColor: colors.primarySoft,
@@ -1234,6 +1261,11 @@ const styles = StyleSheet.create({
   },
   fulfillmentDetailLine: {
     marginBottom: 8,
+  },
+  fulfillmentInfoRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   bodyText: {
     ...typography.body,

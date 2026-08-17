@@ -819,7 +819,7 @@ export default function ProfileScreen({ navigation, route }) {
           <ProfileMenuRow
             title="My Competitions"
             detail={`${attendingCompetitions.length} saved`}
-            iconName="emoji-events"
+            iconName="groups"
             onPress={() => navigation.navigate("ProfileSection", { section: "competitions" })}
           />
           <ProfileMenuRow

@@ -243,7 +243,7 @@ function AppTabs() {
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="emoji-events" size={size} color={color} />
+            <MaterialIcons name="groups" size={size} color={color} />
           ),
         }}
       />
