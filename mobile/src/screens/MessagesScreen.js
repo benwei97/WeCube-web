@@ -62,31 +62,61 @@ function getListingPhotoUrl(listing, conversation) {
   return s3Key ? getS3PublicUrl(s3Key) : "";
 }
 
-function ConversationImage({ listing, conversation, counterpart, counterpartName }) {
+function ConversationImage({
+  listing,
+  conversation,
+  counterpart,
+  counterpartName,
+  onListingPress,
+  onUserPress,
+}) {
   const listingPhotoUrl = getListingPhotoUrl(listing, conversation);
   const avatarInitial = counterpartName.charAt(0).toUpperCase() || "W";
 
   return (
     <View style={styles.conversationImage}>
-      {listingPhotoUrl ? (
-        <Image source={{ uri: listingPhotoUrl }} style={styles.listingImage} />
-      ) : (
-        <View style={styles.listingImagePlaceholder}>
-          <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
-        </View>
-      )}
-      {counterpart?.avatarUrl ? (
-        <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatarOverlayImage} />
-      ) : (
-        <View style={styles.avatarOverlay}>
-          <Text style={styles.avatarOverlayText}>{avatarInitial}</Text>
-        </View>
-      )}
+      <Pressable
+        accessibilityLabel="Open listing"
+        disabled={!conversation?.listingId}
+        onPress={onListingPress}
+        style={styles.listingImageButton}
+      >
+        {listingPhotoUrl ? (
+          <Image source={{ uri: listingPhotoUrl }} style={styles.listingImage} />
+        ) : (
+          <View style={styles.listingImagePlaceholder}>
+            <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
+          </View>
+        )}
+      </Pressable>
+      <Pressable
+        accessibilityLabel={`Open ${counterpartName}'s profile`}
+        disabled={!onUserPress}
+        hitSlop={8}
+        onPress={onUserPress}
+        style={styles.avatarOverlayButton}
+      >
+        {counterpart?.avatarUrl ? (
+          <Image source={{ uri: counterpart.avatarUrl }} style={styles.avatarOverlayImage} />
+        ) : (
+          <View style={styles.avatarOverlay}>
+            <Text style={styles.avatarOverlayText}>{avatarInitial}</Text>
+          </View>
+        )}
+      </Pressable>
     </View>
   );
 }
 
-function ConversationRow({ conversation, listing, counterpart, currentUserId, onPress }) {
+function ConversationRow({
+  conversation,
+  listing,
+  counterpart,
+  currentUserId,
+  onListingPress,
+  onPress,
+  onUserPress,
+}) {
   const unread = isConversationUnread(conversation, currentUserId);
   const counterpartName = getDisplayName(counterpart);
   const listingTitle = listing?.title || conversation.listingTitle || "Listing";
@@ -107,6 +137,8 @@ function ConversationRow({ conversation, listing, counterpart, currentUserId, on
         counterpart={counterpart}
         counterpartName={counterpartName}
         listing={listing}
+        onListingPress={onListingPress}
+        onUserPress={onUserPress}
       />
       <View style={styles.rowBody}>
         <Text style={[styles.title, unread && styles.unreadText]} numberOfLines={1}>
@@ -282,6 +314,32 @@ export default function MessagesScreen({ navigation }) {
     navigation.navigate("Conversation", { conversationId: conversation.id });
   }
 
+  function openListing(conversation) {
+    if (!conversation?.listingId) return;
+    navigation.navigate("ListingDetail", { listingId: conversation.listingId });
+  }
+
+  function openUserProfile(userId) {
+    if (!userId) return;
+    navigation.navigate("SellerProfile", { userId });
+  }
+
+  function renderConversation({ item }) {
+    const counterpartId = item.userRole === "seller" ? item.buyerId : item.sellerId;
+
+    return (
+      <ConversationRow
+        conversation={item}
+        currentUserId={currentUser?.uid}
+        listing={listingDetails[item.listingId]}
+        counterpart={userDetails[counterpartId]}
+        onListingPress={() => openListing(item)}
+        onPress={() => openConversation(item)}
+        onUserPress={counterpartId ? () => openUserProfile(counterpartId) : null}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -307,17 +365,7 @@ export default function MessagesScreen({ navigation }) {
         data={conversations}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={<ScreenTitle>Messages</ScreenTitle>}
-        renderItem={({ item }) => (
-          <ConversationRow
-            conversation={item}
-            currentUserId={currentUser?.uid}
-            listing={listingDetails[item.listingId]}
-            counterpart={
-              userDetails[item.userRole === "seller" ? item.buyerId : item.sellerId]
-            }
-            onPress={() => openConversation(item)}
-          />
-        )}
+        renderItem={renderConversation}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <PageState
@@ -359,6 +407,10 @@ const styles = StyleSheet.create({
     height: 52,
     width: 52,
   },
+  listingImageButton: {
+    height: 52,
+    width: 52,
+  },
   listingImagePlaceholder: {
     alignItems: "center",
     backgroundColor: colors.background,
@@ -378,6 +430,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 26,
     justifyContent: "center",
+    position: "absolute",
+    right: 0,
+    width: 26,
+  },
+  avatarOverlayButton: {
+    bottom: 0,
+    height: 26,
     position: "absolute",
     right: 0,
     width: 26,

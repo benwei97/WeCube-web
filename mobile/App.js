@@ -104,6 +104,16 @@ function MessagesNavigator() {
         component={ConversationScreen}
         options={{ headerShown: false }}
       />
+      <MessagesStack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <MessagesStack.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
+        options={{ headerShown: false }}
+      />
     </MessagesStack.Navigator>
   );
 }

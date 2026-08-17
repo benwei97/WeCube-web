@@ -53,26 +53,48 @@ function getListingPhotoUrl(listing, conversation) {
   return s3Key ? getS3PublicUrl(s3Key) : "";
 }
 
-function HeaderConversationImage({ listing, conversation, userAvatarUrl, userName }) {
+function HeaderConversationImage({
+  listing,
+  conversation,
+  userAvatarUrl,
+  userName,
+  onListingPress,
+  onUserPress,
+}) {
   const listingPhotoUrl = getListingPhotoUrl(listing, conversation);
   const avatarInitial = userName.charAt(0).toUpperCase() || "W";
 
   return (
     <View style={styles.headerPreview}>
-      {listingPhotoUrl ? (
-        <Image source={{ uri: listingPhotoUrl }} style={styles.headerListingImage} />
-      ) : (
-        <View style={styles.headerListingPlaceholder}>
-          <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
-        </View>
-      )}
-      {userAvatarUrl ? (
-        <Image source={{ uri: userAvatarUrl }} style={styles.headerAvatarOverlayImage} />
-      ) : (
-        <View style={styles.headerAvatarOverlay}>
-          <Text style={styles.headerAvatarOverlayText}>{avatarInitial}</Text>
-        </View>
-      )}
+      <Pressable
+        accessibilityLabel="Open listing"
+        disabled={!conversation?.listingId}
+        onPress={onListingPress}
+        style={styles.headerListingButton}
+      >
+        {listingPhotoUrl ? (
+          <Image source={{ uri: listingPhotoUrl }} style={styles.headerListingImage} />
+        ) : (
+          <View style={styles.headerListingPlaceholder}>
+            <MaterialIcons name="inventory-2" size={22} color={colors.muted} />
+          </View>
+        )}
+      </Pressable>
+      <Pressable
+        accessibilityLabel={`Open ${userName}'s profile`}
+        disabled={!onUserPress}
+        hitSlop={8}
+        onPress={onUserPress}
+        style={styles.headerAvatarOverlayButton}
+      >
+        {userAvatarUrl ? (
+          <Image source={{ uri: userAvatarUrl }} style={styles.headerAvatarOverlayImage} />
+        ) : (
+          <View style={styles.headerAvatarOverlay}>
+            <Text style={styles.headerAvatarOverlayText}>{avatarInitial}</Text>
+          </View>
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -229,6 +251,16 @@ export default function ConversationScreen({ navigation, route }) {
   const headerUserName = otherUserName === "this user" ? "WeCube user" : otherUserName;
   const otherUserAvatarUrl = otherUser?.avatarUrl || "";
   const listingTitle = listing?.title || conversation?.listingTitle || "Listing";
+
+  function openConversationListing() {
+    if (!conversation?.listingId) return;
+    navigation.navigate("ListingDetail", { listingId: conversation.listingId });
+  }
+
+  function openOtherUserProfile() {
+    if (!otherUserId) return;
+    navigation.navigate("SellerProfile", { userId: otherUserId });
+  }
 
   function getReviewPromptState(message) {
     const isReviewPrompt = message.type === "review_prompt" || message.reviewPrompt;
@@ -432,6 +464,8 @@ export default function ConversationScreen({ navigation, route }) {
             <HeaderConversationImage
               conversation={conversation}
               listing={listing}
+              onListingPress={openConversationListing}
+              onUserPress={otherUserId ? openOtherUserProfile : null}
               userAvatarUrl={otherUserAvatarUrl}
               userName={headerUserName}
             />
@@ -689,6 +723,10 @@ const styles = StyleSheet.create({
     height: 50,
     width: 50,
   },
+  headerListingButton: {
+    height: 50,
+    width: 50,
+  },
   headerListingPlaceholder: {
     alignItems: "center",
     backgroundColor: colors.background,
@@ -708,6 +746,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 26,
     justifyContent: "center",
+    position: "absolute",
+    right: 0,
+    width: 26,
+  },
+  headerAvatarOverlayButton: {
+    bottom: 0,
+    height: 26,
     position: "absolute",
     right: 0,
     width: 26,
