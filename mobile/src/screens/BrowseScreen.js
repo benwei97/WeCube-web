@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -82,36 +82,70 @@ function hasLocationFilterControls(filter) {
 }
 
 function RadiusSlider({ value, onChange }) {
+  const trackRef = useRef(null);
+  const trackMetricsRef = useRef({ pageX: 0, width: 0 });
   const [trackWidth, setTrackWidth] = useState(0);
   const selectedIndex = Math.max(0, LOCATION_RADIUS_OPTIONS.indexOf(value));
   const selectedPercent =
     selectedIndex / Math.max(LOCATION_RADIUS_OPTIONS.length - 1, 1);
 
-  function updateFromPosition(locationX) {
-    if (!trackWidth) return;
-    const boundedPosition = Math.max(0, Math.min(locationX, trackWidth));
+  function updateFromPosition(positionX, measuredWidth = trackWidth) {
+    if (!measuredWidth) return;
+    const boundedPosition = Math.max(0, Math.min(positionX, measuredWidth));
     const nextIndex = Math.round(
-      (boundedPosition / trackWidth) * (LOCATION_RADIUS_OPTIONS.length - 1)
+      (boundedPosition / measuredWidth) * (LOCATION_RADIUS_OPTIONS.length - 1)
     );
     onChange(LOCATION_RADIUS_OPTIONS[nextIndex]);
+  }
+
+  function updateFromPageX(pageX) {
+    const { pageX: trackPageX, width } = trackMetricsRef.current;
+    updateFromPosition(pageX - trackPageX, width);
+  }
+
+  function measureTrack(callback) {
+    trackRef.current?.measure((_, __, width, ___, pageX) => {
+      trackMetricsRef.current = { pageX, width };
+      setTrackWidth(width);
+      callback?.(pageX, width);
+    });
   }
 
   return (
     <View style={styles.radiusSliderBlock}>
       <View
+        ref={trackRef}
         style={styles.radiusTrack}
-        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        onLayout={(event) => {
+          const width = event.nativeEvent.layout.width;
+          setTrackWidth(width);
+          trackMetricsRef.current = {
+            ...trackMetricsRef.current,
+            width,
+          };
+        }}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderGrant={(event) => updateFromPosition(event.nativeEvent.locationX)}
-        onResponderMove={(event) => updateFromPosition(event.nativeEvent.locationX)}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={(event) =>
+          measureTrack((pageX, width) =>
+            updateFromPosition(event.nativeEvent.pageX - pageX, width)
+          )
+        }
+        onResponderMove={(event) => updateFromPageX(event.nativeEvent.pageX)}
+        onResponderRelease={(event) => updateFromPageX(event.nativeEvent.pageX)}
       >
-        <View style={[styles.radiusTrackFill, { width: `${selectedPercent * 100}%` }]} />
+        <View pointerEvents="none" style={styles.radiusTrackRail} />
+        <View
+          pointerEvents="none"
+          style={[styles.radiusTrackFill, { width: `${selectedPercent * 100}%` }]}
+        />
         {LOCATION_RADIUS_OPTIONS.map((radius, index) => {
           const active = index <= selectedIndex;
           return (
             <View
               key={radius}
+              pointerEvents="none"
               style={[
                 styles.radiusTick,
                 active && styles.radiusTickActive,
@@ -120,7 +154,10 @@ function RadiusSlider({ value, onChange }) {
             />
           );
         })}
-        <View style={[styles.radiusThumb, { left: `${selectedPercent * 100}%` }]} />
+        <View
+          pointerEvents="none"
+          style={[styles.radiusThumb, { left: `${selectedPercent * 100}%` }]}
+        />
       </View>
       <View style={styles.radiusLabels}>
         {LOCATION_RADIUS_OPTIONS.map((radius) => (
@@ -725,16 +762,26 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   radiusTrack: {
+    height: 32,
+    justifyContent: "center",
+    marginHorizontal: 8,
+  },
+  radiusTrackRail: {
     backgroundColor: "#e2e8f0",
     borderRadius: 999,
     height: 4,
-    justifyContent: "center",
-    marginHorizontal: 8,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 14,
   },
   radiusTrackFill: {
     backgroundColor: colors.primary,
     borderRadius: 999,
     height: 4,
+    left: 0,
+    position: "absolute",
+    top: 14,
   },
   radiusTick: {
     backgroundColor: "#cbd5e1",
@@ -742,6 +789,7 @@ const styles = StyleSheet.create({
     height: 8,
     marginLeft: -4,
     position: "absolute",
+    top: 12,
     width: 8,
   },
   radiusTickActive: {
@@ -755,6 +803,7 @@ const styles = StyleSheet.create({
     height: 24,
     marginLeft: -12,
     position: "absolute",
+    top: 4,
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
