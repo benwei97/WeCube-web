@@ -1,6 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
+import { elevation, radii, typography } from "../theme/design";
 import { getS3PublicUrl } from "../utils/s3";
 import {
   formatListingPrice,
@@ -84,15 +85,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.softSurface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     elevation: 1,
     overflow: "hidden",
     padding: 8,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    ...elevation.card,
   },
   mediaFrame: {
     aspectRatio: 1,
@@ -118,9 +116,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "600",
   },
   statusBadge: {
     backgroundColor: "rgba(35, 35, 35, 0.92)",
@@ -136,9 +133,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger,
   },
   statusBadgeText: {
+    fontFamily: typography.caption.fontFamily,
     color: "#ffffff",
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "700",
     letterSpacing: 0,
     textTransform: "uppercase",
   },
@@ -149,16 +147,12 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   title: {
+    ...typography.listingTitle,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 17,
   },
   price: {
+    ...typography.listingPrice,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 17,
     minWidth: 0,
   },
   fulfillmentLine: {
@@ -168,9 +162,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   fulfillmentText: {
+    ...typography.caption,
     color: colors.muted,
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
   },
 });

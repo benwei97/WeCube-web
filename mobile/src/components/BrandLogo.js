@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
+import { fontFamilies } from "../theme/design";
 
 export default function BrandLogo({
   markHeight = 56,
@@ -73,7 +74,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   wordmark: {
-    fontWeight: "900",
+    fontFamily: fontFamilies.bold,
+    fontWeight: "700",
     letterSpacing: 0,
     marginTop: 8,
   },

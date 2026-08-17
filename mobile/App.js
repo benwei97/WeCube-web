@@ -2,8 +2,14 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { DMSans_400Regular } from "@expo-google-fonts/dm-sans/400Regular";
+import { DMSans_500Medium } from "@expo-google-fonts/dm-sans/500Medium";
+import { DMSans_600SemiBold } from "@expo-google-fonts/dm-sans/600SemiBold";
+import { DMSans_700Bold } from "@expo-google-fonts/dm-sans/700Bold";
+import { DMSans_800ExtraBold } from "@expo-google-fonts/dm-sans/800ExtraBold";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import PolicyAcceptanceGate from "./src/components/PolicyAcceptanceGate";
 import PageState from "./src/components/PageState";
@@ -20,6 +26,7 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import InfoScreen from "./src/screens/InfoScreen";
 import AuthScreen from "./src/screens/AuthScreen";
 import { colors } from "./src/theme/colors";
+import { fontFamilies } from "./src/theme/design";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -30,8 +37,15 @@ const ProfileStack = createNativeStackNavigator();
 
 function AppContent() {
   const { currentUser, loading } = useAuth();
+  const [fontsLoaded] = useFonts({
+    [fontFamilies.regular]: DMSans_400Regular,
+    [fontFamilies.medium]: DMSans_500Medium,
+    [fontFamilies.semibold]: DMSans_600SemiBold,
+    [fontFamilies.bold]: DMSans_700Bold,
+    [fontFamilies.extraBold]: DMSans_800ExtraBold,
+  });
 
-  if (loading) {
+  if (!fontsLoaded || loading) {
     return (
       <View style={styles.loadingShell}>
         <PageState
@@ -65,7 +79,7 @@ function BrowseNavigator() {
   return (
     <BrowseStack.Navigator
       screenOptions={{
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontFamily: fontFamilies.bold, fontWeight: "700" },
       }}
     >
       <BrowseStack.Screen
@@ -91,7 +105,7 @@ function MessagesNavigator() {
   return (
     <MessagesStack.Navigator
       screenOptions={{
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontFamily: fontFamilies.bold, fontWeight: "700" },
       }}
     >
       <MessagesStack.Screen
@@ -122,7 +136,7 @@ function CompetitionsNavigator() {
   return (
     <CompetitionsStack.Navigator
       screenOptions={{
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontFamily: fontFamilies.bold, fontWeight: "700" },
       }}
     >
       <CompetitionsStack.Screen
@@ -153,7 +167,7 @@ function ProfileNavigator() {
   return (
     <ProfileStack.Navigator
       screenOptions={{
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontFamily: fontFamilies.bold, fontWeight: "700" },
       }}
     >
       <ProfileStack.Screen
@@ -192,10 +206,14 @@ function AppTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontFamily: fontFamilies.bold, fontWeight: "700" },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
+        tabBarLabelStyle: {
+          fontFamily: fontFamilies.medium,
+          fontSize: 12,
+          fontWeight: "500",
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
@@ -292,6 +310,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
 });
+
+Text.defaultProps = Text.defaultProps || {};
+Text.defaultProps.style = [{ fontFamily: fontFamilies.regular }, Text.defaultProps.style];
+TextInput.defaultProps = TextInput.defaultProps || {};
+TextInput.defaultProps.style = [
+  { fontFamily: fontFamilies.regular },
+  TextInput.defaultProps.style,
+];
 
 export default function App() {
   return (

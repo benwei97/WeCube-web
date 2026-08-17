@@ -15,6 +15,7 @@ import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import { getDateTime } from "../utils/listingUtils";
 import { getS3PublicUrl } from "../utils/s3";
 import {
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     flexDirection: "row",
     padding: 12,
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   },
   listingImage: {
     backgroundColor: "#e2e8f0",
-    borderRadius: 8,
+    borderRadius: radii.card,
     height: 52,
     width: 52,
   },
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     height: 52,
     justifyContent: "center",
@@ -453,31 +454,30 @@ const styles = StyleSheet.create({
     width: 26,
   },
   avatarOverlayText: {
+    fontFamily: typography.caption.fontFamily,
     color: "#fff",
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   rowBody: {
     flex: 1,
     marginLeft: 12,
   },
   title: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
   },
   unreadText: {
     color: colors.primary,
   },
   listingTitle: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
     marginTop: 2,
   },
   preview: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
     marginTop: 4,
   },
   rowMeta: {
@@ -492,9 +492,8 @@ const styles = StyleSheet.create({
     width: 10,
   },
   timeText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",
@@ -503,15 +502,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
     textAlign: "center",
   },

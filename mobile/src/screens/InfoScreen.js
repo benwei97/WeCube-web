@@ -11,6 +11,7 @@ import {
 import BackButton from "../components/BackButton";
 import Screen from "../components/Screen";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 
 const DONATION_URL = process.env.EXPO_PUBLIC_DONATION_URL;
 
@@ -238,60 +239,52 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   toggleText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 14,
-    fontWeight: "800",
   },
   toggleTextActive: {
     color: colors.primary,
   },
   title: {
+    ...typography.screenTitle,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
   },
   subtitle: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
     marginTop: 8,
   },
   section: {
     marginTop: 22,
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
   },
   bodyText: {
+    ...typography.body,
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
     marginTop: 8,
   },
   bulletText: {
+    ...typography.body,
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
     marginTop: 8,
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     marginTop: 14,
     paddingVertical: 12,
   },
   primaryButtonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
   },
   disclaimer: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
     marginTop: 24,
   },
 });

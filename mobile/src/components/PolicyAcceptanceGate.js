@@ -16,6 +16,7 @@ import {
   hasAcceptedCurrentPolicies,
 } from "../constants/policies";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 
 export default function PolicyAcceptanceGate() {
   const { currentUser, logout } = useAuth();
@@ -125,30 +126,27 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radii.panel,
     maxHeight: "86%",
     padding: 18,
     width: "100%",
   },
   title: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 23,
-    fontWeight: "800",
   },
   copyScroller: {
     marginTop: 10,
     maxHeight: 330,
   },
   sectionTitle: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
     marginTop: 14,
   },
   body: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 6,
   },
   checkboxRow: {
@@ -172,15 +170,15 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkmark: {
+    fontFamily: typography.button.fontFamily,
     color: "#fff",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   checkboxText: {
+    ...typography.body,
     color: colors.text,
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
   },
   error: {
     color: colors.danger,
@@ -196,19 +194,19 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   secondaryText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     minWidth: 104,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -217,7 +215,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   primaryText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
 });

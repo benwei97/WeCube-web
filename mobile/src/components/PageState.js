@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import BrandLogo from "./BrandLogo";
 import { colors } from "../theme/colors";
+import { elevation, radii, typography } from "../theme/design";
 
 function BrandMark() {
   return (
@@ -58,15 +59,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radii.panel,
     borderWidth: 1,
     maxWidth: 360,
     paddingHorizontal: 24,
     paddingVertical: 28,
-    shadowColor: "#1F3563",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
+    ...elevation.panel,
     width: "100%",
   },
   loadingLogo: {
@@ -105,16 +103,14 @@ const styles = StyleSheet.create({
     marginLeft: 7,
   },
   title: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 19,
-    fontWeight: "900",
     letterSpacing: 0,
     textAlign: "center",
   },
   message: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 23,
     marginTop: 10,
     textAlign: "center",
   },
@@ -126,8 +122,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   actionText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
   },
 });

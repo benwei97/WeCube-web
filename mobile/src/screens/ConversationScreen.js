@@ -22,6 +22,7 @@ import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import {
   blockUser,
   getListing,
@@ -719,7 +720,7 @@ const styles = StyleSheet.create({
   },
   headerListingImage: {
     backgroundColor: "#e2e8f0",
-    borderRadius: 8,
+    borderRadius: radii.card,
     height: 50,
     width: 50,
   },
@@ -731,7 +732,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     height: 50,
     justifyContent: "center",
@@ -769,23 +770,22 @@ const styles = StyleSheet.create({
     width: 26,
   },
   headerAvatarOverlayText: {
+    fontFamily: typography.caption.fontFamily,
     color: "#fff",
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   headerCopy: {
     flex: 1,
     minWidth: 0,
   },
   headerName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "900",
   },
   headerListingTitle: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
     marginTop: 2,
   },
   moreButton: {
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   bubble: {
-    borderRadius: 8,
+    borderRadius: radii.card,
     maxWidth: "82%",
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -825,9 +825,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   messageText: {
+    ...typography.body,
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 21,
   },
   myMessageText: {
     color: "#fff",
@@ -835,7 +834,8 @@ const styles = StyleSheet.create({
   systemText: {
     color: colors.muted,
     fontSize: 13,
-    fontWeight: "700",
+    fontFamily: typography.caption.fontFamily,
+    fontWeight: "500",
     textAlign: "center",
   },
   reviewPromptCard: {
@@ -843,15 +843,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     maxWidth: "88%",
     padding: 12,
   },
   reviewPromptText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     textAlign: "center",
   },
   reviewPromptButton: {
@@ -863,20 +862,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   reviewPromptButtonText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "800",
   },
   reviewPromptDone: {
+    ...typography.caption,
     color: colors.success,
-    fontSize: 12,
-    fontWeight: "800",
     marginTop: 8,
   },
   reviewPromptClosed: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
     marginTop: 8,
   },
   composer: {
@@ -890,7 +886,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
     flex: 1,
@@ -903,7 +899,7 @@ const styles = StyleSheet.create({
   sendButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radii.control,
     minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: 14,
@@ -912,8 +908,8 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   sendText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
   closedNotice: {
     backgroundColor: "#fef3c7",
@@ -932,26 +928,23 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radii.panel,
     maxHeight: "86%",
     padding: 18,
     width: "100%",
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
   },
   modalBody: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
   },
   modalLabel: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
     marginTop: 14,
   },
   reasonList: {
@@ -962,7 +955,7 @@ const styles = StyleSheet.create({
   },
   reasonOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -972,16 +965,15 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   reasonText: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
   },
   reasonTextSelected: {
     color: "#fff",
   },
   modalInput: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
     fontSize: 15,
@@ -1025,12 +1017,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   modalCancelText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   modalSubmitButton: {
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -1038,8 +1030,8 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalSubmitText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
   error: {
     color: colors.danger,

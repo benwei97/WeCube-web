@@ -17,6 +17,7 @@ import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import { searchCompetitions } from "../utils/wcaApi";
 
 const COMPETITION_BATCH_SIZE = 50;
@@ -307,9 +308,10 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -330,14 +332,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   competitionName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
   },
   competitionMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "600",
     marginTop: 4,
   },
   iconButton: {
@@ -354,9 +354,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   iconButtonText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 15,
-    fontWeight: "900",
   },
   chevronButton: {
     alignItems: "center",
@@ -382,15 +381,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   emptyTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 6,
     textAlign: "center",
   },

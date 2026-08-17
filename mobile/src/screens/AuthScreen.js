@@ -14,6 +14,7 @@ import Screen from "../components/Screen";
 import BrandLogo from "../components/BrandLogo";
 import { useAuth } from "../contexts/useAuth";
 import { colors } from "../theme/colors";
+import { elevation, radii, typography } from "../theme/design";
 
 export default function AuthScreen() {
   const { login, signup, resetPassword } = useAuth();
@@ -188,22 +189,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radii.panel,
     borderWidth: 1,
     padding: 20,
-    shadowColor: "#1F3563",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
+    ...elevation.panel,
   },
   logo: {
     alignSelf: "center",
     marginBottom: 20,
   },
   title: {
+    ...typography.screenTitle,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
     letterSpacing: 0,
   },
   segment: {
@@ -223,8 +220,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   segmentText: {
+    ...typography.caption,
     color: colors.muted,
-    fontWeight: "700",
   },
   segmentTextActive: {
     color: colors.text,
@@ -239,7 +236,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.softSurface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
@@ -259,16 +256,15 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   primaryText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
   },
   linkButton: {
     alignItems: "center",
     marginTop: 14,
   },
   linkText: {
+    ...typography.button,
     color: colors.primary,
-    fontWeight: "700",
   },
 });

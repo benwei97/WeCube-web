@@ -34,6 +34,7 @@ import ScreenTitle from "../components/ScreenTitle";
 import { useAuth } from "../contexts/useAuth";
 import { auth, db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import {
   formatListingPrice,
   getDateTime,
@@ -1003,7 +1004,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     marginTop: 18,
     padding: 18,
@@ -1023,19 +1024,21 @@ const styles = StyleSheet.create({
     width: 72,
   },
   avatarText: {
+    fontFamily: typography.button.fontFamily,
     color: "#fff",
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   name: {
+    fontFamily: typography.screenTitle.fontFamily,
     color: colors.text,
     fontSize: 24,
     fontWeight: "800",
     marginTop: 14,
   },
   email: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 14,
     marginTop: 4,
   },
   profileButtonRow: {
@@ -1045,29 +1048,29 @@ const styles = StyleSheet.create({
   },
   editProfileButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   editProfileText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "800",
   },
   profileMoreButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     height: 35,
     justifyContent: "center",
     width: 42,
   },
   profileMoreText: {
+    fontFamily: typography.button.fontFamily,
     color: colors.text,
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
     lineHeight: 18,
   },
   loadingBlock: {
@@ -1075,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   menuList: {
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     marginTop: 18,
     overflow: "hidden",
@@ -1096,14 +1099,12 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   menuRowTitle: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
   },
   menuRowDetail: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "600",
     marginTop: 4,
   },
   segmentedControl: {
@@ -1117,7 +1118,7 @@ const styles = StyleSheet.create({
   },
   segmentButton: {
     alignItems: "center",
-    borderRadius: 6,
+    borderRadius: radii.control,
     flex: 1,
     minHeight: 36,
     justifyContent: "center",
@@ -1127,9 +1128,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#eff6ff",
   },
   segmentText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    fontWeight: "800",
   },
   segmentTextSelected: {
     color: colors.text,
@@ -1138,9 +1138,8 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
     marginBottom: 10,
   },
   listingRow: {
@@ -1148,7 +1147,7 @@ const styles = StyleSheet.create({
   },
   thumbnail: {
     backgroundColor: "#e2e8f0",
-    borderRadius: 6,
+    borderRadius: radii.control,
     height: 76,
     width: 76,
   },
@@ -1157,9 +1156,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   thumbnailPlaceholderText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: "700",
   },
   listingBody: {
     flex: 1,
@@ -1177,13 +1175,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listingTitle: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
   },
   listingMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
     marginTop: 4,
   },
   competitionRow: {
@@ -1196,29 +1193,26 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   competitionName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
   },
   competitionMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "600",
     marginTop: 4,
   },
   removeCompetitionButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginLeft: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   removeCompetitionText: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: "800",
   },
   actionRow: {
     flexDirection: "row",
@@ -1228,23 +1222,21 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   actionText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
   },
   deleteButton: {
     borderColor: "#fecaca",
   },
   deleteText: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: "800",
   },
   separator: {
     backgroundColor: colors.border,
@@ -1252,20 +1244,20 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
   },
   infoButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginTop: 12,
     paddingVertical: 12,
   },
   infoText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   modalBackdrop: {
     alignItems: "center",
@@ -1276,19 +1268,17 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radii.panel,
     padding: 18,
     width: "100%",
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
   },
   modalBody: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
   },
   avatarEditor: {
@@ -1310,9 +1300,10 @@ const styles = StyleSheet.create({
     width: 88,
   },
   avatarPreviewText: {
+    fontFamily: typography.button.fontFamily,
     color: "#fff",
     fontSize: 30,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   avatarActions: {
     alignItems: "center",
@@ -1321,39 +1312,37 @@ const styles = StyleSheet.create({
   },
   smallActionButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   smallActionText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "800",
   },
   removeAvatarButton: {
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   removeAvatarText: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: "800",
   },
   disabledButton: {
     opacity: 0.55,
   },
   modalLabel: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
     marginTop: 14,
   },
   input: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     marginTop: 14,
     paddingHorizontal: 12,
@@ -1367,18 +1356,18 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   modalCancelText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   modalDeleteButton: {
     backgroundColor: colors.danger,
-    borderRadius: 6,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -1386,12 +1375,12 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalDeleteText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
   modalSaveButton: {
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -1399,7 +1388,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalSaveText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
 });

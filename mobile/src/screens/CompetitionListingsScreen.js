@@ -12,6 +12,7 @@ import Screen from "../components/Screen";
 import MobileListingCard from "../components/MobileListingCard";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import {
   getCompetitionTags,
   shouldShowListingInMarketplace,
@@ -213,16 +214,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   title: {
+    ...typography.screenTitle,
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "900",
-    lineHeight: 32,
   },
   meta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    fontWeight: "700",
-    lineHeight: 18,
   },
   searchPanel: {
     marginTop: 2,
@@ -230,17 +227,17 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
   resultCount: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",
@@ -249,15 +246,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
     textAlign: "center",
   },

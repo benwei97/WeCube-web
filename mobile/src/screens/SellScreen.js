@@ -23,6 +23,7 @@ import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
@@ -1180,9 +1181,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   noticeText: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 14,
-    fontWeight: "800",
   },
   formCard: {
   },
@@ -1196,30 +1196,26 @@ const styles = StyleSheet.create({
     paddingTop: 22,
   },
   sectionTitle: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "900",
     marginBottom: 6,
   },
   sectionHelper: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginBottom: 16,
   },
   label: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
     marginTop: 16,
   },
   required: {
     color: colors.danger,
   },
   helper: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    lineHeight: 17,
     marginTop: 5,
   },
   errorText: {
@@ -1229,9 +1225,10 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     marginTop: 8,
     paddingHorizontal: 12,
@@ -1244,7 +1241,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     flexDirection: "row",
     gap: 4,
@@ -1253,6 +1250,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   currencyPrefix: {
+    fontFamily: typography.bodyStrong.fontFamily,
     color: colors.text,
     fontSize: 16,
     fontWeight: "600",
@@ -1261,6 +1259,7 @@ const styles = StyleSheet.create({
   currencyTextInput: {
     color: colors.text,
     flex: 1,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     lineHeight: 20,
     minWidth: 0,
@@ -1272,19 +1271,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   selectText: {
+    ...typography.bodyStrong,
     color: colors.text,
     flex: 1,
-    fontSize: 16,
-    fontWeight: "700",
   },
   placeholderText: {
     color: colors.muted,
     fontWeight: "500",
   },
   selectChevron: {
+    fontFamily: typography.button.fontFamily,
     color: colors.muted,
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   inlineFields: {
     flexDirection: "row",
@@ -1328,9 +1327,10 @@ const styles = StyleSheet.create({
     width: 24,
   },
   removePhotoText: {
+    fontFamily: typography.button.fontFamily,
     color: "#fff",
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
     lineHeight: 20,
   },
   addPhoto: {
@@ -1348,14 +1348,14 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   addPhotoIcon: {
+    fontFamily: typography.button.fontFamily,
     color: colors.muted,
     fontSize: 24,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   addPhotoText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "900",
     marginTop: 4,
   },
   addPhotoTextError: {
@@ -1390,7 +1390,7 @@ const styles = StyleSheet.create({
   },
   inlineOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1400,9 +1400,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   inlineOptionText: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
   },
   inlineOptionTextSelected: {
     color: colors.primary,
@@ -1419,16 +1418,15 @@ const styles = StyleSheet.create({
   selectedCompetitionPill: {
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     maxWidth: "100%",
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   selectedCompetitionText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
   },
   competitionOption: {
     borderBottomColor: colors.border,
@@ -1436,28 +1434,25 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   competitionOptionTitle: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   competitionOptionMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    lineHeight: 17,
     marginTop: 3,
   },
   loadMoreButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginTop: 10,
     paddingVertical: 10,
   },
   loadMoreText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 13,
-    fontWeight: "900",
   },
   actionRow: {
     flexDirection: "row",
@@ -1468,21 +1463,20 @@ const styles = StyleSheet.create({
   clearButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
     minHeight: 50,
   },
   clearButtonText: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
   },
   publishButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     flex: 1,
     justifyContent: "center",
     minHeight: 50,
@@ -1491,14 +1485,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   publishButtonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "900",
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 21,
   },
   modalOverlay: {
     backgroundColor: "rgba(15, 23, 42, 0.38)",
@@ -1519,18 +1511,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "900",
   },
   closeText: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
   },
   selectOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginBottom: 8,
     paddingHorizontal: 12,
@@ -1541,9 +1531,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   selectOptionText: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
   },
   selectOptionTextSelected: {
     color: colors.primary,

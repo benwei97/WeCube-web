@@ -25,6 +25,7 @@ import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import {
   formatListingPrice,
   getDateTime,
@@ -543,7 +544,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     flexDirection: "row",
     gap: 14,
@@ -564,9 +565,10 @@ const styles = StyleSheet.create({
     width: 52,
   },
   avatarText: {
+    fontFamily: typography.button.fontFamily,
     color: colors.primary,
     fontSize: 20,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   headerText: {
     flex: 1,
@@ -574,32 +576,31 @@ const styles = StyleSheet.create({
   profileMoreButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     height: 36,
     justifyContent: "center",
     width: 42,
   },
   profileMoreText: {
+    fontFamily: typography.button.fontFamily,
     color: colors.text,
     fontSize: 18,
-    fontWeight: "900",
+    fontWeight: "700",
     lineHeight: 18,
   },
   name: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "900",
   },
   joined: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
     marginTop: 4,
   },
   reviewSummary: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "800",
     marginTop: 7,
   },
   sectionHeader: {
@@ -610,14 +611,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
   },
   sectionCount: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 14,
-    fontWeight: "800",
   },
   listLoading: {
     padding: 24,
@@ -625,7 +624,7 @@ const styles = StyleSheet.create({
   listingRow: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     flexDirection: "row",
     overflow: "hidden",
@@ -640,9 +639,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: "700",
   },
   listingBody: {
     flex: 1,
@@ -650,19 +648,17 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   listingTitle: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
   },
   listingPrice: {
+    ...typography.bodyStrong,
     color: colors.primary,
-    fontSize: 15,
-    fontWeight: "800",
     marginTop: 5,
   },
   listingMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
     marginTop: 5,
     textTransform: "capitalize",
   },
@@ -681,7 +677,7 @@ const styles = StyleSheet.create({
   reviewCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.card,
     borderWidth: 1,
     padding: 12,
   },
@@ -699,27 +695,26 @@ const styles = StyleSheet.create({
     width: 36,
   },
   reviewAvatarText: {
+    fontFamily: typography.button.fontFamily,
     color: colors.primary,
     fontSize: 14,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   reviewInfo: {
     flex: 1,
   },
   reviewerName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
   },
   reviewMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
     marginTop: 3,
   },
   reviewComment: {
+    ...typography.body,
     color: colors.text,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 10,
   },
   modalBackdrop: {
@@ -731,26 +726,23 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radii.panel,
     maxHeight: "86%",
     padding: 18,
     width: "100%",
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
   },
   modalBody: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
   },
   modalLabel: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
     marginTop: 14,
   },
   reasonList: {
@@ -761,7 +753,7 @@ const styles = StyleSheet.create({
   },
   reasonOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -771,18 +763,18 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   reasonText: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
   },
   reasonTextSelected: {
     color: "#fff",
   },
   modalInput: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 15,
     marginTop: 8,
     paddingHorizontal: 12,
@@ -800,18 +792,18 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   modalCancelText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   modalSubmitButton: {
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -819,8 +811,8 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalSubmitText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
   error: {
     color: colors.danger,

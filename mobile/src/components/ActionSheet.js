@@ -1,6 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 
 export default function ActionSheet({
   visible,
@@ -100,15 +101,14 @@ const styles = StyleSheet.create({
     width: 42,
   },
   title: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
     marginBottom: 10,
     textAlign: "center",
   },
   actionList: {
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.control,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -121,9 +121,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   actionText: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
   },
   destructiveText: {
     color: colors.danger,
@@ -137,15 +136,14 @@ const styles = StyleSheet.create({
   cancelButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginTop: 10,
     minHeight: 48,
     justifyContent: "center",
   },
   cancelText: {
+    ...typography.button,
     color: colors.primary,
-    fontSize: 15,
-    fontWeight: "900",
   },
 });

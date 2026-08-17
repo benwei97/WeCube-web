@@ -29,6 +29,7 @@ import Screen from "../components/Screen";
 import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 import { formatListingPrice, getCompetitionTags } from "../utils/listingUtils";
 import {
   cancelListingReviewPrompts,
@@ -1092,7 +1093,7 @@ const styles = StyleSheet.create({
   heroFrame: {
     aspectRatio: 1,
     backgroundColor: "#e2e8f0",
-    borderRadius: 8,
+    borderRadius: radii.card,
     overflow: "hidden",
     position: "relative",
     width: "100%",
@@ -1106,9 +1107,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 14,
-    fontWeight: "700",
   },
   photoArrowButton: {
     alignItems: "center",
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
   },
   photoThumbnailButton: {
     borderColor: "transparent",
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 2,
     height: 48,
     overflow: "hidden",
@@ -1152,22 +1152,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   thumbnailPlaceholderText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
   },
   panel: {
     marginTop: 14,
   },
   title: {
+    fontFamily: typography.screenTitle.fontFamily,
     color: colors.text,
     fontSize: 24,
     fontWeight: "800",
+    lineHeight: 29,
   },
   price: {
+    fontFamily: typography.listingPrice.fontFamily,
     color: colors.text,
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "600",
     marginTop: 8,
   },
   metaRow: {
@@ -1179,19 +1181,19 @@ const styles = StyleSheet.create({
   metaPill: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.muted,
+    fontFamily: typography.caption.fontFamily,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 6,
     textTransform: "capitalize",
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
     marginBottom: 8,
   },
   fulfillmentTabsSection: {
@@ -1204,7 +1206,7 @@ const styles = StyleSheet.create({
   fulfillmentTabList: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radii.control,
     borderWidth: 1,
     gap: 6,
     justifyContent: "center",
@@ -1212,7 +1214,7 @@ const styles = StyleSheet.create({
   },
   fulfillmentTab: {
     alignItems: "center",
-    borderRadius: 6,
+    borderRadius: radii.control,
     justifyContent: "center",
     minHeight: 36,
     paddingHorizontal: 8,
@@ -1222,30 +1224,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   fulfillmentTabText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    fontWeight: "700",
   },
   fulfillmentTabTextSelected: {
     color: colors.primary,
-    fontWeight: "800",
+    fontFamily: typography.button.fontFamily,
+    fontWeight: "700",
   },
   fulfillmentDetailLine: {
     marginBottom: 8,
   },
   bodyText: {
+    ...typography.body,
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
   },
   viewMoreButton: {
     alignSelf: "flex-start",
     marginTop: 8,
   },
   viewMoreText: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   competitionMeetupList: {
     marginTop: 2,
@@ -1264,13 +1264,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   competitionMeetupTitle: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   competitionMeetupMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
     marginTop: 2,
   },
   competitionMeetupChevron: {
@@ -1302,23 +1301,22 @@ const styles = StyleSheet.create({
     width: 40,
   },
   sellerAvatarText: {
+    fontFamily: typography.button.fontFamily,
     color: colors.primary,
     fontSize: 16,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   sellerInfo: {
     flex: 1,
   },
   sellerLabel: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
     textTransform: "uppercase",
   },
   sellerName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
     marginTop: 2,
   },
   ownerActionBar: {
@@ -1329,20 +1327,19 @@ const styles = StyleSheet.create({
   ownerPrimaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     flex: 1,
     justifyContent: "center",
     minHeight: 46,
   },
   ownerPrimaryText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "900",
   },
   moreActionsButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     justifyContent: "center",
     marginTop: 12,
@@ -1353,14 +1350,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   moreActionsText: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     marginTop: 16,
     paddingVertical: 14,
   },
@@ -1368,9 +1364,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryButtonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
   },
   modalBackdrop: {
     alignItems: "center",
@@ -1381,26 +1376,23 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radii.panel,
     maxHeight: "86%",
     padding: 18,
     width: "100%",
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
   },
   modalBody: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
   },
   modalLabel: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
     marginTop: 14,
   },
   reasonList: {
@@ -1411,7 +1403,7 @@ const styles = StyleSheet.create({
   },
   reasonOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -1421,18 +1413,18 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   reasonText: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "700",
   },
   reasonTextSelected: {
     color: "#fff",
   },
   modalInput: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 15,
     marginTop: 8,
     paddingHorizontal: 12,
@@ -1450,18 +1442,18 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   modalCancelText: {
+    ...typography.button,
     color: colors.text,
-    fontWeight: "800",
   },
   modalSubmitButton: {
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -1469,8 +1461,8 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   modalSubmitText: {
+    ...typography.button,
     color: "#fff",
-    fontWeight: "800",
   },
   inlineLoader: {
     marginTop: 16,
@@ -1481,25 +1473,23 @@ const styles = StyleSheet.create({
   },
   buyerOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   buyerName: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "800",
   },
   buyerMeta: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
     marginTop: 4,
   },
   emptyModalText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 14,
   },
   error: {

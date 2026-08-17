@@ -28,6 +28,7 @@ import {
   getLocationOptionLabel,
 } from "../utils/locationSearch";
 import { colors } from "../theme/colors";
+import { radii, typography } from "../theme/design";
 
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
 const LOCATION_RADIUS_OPTIONS = [5, 10, 25, 50, 100];
@@ -606,18 +607,18 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     color: colors.text,
+    fontFamily: typography.body.fontFamily,
     fontSize: 16,
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
   filterLabel: {
+    ...typography.caption,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "900",
     marginTop: 6,
   },
   searchPanel: {
@@ -629,7 +630,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     justifyContent: "center",
     height: 44,
@@ -643,22 +644,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     height: 44,
     justifyContent: "center",
     width: 44,
   },
   resultCount: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
     marginTop: 4,
   },
   searchModeText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "600",
   },
   footerState: {
     alignItems: "center",
@@ -668,9 +667,8 @@ const styles = StyleSheet.create({
     minHeight: 72,
   },
   footerText: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    fontWeight: "700",
   },
   centerState: {
     alignItems: "center",
@@ -679,15 +677,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
+    ...typography.body,
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
     marginTop: 8,
     textAlign: "center",
   },
@@ -717,20 +713,17 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   modalTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 22,
-    fontWeight: "900",
   },
   modalSubtitle: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
     marginTop: 3,
   },
   closeText: {
+    ...typography.button,
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
     paddingVertical: 4,
   },
   locationLoader: {
@@ -742,7 +735,7 @@ const styles = StyleSheet.create({
   },
   locationOption: {
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginBottom: 8,
     paddingHorizontal: 12,
@@ -753,9 +746,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   locationOptionText: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
   },
   locationOptionTextSelected: {
     color: colors.primary,
@@ -769,9 +761,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   radiusValue: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
-    fontWeight: "800",
   },
   radiusSliderBlock: {
     marginTop: 16,
@@ -831,15 +822,15 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   radiusLabel: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
     minWidth: 24,
     textAlign: "center",
   },
   radiusLabelActive: {
     color: colors.primary,
-    fontWeight: "900",
+    fontFamily: typography.button.fontFamily,
+    fontWeight: "700",
   },
   switchBlock: {
     gap: 4,
@@ -851,9 +842,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   switchLabel: {
+    ...typography.bodyStrong,
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "800",
   },
   modalActions: {
     flexDirection: "row",
@@ -863,21 +853,20 @@ const styles = StyleSheet.create({
   secondaryButton: {
     alignItems: "center",
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
     minHeight: 48,
   },
   secondaryButtonText: {
+    ...typography.button,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     flex: 1,
     justifyContent: "center",
     minHeight: 48,
@@ -886,8 +875,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 15,
-    fontWeight: "900",
   },
 });
