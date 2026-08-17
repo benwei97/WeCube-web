@@ -280,9 +280,11 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [hasAttemptedEditSave, setHasAttemptedEditSave] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editLocationOptions, setEditLocationOptions] = useState([]);
+  const [hasEditedLocationSearch, setHasEditedLocationSearch] = useState(false);
   const [loadingEditLocations, setLoadingEditLocations] = useState(false);
   const [editCompetitions, setEditCompetitions] = useState([]);
   const [editCompetitionSearchInput, setEditCompetitionSearchInput] = useState("");
+  const [hasEditedCompetitionSearch, setHasEditedCompetitionSearch] = useState(false);
   const [editCompetitionLimit, setEditCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
   const [loadingEditCompetitions, setLoadingEditCompetitions] = useState(false);
   const [selectedEditCompetitions, setSelectedEditCompetitions] = useState([]);
@@ -375,7 +377,12 @@ export default function ListingDetailScreen({ navigation, route }) {
     let active = true;
     const query = editData.meetupLocationLabel.trim();
 
-    if (!editOpen || !editData.localMeetupAvailable || query.length < 2) {
+    if (
+      !editOpen ||
+      !editData.localMeetupAvailable ||
+      !hasEditedLocationSearch ||
+      query.length < 2
+    ) {
       setEditLocationOptions([]);
       setLoadingEditLocations(false);
       return undefined;
@@ -398,17 +405,33 @@ export default function ListingDetailScreen({ navigation, route }) {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [editData.localMeetupAvailable, editData.meetupLocationLabel, editOpen]);
+  }, [
+    editData.localMeetupAvailable,
+    editData.meetupLocationLabel,
+    editOpen,
+    hasEditedLocationSearch,
+  ]);
 
   useEffect(() => {
-    if (!editOpen || !editData.competitionMeetupAvailable) return;
+    if (!editOpen || !editData.competitionMeetupAvailable || !hasEditedCompetitionSearch) {
+      return;
+    }
     setEditCompetitionLimit(INITIAL_COMPETITION_LIMIT);
-  }, [editData.competitionMeetupAvailable, editCompetitionSearchInput, editOpen]);
+  }, [
+    editData.competitionMeetupAvailable,
+    editCompetitionSearchInput,
+    editOpen,
+    hasEditedCompetitionSearch,
+  ]);
 
   useEffect(() => {
     let active = true;
 
-    if (!editOpen || !editData.competitionMeetupAvailable) {
+    if (
+      !editOpen ||
+      !editData.competitionMeetupAvailable ||
+      !hasEditedCompetitionSearch
+    ) {
       setEditCompetitions([]);
       setLoadingEditCompetitions(false);
       return undefined;
@@ -439,6 +462,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     editCompetitionSearchInput,
     editData.competitionMeetupAvailable,
     editOpen,
+    hasEditedCompetitionSearch,
   ]);
 
   const photos = listing?.photos || [];
@@ -555,6 +579,8 @@ export default function ListingDetailScreen({ navigation, route }) {
     });
     setSelectedEditCompetitions(getCompetitionTags(listing));
     setEditCompetitionSearchInput("");
+    setHasEditedLocationSearch(false);
+    setHasEditedCompetitionSearch(false);
     setEditCompetitions([]);
     setEditLocationOptions([]);
     setEditNotice("");
@@ -618,6 +644,7 @@ export default function ListingDetailScreen({ navigation, route }) {
       meetupLocation: value ? current.meetupLocation : null,
     }));
     if (!value) setEditLocationOptions([]);
+    if (!value) setHasEditedLocationSearch(false);
   }
 
   function handleEditCompetitionMeetupChange(value) {
@@ -629,6 +656,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (!value) {
       setSelectedEditCompetitions([]);
       setEditCompetitionSearchInput("");
+      setHasEditedCompetitionSearch(false);
       setEditCompetitions([]);
     }
   }
@@ -1561,6 +1589,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                       value={editData.meetupLocationLabel}
                       onChangeText={(value) => {
                         clearEditNotice();
+                        setHasEditedLocationSearch(true);
                         const nextValue = clampText(value, INPUT_LIMITS.LOCATION_LABEL);
                         setEditData((current) => ({
                           ...current,
@@ -1601,6 +1630,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                                   meetupLocationLabel: getLocationOptionLabel(option),
                                 }));
                                 setEditLocationOptions([]);
+                                setHasEditedLocationSearch(false);
                               }}
                             >
                               <Text
@@ -1638,6 +1668,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                       value={editCompetitionSearchInput}
                       onChangeText={(value) => {
                         clearEditNotice();
+                        setHasEditedCompetitionSearch(true);
                         setEditCompetitionSearchInput(value);
                       }}
                       style={[
