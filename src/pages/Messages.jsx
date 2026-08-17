@@ -531,20 +531,22 @@ function Messages() {
   }, [currentUserId, selectedConversation]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
+    const messageToSend = newMessage.trim();
+    if (!messageToSend || !selectedConversation || !currentUserId) return;
     if (selectedConversation.closedReason === "listing_deleted") return;
     if (newMessage.length > INPUT_LIMITS.MESSAGE_TEXT) return;
 
     setSendingMessage(true);
+    setNewMessage("");
     try {
       await addMessage(
         selectedConversation.id,
         currentUserId,
-        newMessage.trim()
+        messageToSend
       );
-      setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
+      setNewMessage(messageToSend);
       setReportSnackbar({
         severity: "error",
         message:
