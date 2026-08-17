@@ -904,6 +904,23 @@ export default function ListingDetailScreen({ navigation, route }) {
     setBuyerOptions([]);
   }
 
+  function confirmBuyerSoldSelection(selectedBuyer) {
+    if (!selectedBuyer || statusUpdating) return;
+
+    const buyerName = selectedBuyer.buyerName || "this buyer";
+    Alert.alert(
+      "Mark sold to buyer?",
+      `This will mark "${listing?.title || "this listing"}" as sold to ${buyerName} and send a review request in that chat.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Sold to ${buyerName}`,
+          onPress: () => markListingSold(selectedBuyer),
+        },
+      ]
+    );
+  }
+
   async function markListingSold(selectedBuyer = null) {
     if (!listing?.id || !isOwnListing || statusUpdating) return;
 
@@ -1944,7 +1961,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                   <Pressable
                     key={buyer.conversationId}
                     style={styles.buyerOption}
-                    onPress={() => markListingSold(buyer)}
+                    onPress={() => confirmBuyerSoldSelection(buyer)}
                     disabled={statusUpdating}
                   >
                     <Text style={styles.buyerName}>{buyer.buyerName}</Text>
