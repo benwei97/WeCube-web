@@ -376,7 +376,16 @@ export function subscribeToConversationMessages(conversationId, onNext, onError)
   const emitMessages = (snapshot) => {
     onNext(
       snapshot.docs
-        .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+        .map((messageDoc) => {
+          const message = messageDoc.data();
+          return {
+            id: messageDoc.id,
+            ...message,
+            createdAt:
+              message.createdAt ||
+              (messageDoc.metadata.hasPendingWrites ? new Date() : message.createdAt),
+          };
+        })
         .sort((firstMessage, secondMessage) =>
           getDateTime(firstMessage.createdAt) - getDateTime(secondMessage.createdAt)
         )

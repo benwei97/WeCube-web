@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -240,6 +240,13 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const messageListRef = useRef(null);
+
+  function scrollToConversationEnd(animated = true) {
+    requestAnimationFrame(() => {
+      messageListRef.current?.scrollToEnd({ animated });
+    });
+  }
 
   useEffect(() => {
     if (!conversationId) {
@@ -364,16 +371,26 @@ export default function ConversationScreen({ navigation, route }) {
     [conversation?.activeSaleEventId, currentUser?.uid, messages]
   );
 
+  useEffect(() => {
+    if (transcriptItems.length > 0) {
+      scrollToConversationEnd(false);
+    }
+  }, [conversationId, transcriptItems.length]);
+
   async function handleSend() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || !currentUser?.uid || sending) return;
 
     setSending(true);
+    setDraft("");
+    setError("");
+    scrollToConversationEnd();
     try {
       await sendMessage(conversationId, currentUser.uid, trimmedDraft);
-      setDraft("");
+      scrollToConversationEnd();
     } catch (sendError) {
       console.error("Error sending mobile message:", sendError);
+      setDraft(trimmedDraft);
       setError(sendError.message || "Unable to send message.");
     } finally {
       setSending(false);
@@ -595,6 +612,7 @@ export default function ConversationScreen({ navigation, route }) {
           </Text>
         ) : null}
         <FlatList
+          ref={messageListRef}
           data={transcriptItems}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
@@ -616,6 +634,8 @@ export default function ConversationScreen({ navigation, route }) {
             );
           }}
           contentContainerStyle={styles.messageList}
+          onContentSizeChange={() => scrollToConversationEnd()}
+          onLayout={() => scrollToConversationEnd(false)}
         />
         <View style={styles.composer}>
           <TextInput
