@@ -253,7 +253,6 @@ export default function MessagesScreen({ navigation }) {
         <PageState
           variant="loading"
           title="Loading messages"
-          message="Opening your conversations."
         />
       </Screen>
     );

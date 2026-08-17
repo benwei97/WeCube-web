@@ -1333,7 +1333,6 @@ function ListingDetail() {
         <PageState
           variant="loading"
           title="Loading listing"
-          message="Getting listing photos, seller details, and fulfillment options."
         />
       </Box>
     );

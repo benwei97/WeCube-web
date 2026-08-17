@@ -317,7 +317,6 @@ export default function SellerProfileScreen({ navigation, route }) {
         <PageState
           variant="loading"
           title="Loading profile"
-          message="Getting seller listings, reviews, and profile details."
         />
       </Screen>
     );

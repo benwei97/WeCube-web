@@ -1018,7 +1018,6 @@ function Dashboard() {
         <PageState
           variant="loading"
           title="Loading dashboard"
-          message="Gathering your listings, purchases, saved items, and account details."
         />
       </Box>
     );

@@ -37,7 +37,6 @@ function AppContent() {
         <PageState
           variant="loading"
           title="Loading WeCube"
-          message="Preparing your marketplace."
         />
       </View>
     );

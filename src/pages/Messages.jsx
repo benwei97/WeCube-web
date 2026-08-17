@@ -1026,7 +1026,6 @@ function Messages() {
         <PageState
           variant="loading"
           title="Loading messages"
-          message="Opening your conversations."
         />
       </Box>
     );

@@ -592,7 +592,6 @@ function Browse() {
         <PageState
           variant="loading"
           title="Loading listings"
-          message="Finding the newest cubes in the marketplace."
         />
       </Box>
     );

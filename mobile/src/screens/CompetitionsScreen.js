@@ -260,7 +260,6 @@ export default function CompetitionsScreen({ navigation }) {
             <PageState
               variant="loading"
               title="Loading competitions"
-              message="Finding upcoming competitions and your saved events."
             />
           ) : displayedCompetitions.length === 0 ? (
             <PageState

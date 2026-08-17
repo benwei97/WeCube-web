@@ -288,7 +288,6 @@ export default function BrowseScreen({ navigation }) {
         <PageState
           variant="loading"
           title="Loading listings"
-          message="Finding the newest cubes in the marketplace."
         />
       );
     }

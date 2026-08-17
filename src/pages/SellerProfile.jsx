@@ -370,7 +370,6 @@ function SellerProfile() {
         <PageState
           variant="loading"
           title="Loading profile"
-          message="Getting seller listings, reviews, and profile details."
         />
       </Box>
     );

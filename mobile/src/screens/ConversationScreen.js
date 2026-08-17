@@ -378,7 +378,6 @@ export default function ConversationScreen({ navigation, route }) {
         <PageState
           variant="loading"
           title="Loading conversation"
-          message="Opening messages and seller details."
         />
       </Screen>
     );

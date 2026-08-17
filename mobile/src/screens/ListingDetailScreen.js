@@ -544,7 +544,6 @@ export default function ListingDetailScreen({ navigation, route }) {
         <PageState
           variant="loading"
           title="Loading listing"
-          message="Getting listing photos, seller details, and fulfillment options."
         />
       </Screen>
     );
