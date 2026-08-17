@@ -92,9 +92,6 @@ export default function AuthScreen() {
         <View style={styles.card}>
           <BrandLogo style={styles.logo} markHeight={58} markWidth={76} wordmarkSize={30} />
           <Text style={styles.title}>{isSignup ? "Create account" : "Sign in"}</Text>
-          <Text style={styles.subtitle}>
-            Sign in before using WeCube.
-          </Text>
 
           <View style={styles.segment}>
             <Pressable
@@ -208,12 +205,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "900",
     letterSpacing: 0,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
   },
   segment: {
     backgroundColor: colors.softSurface,
