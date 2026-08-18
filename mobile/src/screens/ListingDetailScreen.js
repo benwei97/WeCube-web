@@ -539,6 +539,7 @@ export default function ListingDetailScreen({ navigation, route }) {
 
     navigation.getParent()?.navigate("Competitions", {
       screen: "CompetitionListings",
+      initial: false,
       params: {
         competitionId: competition.id,
         competition,
