@@ -585,6 +585,7 @@ export default function ProfileScreen({ navigation, route }) {
 
     navigation.getParent()?.navigate("Competitions", {
       screen: "CompetitionListings",
+      initial: false,
       params: {
         competitionId: competition.id,
         competition,

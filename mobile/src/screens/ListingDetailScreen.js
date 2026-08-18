@@ -775,6 +775,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (existingConversation?.id) {
       navigation.getParent()?.navigate("Messages", {
         screen: "Conversation",
+        initial: false,
         params: { conversationId: existingConversation.id },
       });
       return;
@@ -811,6 +812,7 @@ export default function ListingDetailScreen({ navigation, route }) {
       setInitialMessageDraft("");
       navigation.getParent()?.navigate("Messages", {
         screen: "Conversation",
+        initial: false,
         params: { conversationId },
       });
     } catch (conversationError) {

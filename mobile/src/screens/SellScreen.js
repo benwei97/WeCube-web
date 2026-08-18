@@ -659,6 +659,7 @@ export default function SellScreen({ navigation }) {
         screen: "Browse",
         params: {
           screen: "ListingDetail",
+          initial: false,
           params: { listingId: docRef.id },
         },
       });
