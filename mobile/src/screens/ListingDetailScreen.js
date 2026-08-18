@@ -2088,7 +2088,7 @@ export default function ListingDetailScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 20,
   },
   topBar: {
     alignItems: "center",

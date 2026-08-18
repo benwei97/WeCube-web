@@ -532,7 +532,7 @@ export default function SellerProfileScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 20,
   },
   centerState: {
     alignItems: "center",

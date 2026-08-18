@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 4,
     paddingTop: 16,
-    paddingBottom: 32,
+    paddingBottom: 18,
   },
   listingRow: {
     alignItems: "stretch",

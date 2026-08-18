@@ -1002,7 +1002,7 @@ export default function ProfileScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    paddingBottom: 36,
+    paddingBottom: 20,
   },
   profileHeader: {
     alignItems: "center",

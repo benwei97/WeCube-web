@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   container: {
     gap: 22,
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 20,
   },
   section: {
     gap: 12,

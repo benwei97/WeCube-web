@@ -219,7 +219,7 @@ export default function InfoScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    paddingBottom: 36,
+    paddingBottom: 20,
   },
   toggleRow: {
     alignSelf: "center",
