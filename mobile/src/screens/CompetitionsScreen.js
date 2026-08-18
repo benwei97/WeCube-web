@@ -240,6 +240,8 @@ export default function CompetitionsScreen({ navigation }) {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.container}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         scrollEventThrottle={120}
       >

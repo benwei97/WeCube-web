@@ -341,6 +341,8 @@ export default function BrowseScreen({ navigation }) {
         data={displayedListings}
         numColumns={2}
         columnWrapperStyle={styles.listingRow}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id}
         onEndReached={loadMoreListings}
         onEndReachedThreshold={0.7}

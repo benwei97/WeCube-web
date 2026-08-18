@@ -131,6 +131,8 @@ export default function CompetitionListingsScreen({ navigation, route }) {
         data={isLoading ? [] : filteredListings}
         numColumns={2}
         columnWrapperStyle={styles.listingRow}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View style={styles.header}>

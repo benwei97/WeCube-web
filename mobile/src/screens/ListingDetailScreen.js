@@ -1459,7 +1459,11 @@ export default function ListingDetailScreen({ navigation, route }) {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={styles.editKeyboardView}
           >
-            <ScrollView contentContainerStyle={styles.editContent}>
+            <ScrollView
+              contentContainerStyle={styles.editContent}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={styles.editTitleRow}>
                 <Text style={styles.editTitle}>Edit Listing</Text>
                 <Pressable
