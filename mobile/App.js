@@ -2,9 +2,11 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useEffect, useMemo, useState } from "react";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { DMSans_400Regular } from "@expo-google-fonts/dm-sans/400Regular";
 import { DMSans_500Medium } from "@expo-google-fonts/dm-sans/500Medium";
 import { DMSans_600SemiBold } from "@expo-google-fonts/dm-sans/600SemiBold";
@@ -25,8 +27,10 @@ import ConversationScreen from "./src/screens/ConversationScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import InfoScreen from "./src/screens/InfoScreen";
 import AuthScreen from "./src/screens/AuthScreen";
+import { db } from "./src/lib/firebase";
 import { colors } from "./src/theme/colors";
 import { fontFamilies } from "./src/theme/design";
+import { isConversationUnread } from "./src/utils/messaging";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -202,6 +206,61 @@ function ProfileNavigator() {
 function AppTabs() {
   const { currentUser } = useAuth();
   const avatarUrl = currentUser?.avatarUrl || "";
+  const [buyerConversations, setBuyerConversations] = useState([]);
+  const [sellerConversations, setSellerConversations] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setBuyerConversations([]);
+      setSellerConversations([]);
+      return undefined;
+    }
+
+    const buyerQuery = query(
+      collection(db, "conversations"),
+      where("buyerId", "==", currentUser.uid)
+    );
+    const sellerQuery = query(
+      collection(db, "conversations"),
+      where("sellerId", "==", currentUser.uid)
+    );
+
+    const unsubscribeBuyer = onSnapshot(
+      buyerQuery,
+      (snapshot) =>
+        setBuyerConversations(
+          snapshot.docs.map((conversationDoc) => ({
+            id: conversationDoc.id,
+            ...conversationDoc.data(),
+          }))
+        ),
+      (error) => console.error("Error loading buyer unread count:", error)
+    );
+    const unsubscribeSeller = onSnapshot(
+      sellerQuery,
+      (snapshot) =>
+        setSellerConversations(
+          snapshot.docs.map((conversationDoc) => ({
+            id: conversationDoc.id,
+            ...conversationDoc.data(),
+          }))
+        ),
+      (error) => console.error("Error loading seller unread count:", error)
+    );
+
+    return () => {
+      unsubscribeBuyer();
+      unsubscribeSeller();
+    };
+  }, [currentUser?.uid]);
+
+  const unreadConversationCount = useMemo(
+    () =>
+      [...buyerConversations, ...sellerConversations].filter((conversation) =>
+        isConversationUnread(conversation, currentUser?.uid)
+      ).length,
+    [buyerConversations, currentUser?.uid, sellerConversations]
+  );
 
   return (
     <Tab.Navigator
@@ -217,8 +276,8 @@ function AppTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 84,
-          paddingBottom: 18,
+          height: 74,
+          paddingBottom: 8,
           paddingTop: 8,
         },
         tabBarItemStyle: {
@@ -269,7 +328,16 @@ function AppTabs() {
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="chat-bubble-outline" size={size} color={color} />
+            <View style={styles.messageIconWrap}>
+              <MaterialIcons name="chat-bubble-outline" size={size} color={color} />
+              {unreadConversationCount > 0 ? (
+                <View style={styles.messageBadge}>
+                  <Text style={styles.messageBadgeText}>
+                    {unreadConversationCount > 9 ? "9+" : unreadConversationCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           ),
         }}
       />
@@ -308,6 +376,28 @@ const styles = StyleSheet.create({
   tabAvatar: {
     borderRadius: 999,
     borderWidth: 1.5,
+  },
+  messageIconWrap: {
+    position: "relative",
+  },
+  messageBadge: {
+    alignItems: "center",
+    backgroundColor: colors.danger,
+    borderColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 16,
+    paddingHorizontal: 3,
+    position: "absolute",
+    right: -8,
+    top: -6,
+  },
+  messageBadgeText: {
+    color: "#fff",
+    fontFamily: fontFamilies.bold,
+    fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 13,
   },
 });
 

@@ -66,7 +66,7 @@ function getCompetitionMeta(competition) {
     .join(" · ");
 }
 
-function ListingRow({ listing, onStatusChange, onDelete, loading }) {
+function ListingRow({ listing, onOpen, onStatusChange, onDelete, loading }) {
   const thumbnailUrl = listing.photos?.[0]?.s3Key
     ? getS3PublicUrl(listing.photos[0].s3Key)
     : null;
@@ -74,7 +74,7 @@ function ListingRow({ listing, onStatusChange, onDelete, loading }) {
   const canToggleAvailability = listing.status !== "sold";
 
   return (
-    <View style={styles.listingRow}>
+    <Pressable style={styles.listingRow} onPress={() => onOpen(listing)}>
       {thumbnailUrl ? (
         <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
       ) : (
@@ -110,7 +110,7 @@ function ListingRow({ listing, onStatusChange, onDelete, loading }) {
           </Pressable>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -622,6 +622,9 @@ export default function ProfileScreen({ navigation, route }) {
             renderItem={({ item }) => (
               <ListingRow
                 listing={item}
+                onOpen={(listing) =>
+                  navigation.navigate("ListingDetail", { listingId: listing.id })
+                }
                 onStatusChange={updateListingStatus}
                 onDelete={confirmDeleteListing}
                 loading={actionLoadingId === item.id}

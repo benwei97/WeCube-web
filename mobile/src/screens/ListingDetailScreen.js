@@ -1259,7 +1259,6 @@ export default function ListingDetailScreen({ navigation, route }) {
           <Text style={styles.price}>{formatListingPrice(listing.price)}</Text>
           <View style={styles.metaRow}>
             <Text style={styles.metaPill}>{listing.condition || "Condition not set"}</Text>
-            {listing.puzzleType ? <Text style={styles.metaPill}>{listing.puzzleType}</Text> : null}
           </View>
         </View>
 

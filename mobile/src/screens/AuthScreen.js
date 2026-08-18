@@ -110,6 +110,7 @@ export default function AuthScreen() {
   const handledGoogleResponseRef = useRef(null);
 
   const isSignup = mode === "signup";
+  const isReset = mode === "reset";
   const isBusy = loading || googleLoading || appleLoading;
   const googleRedirectScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_REDIRECT_SCHEME;
   const [googleRequest, googleResponse, promptGoogleAuth] = Google.useIdTokenAuthRequest(
@@ -228,15 +229,27 @@ export default function AuthScreen() {
       return;
     }
 
-    try {
-      await resetPassword(normalizedEmail);
-      Alert.alert(
-        "Reset email sent",
-        "Check your email, including spam or junk, for a password reset link."
-      );
-    } catch (error) {
-      Alert.alert("Unable to send reset", error.message || "Please try again.");
-    }
+    Alert.alert("Send reset link?", `Send a password reset email to ${normalizedEmail}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Send",
+        onPress: async () => {
+          setLoading(true);
+          try {
+            await resetPassword(normalizedEmail);
+            Alert.alert(
+              "Reset email sent",
+              "Check your email, including spam or junk, for a password reset link.",
+              [{ text: "OK", onPress: () => setMode("login") }]
+            );
+          } catch (error) {
+            Alert.alert("Unable to send reset", error.message || "Please try again.");
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
   }
 
   async function handleGoogleSignIn() {
@@ -299,10 +312,12 @@ export default function AuthScreen() {
         style={styles.container}
       >
         <View style={styles.card}>
-          <BrandLogo style={styles.logo} markHeight={58} markWidth={76} wordmarkSize={30} />
-          <Text style={styles.title}>{isSignup ? "Create account" : "Sign in"}</Text>
+          <BrandLogo style={styles.logo} markHeight={66} markWidth={86} wordmarkSize={32} />
+          <Text style={styles.title}>
+            {isReset ? "Reset password" : isSignup ? "Create account" : "Sign in"}
+          </Text>
 
-          {appleAvailable && (
+          {!isReset && appleAvailable && (
             <View style={[styles.appleButtonWrap, isBusy && styles.buttonDisabled]}>
               {appleLoading ? (
                 <View style={styles.appleLoadingButton}>
@@ -320,51 +335,55 @@ export default function AuthScreen() {
             </View>
           )}
 
-          <Pressable
-            style={[
-              styles.googleButton,
-              appleAvailable ? styles.googleButtonAfterApple : null,
-              isBusy && styles.buttonDisabled,
-            ]}
-            onPress={handleGoogleSignIn}
-            disabled={!googleRequest || isBusy}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <>
-                <GoogleLogo />
-                <Text style={styles.googleText}>Continue with Google</Text>
-              </>
-            )}
-          </Pressable>
+          {!isReset && (
+            <>
+              <Pressable
+                style={[
+                  styles.googleButton,
+                  appleAvailable ? styles.googleButtonAfterApple : null,
+                  isBusy && styles.buttonDisabled,
+                ]}
+                onPress={handleGoogleSignIn}
+                disabled={!googleRequest || isBusy}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <>
+                    <GoogleLogo />
+                    <Text style={styles.googleText}>Continue with Google</Text>
+                  </>
+                )}
+              </Pressable>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          <View style={styles.segment}>
-            <Pressable
-              style={[styles.segmentButton, !isSignup && styles.segmentActive]}
-              onPress={() => setMode("login")}
-              disabled={isBusy}
-            >
-              <Text style={[styles.segmentText, !isSignup && styles.segmentTextActive]}>
-                Sign in
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.segmentButton, isSignup && styles.segmentActive]}
-              onPress={() => setMode("signup")}
-              disabled={isBusy}
-            >
-              <Text style={[styles.segmentText, isSignup && styles.segmentTextActive]}>
-                Sign up
-              </Text>
-            </Pressable>
-          </View>
+              <View style={styles.segment}>
+                <Pressable
+                  style={[styles.segmentButton, !isSignup && styles.segmentActive]}
+                  onPress={() => setMode("login")}
+                  disabled={isBusy}
+                >
+                  <Text style={[styles.segmentText, !isSignup && styles.segmentTextActive]}>
+                    Sign in
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.segmentButton, isSignup && styles.segmentActive]}
+                  onPress={() => setMode("signup")}
+                  disabled={isBusy}
+                >
+                  <Text style={[styles.segmentText, isSignup && styles.segmentTextActive]}>
+                    Sign up
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
 
           {isSignup && (
             <View style={styles.row}>
@@ -392,14 +411,18 @@ export default function AuthScreen() {
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
+            returnKeyType={isReset ? "send" : "next"}
+            onSubmitEditing={isReset ? handleResetPassword : undefined}
           />
-          <TextInput
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            secureTextEntry
-          />
+          {!isReset && (
+            <TextInput
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+              secureTextEntry
+            />
+          )}
           {isSignup && (
             <TextInput
               placeholder="Confirm password"
@@ -412,19 +435,26 @@ export default function AuthScreen() {
 
           <Pressable
             style={[styles.primaryButton, isBusy && styles.buttonDisabled]}
-            onPress={handleSubmit}
+            onPress={isReset ? handleResetPassword : handleSubmit}
             disabled={isBusy}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryText}>{isSignup ? "Create account" : "Sign in"}</Text>
+              <Text style={styles.primaryText}>
+                {isReset ? "Send reset link" : isSignup ? "Create account" : "Sign in"}
+              </Text>
             )}
           </Pressable>
 
-          {!isSignup && (
-            <Pressable onPress={handleResetPassword} style={styles.linkButton} disabled={isBusy}>
+          {!isSignup && !isReset && (
+            <Pressable onPress={() => setMode("reset")} style={styles.linkButton} disabled={isBusy}>
               <Text style={styles.linkText}>Forgot password?</Text>
+            </Pressable>
+          )}
+          {isReset && (
+            <Pressable onPress={() => setMode("login")} style={styles.linkButton} disabled={isBusy}>
+              <Text style={styles.linkText}>Back to sign in</Text>
             </Pressable>
           )}
         </View>
@@ -449,7 +479,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 22,
   },
   title: {
     ...typography.screenTitle,

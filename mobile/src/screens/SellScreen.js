@@ -655,24 +655,13 @@ export default function SellScreen({ navigation }) {
       const docRef = await addDoc(collection(db, "listings"), listingToSave);
       await deleteSavedDraft();
       clearListing();
-      Alert.alert("Listing published", "Your listing is now active.", [
-        {
-          text: "View listing",
-          onPress: () =>
-            navigation?.navigate("MainTabs", {
-              screen: "Browse",
-              params: {
-                screen: "ListingDetail",
-                params: { listingId: docRef.id },
-              },
-            }),
+      navigation?.navigate("MainTabs", {
+        screen: "Browse",
+        params: {
+          screen: "ListingDetail",
+          params: { listingId: docRef.id },
         },
-        {
-          text: "Close",
-          style: "cancel",
-          onPress: closeSellModal,
-        },
-      ]);
+      });
     } catch (error) {
       console.error("Error publishing mobile listing:", error);
       const isUploadError = error.message?.toLowerCase().includes("upload");
