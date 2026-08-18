@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  OAuthProvider,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -144,6 +145,28 @@ export function AuthProvider({ children }) {
     return userCredential;
   }
 
+  async function loginWithApple(identityToken, rawNonce, profile = {}) {
+    if (!identityToken) {
+      throw createAuthFlowError(
+        "auth/missing-apple-token",
+        "Apple sign-in did not return a credential."
+      );
+    }
+
+    const provider = new OAuthProvider("apple.com");
+    const credential = provider.credential({
+      idToken: identityToken,
+      rawNonce,
+    });
+    const userCredential = await signInWithCredential(auth, credential);
+    await ensureVerifiedUserProfile(userCredential.user, {
+      email: profile.email || userCredential.user.email || "",
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+    });
+    return userCredential;
+  }
+
   function logout() {
     return signOut(auth);
   }
@@ -212,6 +235,7 @@ export function AuthProvider({ children }) {
     signup,
     login,
     loginWithGoogle,
+    loginWithApple,
     logout,
     resetPassword,
   };

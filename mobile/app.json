@@ -10,7 +10,9 @@
     "ios": {
       "bundleIdentifier": "app.wecube.ios",
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "WeCube needs photo library access so you can add listing photos and profile pictures."
       }
     },
@@ -26,12 +28,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-apple-authentication",
       [
         "expo-image-picker",
         {
           "photosPermission": "WeCube needs photo library access so you can add listing photos and profile pictures."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c522eeac-de82-4e36-8a84-a9dc334c4323"
+      }
+    }
   }
 }
