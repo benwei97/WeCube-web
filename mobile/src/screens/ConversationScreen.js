@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Image,
+  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -47,7 +48,7 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
-const IOS_KEYBOARD_LAYOUT_DURATION_MS = 120;
+const IOS_KEYBOARD_LAYOUT_DURATION_MS = 10;
 const IOS_KEYBOARD_TRANSITION_BUFFER_MS = 20;
 
 function getTimestampDate(timestamp) {
@@ -687,6 +688,44 @@ export default function ConversationScreen({ navigation, route }) {
     );
   }
 
+  const composer = (
+    <View style={styles.composer}>
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        placeholder="Write a message"
+        style={styles.input}
+        multiline
+        editable={
+          conversation?.closedReason !== "listing_deleted" &&
+          !blockedByMe &&
+          !blockedMe
+        }
+      />
+      <Pressable
+        style={[
+          styles.sendButton,
+          (!draft.trim() ||
+            sending ||
+            conversation?.closedReason === "listing_deleted" ||
+            blockedByMe ||
+            blockedMe) &&
+            styles.sendButtonDisabled,
+        ]}
+        onPress={handleSend}
+        disabled={
+          !draft.trim() ||
+          sending ||
+          conversation?.closedReason === "listing_deleted" ||
+          blockedByMe ||
+          blockedMe
+        }
+      >
+        <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <Screen>
       <View style={styles.topBar}>
@@ -718,7 +757,7 @@ export default function ConversationScreen({ navigation, route }) {
         </Pressable>
       </View>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "position" : undefined}
+        behavior={Platform.OS === "ios" ? "height" : undefined}
         contentContainerStyle={styles.container}
         style={styles.keyboardFrame}
       >
@@ -760,42 +799,13 @@ export default function ConversationScreen({ navigation, route }) {
           onLayout={() => scrollToConversationEnd(false)}
           style={styles.messageScroller}
         />
-        <View style={styles.composer}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Write a message"
-            style={styles.input}
-            multiline
-            editable={
-              conversation?.closedReason !== "listing_deleted" &&
-              !blockedByMe &&
-              !blockedMe
-            }
-          />
-          <Pressable
-            style={[
-              styles.sendButton,
-              (!draft.trim() ||
-                sending ||
-                conversation?.closedReason === "listing_deleted" ||
-                blockedByMe ||
-                blockedMe) &&
-                styles.sendButtonDisabled,
-            ]}
-            onPress={handleSend}
-            disabled={
-              !draft.trim() ||
-              sending ||
-              conversation?.closedReason === "listing_deleted" ||
-              blockedByMe ||
-              blockedMe
-            }
-          >
-            <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
-          </Pressable>
-        </View>
+        {Platform.OS === "ios" ? null : composer}
       </KeyboardAvoidingView>
+      {Platform.OS === "ios" ? (
+        <InputAccessoryView backgroundColor={colors.surface}>
+          {composer}
+        </InputAccessoryView>
+      ) : null}
 
       <ActionSheet
         visible={conversationActionsOpen}
