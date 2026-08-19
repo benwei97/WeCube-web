@@ -592,7 +592,6 @@ export default function ConversationScreen({ navigation, route }) {
     <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
         style={styles.container}
       >
         <View style={styles.topBar}>
@@ -635,6 +634,8 @@ export default function ConversationScreen({ navigation, route }) {
         <FlatList
           ref={messageListRef}
           data={transcriptItems}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             if (item.type === "timeDivider") {
