@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -136,6 +136,56 @@ function getListingPhotoUrl(listing, conversation) {
   return s3Key ? getS3PublicUrl(s3Key) : "";
 }
 
+function getComparableSnapshotValue(value) {
+  if (!value) return value;
+  if (value.toMillis) return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (Array.isArray(value)) return value.map(getComparableSnapshotValue);
+  if (typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = getComparableSnapshotValue(value[key]);
+        return result;
+      }, {});
+  }
+  return value;
+}
+
+function areSnapshotValuesEqual(firstValue, secondValue) {
+  return (
+    JSON.stringify(getComparableSnapshotValue(firstValue)) ===
+    JSON.stringify(getComparableSnapshotValue(secondValue))
+  );
+}
+
+function isOnlyCurrentUserReadReceiptChange(previousConversation, nextConversation, currentUserId) {
+  if (!previousConversation || !nextConversation || !currentUserId) return false;
+
+  const currentUserReadField =
+    nextConversation.buyerId === currentUserId
+      ? "buyerLastReadAt"
+      : nextConversation.sellerId === currentUserId
+        ? "sellerLastReadAt"
+        : "";
+
+  if (!currentUserReadField) return false;
+
+  const keys = new Set([
+    ...Object.keys(previousConversation),
+    ...Object.keys(nextConversation),
+  ]);
+
+  for (const key of keys) {
+    if (key === currentUserReadField) continue;
+    if (!areSnapshotValuesEqual(previousConversation[key], nextConversation[key])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function HeaderConversationImage({
   listing,
   conversation,
@@ -245,12 +295,54 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const messageListRef = useRef(null);
   const lastReadMarkerRef = useRef("");
+  const keyboardTransitioningRef = useRef(false);
+  const keyboardTransitionTimeoutRef = useRef(null);
 
   function scrollToConversationEnd(animated = true) {
     requestAnimationFrame(() => {
-      messageListRef.current?.scrollToEnd({ animated });
+      messageListRef.current?.scrollToOffset({
+        offset: 0,
+        animated: animated && !keyboardTransitioningRef.current,
+      });
     });
   }
+
+  const otherUserId =
+    conversation && currentUser?.uid
+      ? conversation.buyerId === currentUser.uid
+        ? conversation.sellerId
+        : conversation.buyerId
+      : "";
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return undefined;
+
+    function handleKeyboardTransition(event) {
+      Keyboard.scheduleLayoutAnimation?.(event);
+      keyboardTransitioningRef.current = true;
+      clearTimeout(keyboardTransitionTimeoutRef.current);
+
+      keyboardTransitionTimeoutRef.current = setTimeout(() => {
+        keyboardTransitioningRef.current = false;
+        scrollToConversationEnd(false);
+      }, (event?.duration || 250) + 50);
+    }
+
+    const changeSubscription = Keyboard.addListener(
+      "keyboardWillChangeFrame",
+      handleKeyboardTransition
+    );
+    const hideSubscription = Keyboard.addListener(
+      "keyboardWillHide",
+      handleKeyboardTransition
+    );
+
+    return () => {
+      clearTimeout(keyboardTransitionTimeoutRef.current);
+      changeSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!conversationId) {
@@ -263,7 +355,16 @@ export default function ConversationScreen({ navigation, route }) {
       doc(db, "conversations", conversationId),
       (snapshot) => {
         if (snapshot.exists()) {
-          setConversation({ id: snapshot.id, ...snapshot.data() });
+          const nextConversation = { id: snapshot.id, ...snapshot.data() };
+          setConversation((previousConversation) =>
+            isOnlyCurrentUserReadReceiptChange(
+              previousConversation,
+              nextConversation,
+              currentUser?.uid
+            )
+              ? previousConversation
+              : nextConversation
+          );
         }
       },
       (snapshotError) => {
@@ -290,7 +391,7 @@ export default function ConversationScreen({ navigation, route }) {
       unsubscribeConversation();
       unsubscribeMessages();
     };
-  }, [conversationId]);
+  }, [conversationId, currentUser?.uid]);
 
   useEffect(() => {
     if (!conversation?.id || !currentUser?.uid) return;
@@ -310,12 +411,7 @@ export default function ConversationScreen({ navigation, route }) {
   }, [conversation, currentUser?.uid]);
 
   useEffect(() => {
-    if (!conversation || !currentUser?.uid) return undefined;
-
-    const otherUserId =
-      conversation.buyerId === currentUser.uid
-        ? conversation.sellerId
-        : conversation.buyerId;
+    if (!otherUserId || !currentUser?.uid) return undefined;
 
     getUserProfile(otherUserId)
       .then(setOtherUser)
@@ -345,14 +441,7 @@ export default function ConversationScreen({ navigation, route }) {
       unsubscribeBlockedByMe();
       unsubscribeBlockedMe();
     };
-  }, [conversation, currentUser?.uid]);
-
-  const otherUserId =
-    conversation && currentUser?.uid
-      ? conversation.buyerId === currentUser.uid
-        ? conversation.sellerId
-        : conversation.buyerId
-      : "";
+  }, [conversation?.listingId, currentUser?.uid, otherUserId]);
   const otherUserName =
     `${otherUser?.firstName || ""} ${otherUser?.lastName || ""}`.trim() ||
     "this user";
@@ -370,7 +459,7 @@ export default function ConversationScreen({ navigation, route }) {
     navigation.navigate("SellerProfile", { userId: otherUserId });
   }
 
-  function getReviewPromptState(message) {
+  const getReviewPromptState = useCallback((message) => {
     const isReviewPrompt = message.type === "review_prompt" || message.reviewPrompt;
     if (!isReviewPrompt || !currentUser?.uid) return null;
 
@@ -382,21 +471,25 @@ export default function ConversationScreen({ navigation, route }) {
       closed,
       hidden: !response && closed,
     };
-  }
+  }, [conversation?.activeSaleEventId, currentUser?.uid]);
 
   const transcriptItems = useMemo(
     () =>
       getTranscriptItems(
         messages.filter((message) => !getReviewPromptState(message)?.hidden)
       ),
-    [conversation?.activeSaleEventId, currentUser?.uid, messages]
+    [getReviewPromptState, messages]
+  );
+  const visibleTranscriptItems = useMemo(
+    () => [...transcriptItems].reverse(),
+    [transcriptItems]
   );
 
   useEffect(() => {
-    if (transcriptItems.length > 0) {
+    if (visibleTranscriptItems.length > 0) {
       scrollToConversationEnd(false);
     }
-  }, [conversationId, transcriptItems.length]);
+  }, [conversationId, visibleTranscriptItems.length]);
 
   async function handleSend() {
     const trimmedDraft = draft.trim();
@@ -591,7 +684,7 @@ export default function ConversationScreen({ navigation, route }) {
   return (
     <Screen>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "height" : undefined}
         style={styles.container}
       >
         <View style={styles.topBar}>
@@ -633,8 +726,14 @@ export default function ConversationScreen({ navigation, route }) {
         ) : null}
         <FlatList
           ref={messageListRef}
-          data={transcriptItems}
+          data={visibleTranscriptItems}
+          inverted
           keyExtractor={(item) => item.id}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+          }}
           renderItem={({ item }) => {
             if (item.type === "timeDivider") {
               return (
@@ -656,6 +755,7 @@ export default function ConversationScreen({ navigation, route }) {
           contentContainerStyle={styles.messageList}
           onContentSizeChange={() => scrollToConversationEnd()}
           onLayout={() => scrollToConversationEnd(false)}
+          style={styles.messageScroller}
         />
         <View style={styles.composer}>
           <TextInput
@@ -963,6 +1063,9 @@ const styles = StyleSheet.create({
   messageList: {
     gap: 8,
     padding: 16,
+  },
+  messageScroller: {
+    flex: 1,
   },
   timeDivider: {
     alignItems: "center",
