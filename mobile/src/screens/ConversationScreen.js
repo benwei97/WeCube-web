@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   FlatList,
   Image,
   Keyboard,
@@ -244,7 +243,6 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [keyboardSpacerHeight, setKeyboardSpacerHeight] = useState(0);
   const messageListRef = useRef(null);
   const lastReadMarkerRef = useRef("");
 
@@ -293,33 +291,6 @@ export default function ConversationScreen({ navigation, route }) {
       unsubscribeMessages();
     };
   }, [conversationId]);
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return undefined;
-
-    function handleKeyboardFrameChange(event) {
-      Keyboard.scheduleLayoutAnimation(event);
-      const windowHeight = Dimensions.get("window").height;
-      const keyboardTop = event.endCoordinates?.screenY || windowHeight;
-      setKeyboardSpacerHeight(Math.max(windowHeight - keyboardTop, 0));
-    }
-
-    function handleKeyboardHide(event) {
-      Keyboard.scheduleLayoutAnimation(event);
-      setKeyboardSpacerHeight(0);
-    }
-
-    const frameSubscription = Keyboard.addListener(
-      "keyboardWillChangeFrame",
-      handleKeyboardFrameChange
-    );
-    const hideSubscription = Keyboard.addListener("keyboardWillHide", handleKeyboardHide);
-
-    return () => {
-      frameSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!conversation?.id || !currentUser?.uid) return;
@@ -619,7 +590,10 @@ export default function ConversationScreen({ navigation, route }) {
 
   return (
     <Screen>
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.container}
+      >
         <View style={styles.topBar}>
           <BackButton navigation={navigation} style={styles.backButton} />
           <View style={styles.headerUser}>
@@ -660,8 +634,6 @@ export default function ConversationScreen({ navigation, route }) {
         <FlatList
           ref={messageListRef}
           data={transcriptItems}
-          keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             if (item.type === "timeDivider") {
@@ -720,10 +692,7 @@ export default function ConversationScreen({ navigation, route }) {
             <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
           </Pressable>
         </View>
-        {keyboardSpacerHeight > 0 ? (
-          <View style={[styles.keyboardSpacer, { height: keyboardSpacerHeight }]} />
-        ) : null}
-      </View>
+      </KeyboardAvoidingView>
 
       <ActionSheet
         visible={conversationActionsOpen}
@@ -1083,9 +1052,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     padding: 12,
-  },
-  keyboardSpacer: {
-    backgroundColor: colors.surface,
   },
   input: {
     borderColor: colors.border,
