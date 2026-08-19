@@ -74,7 +74,7 @@ const DESCRIPTION_PREVIEW_LINES = 4;
 const DESCRIPTION_VIEW_MORE_THRESHOLD = 220;
 const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const COMPETITION_BATCH_SIZE = 25;
-const INITIAL_COMPETITION_LIMIT = 50;
+const INITIAL_COMPETITION_LIMIT = 12;
 
 const MY_COMPETITIONS_OPTION = {
   id: MY_COMPETITIONS_OPTION_ID,
@@ -288,6 +288,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [editCompetitions, setEditCompetitions] = useState([]);
   const [editCompetitionSearchInput, setEditCompetitionSearchInput] = useState("");
   const [hasEditedCompetitionSearch, setHasEditedCompetitionSearch] = useState(false);
+  const [editCompetitionDropdownOpen, setEditCompetitionDropdownOpen] = useState(false);
   const [editCompetitionLimit, setEditCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
   const [loadingEditCompetitions, setLoadingEditCompetitions] = useState(false);
   const [selectedEditCompetitions, setSelectedEditCompetitions] = useState([]);
@@ -418,15 +419,19 @@ export default function ListingDetailScreen({ navigation, route }) {
   ]);
 
   useEffect(() => {
-    if (!editOpen || !editData.competitionMeetupAvailable || !hasEditedCompetitionSearch) {
+    if (
+      !editOpen ||
+      !editData.competitionMeetupAvailable ||
+      !editCompetitionDropdownOpen
+    ) {
       return;
     }
     setEditCompetitionLimit(INITIAL_COMPETITION_LIMIT);
   }, [
+    editCompetitionDropdownOpen,
     editData.competitionMeetupAvailable,
     editCompetitionSearchInput,
     editOpen,
-    hasEditedCompetitionSearch,
   ]);
 
   useEffect(() => {
@@ -435,8 +440,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (
       !editOpen ||
       !editData.competitionMeetupAvailable ||
-      !hasEditedCompetitionSearch ||
-      editCompetitionSearchInput.trim().length < 2
+      !editCompetitionDropdownOpen
     ) {
       setEditCompetitions([]);
       setLoadingEditCompetitions(false);
@@ -465,10 +469,10 @@ export default function ListingDetailScreen({ navigation, route }) {
     };
   }, [
     editCompetitionLimit,
+    editCompetitionDropdownOpen,
     editCompetitionSearchInput,
     editData.competitionMeetupAvailable,
     editOpen,
-    hasEditedCompetitionSearch,
   ]);
 
   const photos = listing?.photos || [];
@@ -477,16 +481,14 @@ export default function ListingDetailScreen({ navigation, route }) {
   const meetupCompetitionTags = useMemo(() => getCompetitionTags(listing), [listing]);
   const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
   const editCompetitionOptions = useMemo(
-    () =>
-      bookmarkedCompetitions.length > 0
-        ? [
-            MY_COMPETITIONS_OPTION,
-            ...(editCompetitionSearchInput.trim().length >= 2 ? editCompetitions : []),
-          ]
-        : editCompetitionSearchInput.trim().length >= 2
-          ? editCompetitions
-          : [],
-    [bookmarkedCompetitions.length, editCompetitionSearchInput, editCompetitions]
+    () => {
+      if (!editCompetitionDropdownOpen) return [];
+
+      return bookmarkedCompetitions.length > 0
+        ? [MY_COMPETITIONS_OPTION, ...editCompetitions]
+        : editCompetitions;
+    },
+    [bookmarkedCompetitions.length, editCompetitionDropdownOpen, editCompetitions]
   );
   const selectedEditCompetitionIds = useMemo(
     () => new Set(selectedEditCompetitions.map((competition) => competition.id)),
@@ -591,6 +593,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     });
     setSelectedEditCompetitions(getCompetitionTags(listing));
     setEditCompetitionSearchInput("");
+    setEditCompetitionDropdownOpen(false);
     setHasEditedLocationSearch(false);
     setHasEditedCompetitionSearch(false);
     setEditCompetitions([]);
@@ -604,6 +607,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   function closeEditListingModal() {
     if (savingEdit) return;
     setEditOpen(false);
+    setEditCompetitionDropdownOpen(false);
     setEditNotice("");
     setHasAttemptedEditSave(false);
   }
@@ -666,6 +670,7 @@ export default function ListingDetailScreen({ navigation, route }) {
       competitionMeetupAvailable: value,
     }));
     if (!value) {
+      setEditCompetitionDropdownOpen(false);
       setSelectedEditCompetitions([]);
       setEditCompetitionSearchInput("");
       setHasEditedCompetitionSearch(false);
@@ -679,6 +684,7 @@ export default function ListingDetailScreen({ navigation, route }) {
       setSelectedEditCompetitions((current) =>
         mergeCompetitionsById(current, bookmarkedCompetitions)
       );
+      setEditCompetitionSearchInput("");
       return;
     }
 
@@ -1724,6 +1730,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                       value={editCompetitionSearchInput}
                       onChangeText={(value) => {
                         clearEditNotice();
+                        setEditCompetitionDropdownOpen(true);
                         setHasEditedCompetitionSearch(true);
                         setEditCompetitionSearchInput(value);
                       }}
@@ -1735,6 +1742,10 @@ export default function ListingDetailScreen({ navigation, route }) {
                       ]}
                       placeholder="Search competitions..."
                       clearAccessibilityLabel="Clear competition search"
+                      onFocus={() => {
+                        setEditCompetitionDropdownOpen(true);
+                        setHasEditedCompetitionSearch(true);
+                      }}
                     />
                     {loadingEditCompetitions ? (
                       <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
@@ -1754,48 +1765,64 @@ export default function ListingDetailScreen({ navigation, route }) {
                         ))}
                       </View>
                     ) : null}
-                    <View style={styles.editOptionList}>
-                      {editCompetitionOptions.map((competition) => {
-                        const selected = selectedEditCompetitionIds.has(competition.id);
-                        return (
-                          <Pressable
-                            key={competition.id}
-                            style={[
-                              styles.editCompetitionOption,
-                              selected && styles.editInlineOptionSelected,
-                            ]}
-                            onPress={() => handleEditCompetitionSelect(competition)}
+                    {editCompetitionDropdownOpen ? (
+                      <View style={styles.editCompetitionDropdown}>
+                        {editCompetitionOptions.length > 0 ? (
+                          <ScrollView
+                            keyboardShouldPersistTaps="handled"
+                            nestedScrollEnabled
+                            style={styles.editCompetitionDropdownScroll}
                           >
-                            <View style={styles.editCompetitionOptionHeader}>
-                              {competition.isMyCompetitionsOption ? (
-                                <MaterialIcons
-                                  name="bookmark-border"
-                                  size={18}
-                                  color={selected ? colors.primary : colors.text}
-                                />
-                              ) : null}
-                              <Text
-                                style={[
-                                  styles.editCompetitionOptionTitle,
-                                  selected && styles.editInlineOptionTextSelected,
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {competition.displayName || competition.name}
-                              </Text>
-                            </View>
-                            <Text style={styles.editCompetitionOptionMeta} numberOfLines={1}>
-                              {competition.isMyCompetitionsOption
-                                ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
-                                : [competition.city, competition.country, competition.dateRange]
-                                    .filter(Boolean)
-                                    .join(" · ")}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                    {editCompetitions.length >= editCompetitionLimit ? (
+                            {editCompetitionOptions.map((competition) => {
+                              const selected = selectedEditCompetitionIds.has(competition.id);
+                              return (
+                                <Pressable
+                                  key={competition.id}
+                                  style={[
+                                    styles.editCompetitionOption,
+                                    selected && styles.editInlineOptionSelected,
+                                  ]}
+                                  onPress={() => handleEditCompetitionSelect(competition)}
+                                >
+                                  <View style={styles.editCompetitionOptionHeader}>
+                                    {competition.isMyCompetitionsOption ? (
+                                      <MaterialIcons
+                                        name="bookmark-border"
+                                        size={18}
+                                        color={selected ? colors.primary : colors.text}
+                                      />
+                                    ) : null}
+                                    <Text
+                                      style={[
+                                        styles.editCompetitionOptionTitle,
+                                        selected && styles.editInlineOptionTextSelected,
+                                      ]}
+                                      numberOfLines={1}
+                                    >
+                                      {competition.displayName || competition.name}
+                                    </Text>
+                                  </View>
+                                  <Text style={styles.editCompetitionOptionMeta} numberOfLines={1}>
+                                    {competition.isMyCompetitionsOption
+                                      ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
+                                      : [competition.city, competition.country, competition.dateRange]
+                                          .filter(Boolean)
+                                          .join(" · ")}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </ScrollView>
+                        ) : (
+                          <Text style={styles.editCompetitionDropdownEmpty}>
+                            {loadingEditCompetitions
+                              ? "Loading competitions..."
+                              : "No competitions found."}
+                          </Text>
+                        )}
+                      </View>
+                    ) : null}
+                    {editCompetitionDropdownOpen && editCompetitions.length >= editCompetitionLimit ? (
                       <Pressable
                         style={styles.editLoadMoreButton}
                         onPress={() =>
@@ -2767,6 +2794,23 @@ const styles = StyleSheet.create({
   editOptionList: {
     gap: 8,
     marginTop: 10,
+  },
+  editCompetitionDropdown: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  editCompetitionDropdownScroll: {
+    maxHeight: 260,
+  },
+  editCompetitionDropdownEmpty: {
+    ...typography.caption,
+    color: colors.muted,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
   editInlineOption: {
     borderColor: colors.border,

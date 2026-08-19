@@ -44,7 +44,7 @@ import { searchCompetitions } from "../utils/wcaApi";
 
 const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const COMPETITION_BATCH_SIZE = 25;
-const INITIAL_COMPETITION_LIMIT = 50;
+const INITIAL_COMPETITION_LIMIT = 12;
 const SELL_DRAFT_KEY_PREFIX = "wecube:sellDraft:";
 const sellDrafts = new Map();
 
@@ -225,6 +225,7 @@ export default function SellScreen({ navigation }) {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [competitionMeetupAvailable, setCompetitionMeetupAvailable] = useState(false);
+  const [competitionDropdownOpen, setCompetitionDropdownOpen] = useState(false);
   const [competitions, setCompetitions] = useState([]);
   const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [competitionLimit, setCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
@@ -238,13 +239,14 @@ export default function SellScreen({ navigation }) {
 
   const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
   const competitionOptions = useMemo(
-    () =>
-      bookmarkedCompetitions.length > 0
-        ? [MY_COMPETITIONS_OPTION, ...(competitionSearchInput.trim().length >= 2 ? competitions : [])]
-        : competitionSearchInput.trim().length >= 2
-          ? competitions
-          : [],
-    [bookmarkedCompetitions.length, competitionSearchInput, competitions]
+    () => {
+      if (!competitionDropdownOpen) return [];
+
+      return bookmarkedCompetitions.length > 0
+        ? [MY_COMPETITIONS_OPTION, ...competitions]
+        : competitions;
+    },
+    [bookmarkedCompetitions.length, competitionDropdownOpen, competitions]
   );
 
   const selectedCompetitionIds = useMemo(
@@ -364,14 +366,14 @@ export default function SellScreen({ navigation }) {
   }, [localMeetupAvailable, meetupLocation, meetupLocationLabel]);
 
   useEffect(() => {
-    if (!competitionMeetupAvailable) return;
+    if (!competitionMeetupAvailable || !competitionDropdownOpen) return;
     setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
-  }, [competitionMeetupAvailable, competitionSearchInput]);
+  }, [competitionDropdownOpen, competitionMeetupAvailable, competitionSearchInput]);
 
   useEffect(() => {
     let active = true;
 
-    if (!competitionMeetupAvailable || competitionSearchInput.trim().length < 2) {
+    if (!competitionMeetupAvailable || !competitionDropdownOpen) {
       setCompetitions([]);
       setLoadingCompetitions(false);
       return undefined;
@@ -397,7 +399,12 @@ export default function SellScreen({ navigation }) {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [competitionLimit, competitionMeetupAvailable, competitionSearchInput]);
+  }, [
+    competitionDropdownOpen,
+    competitionLimit,
+    competitionMeetupAvailable,
+    competitionSearchInput,
+  ]);
 
   const isDeliveryValid =
     shippingAvailable || localMeetupAvailable || competitionMeetupAvailable;
@@ -495,6 +502,7 @@ export default function SellScreen({ navigation }) {
     clearSubmitNotice();
     setCompetitionMeetupAvailable(value);
     if (!value) {
+      setCompetitionDropdownOpen(false);
       setSelectedCompetitions([]);
       setCompetitionSearchInput("");
       setCompetitions([]);
@@ -507,6 +515,7 @@ export default function SellScreen({ navigation }) {
       setSelectedCompetitions((current) =>
         mergeCompetitionsById(current, bookmarkedCompetitions)
       );
+      setCompetitionSearchInput("");
       return;
     }
 
@@ -529,6 +538,7 @@ export default function SellScreen({ navigation }) {
     setMeetupLocationLabel("");
     setMeetupLocation(null);
     setCompetitionMeetupAvailable(false);
+    setCompetitionDropdownOpen(false);
     setCompetitionSearchInput("");
     setSelectedCompetitions([]);
     setPhotos([]);
@@ -1030,6 +1040,7 @@ export default function SellScreen({ navigation }) {
                     value={competitionSearchInput}
                     onChangeText={(value) => {
                       clearSubmitNotice();
+                      setCompetitionDropdownOpen(true);
                       setCompetitionSearchInput(value);
                     }}
                     style={[
@@ -1040,6 +1051,7 @@ export default function SellScreen({ navigation }) {
                     ]}
                     placeholder="Search competitions..."
                     clearAccessibilityLabel="Clear competition search"
+                    onFocus={() => setCompetitionDropdownOpen(true)}
                   />
                   {loadingCompetitions ? (
                     <ActivityIndicator
@@ -1065,48 +1077,64 @@ export default function SellScreen({ navigation }) {
                       ))}
                     </View>
                   ) : null}
-                  <View style={styles.optionList}>
-                    {competitionOptions.map((competition) => {
-                      const selected = selectedCompetitionIds.has(competition.id);
-                      return (
-                        <Pressable
-                          key={competition.id}
-                          style={[
-                            styles.competitionOption,
-                            selected && styles.inlineOptionSelected,
-                          ]}
-                          onPress={() => handleCompetitionSelect(competition)}
+                  {competitionDropdownOpen ? (
+                    <View style={styles.competitionDropdown}>
+                      {competitionOptions.length > 0 ? (
+                        <ScrollView
+                          keyboardShouldPersistTaps="handled"
+                          nestedScrollEnabled
+                          style={styles.competitionDropdownScroll}
                         >
-                          <View style={styles.competitionOptionHeader}>
-                            {competition.isMyCompetitionsOption ? (
-                              <MaterialIcons
-                                name="bookmark-border"
-                                size={18}
-                                color={selected ? colors.primary : colors.text}
-                              />
-                            ) : null}
-                            <Text
-                              style={[
-                                styles.competitionOptionTitle,
-                                selected && styles.inlineOptionTextSelected,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {competition.displayName || competition.name}
-                            </Text>
-                          </View>
-                          <Text style={styles.competitionOptionMeta} numberOfLines={1}>
-                            {competition.isMyCompetitionsOption
-                              ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
-                              : [competition.city, competition.country, competition.dateRange]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  {competitions.length >= competitionLimit ? (
+                          {competitionOptions.map((competition) => {
+                            const selected = selectedCompetitionIds.has(competition.id);
+                            return (
+                              <Pressable
+                                key={competition.id}
+                                style={[
+                                  styles.competitionOption,
+                                  selected && styles.inlineOptionSelected,
+                                ]}
+                                onPress={() => handleCompetitionSelect(competition)}
+                              >
+                                <View style={styles.competitionOptionHeader}>
+                                  {competition.isMyCompetitionsOption ? (
+                                    <MaterialIcons
+                                      name="bookmark-border"
+                                      size={18}
+                                      color={selected ? colors.primary : colors.text}
+                                    />
+                                  ) : null}
+                                  <Text
+                                    style={[
+                                      styles.competitionOptionTitle,
+                                      selected && styles.inlineOptionTextSelected,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {competition.displayName || competition.name}
+                                  </Text>
+                                </View>
+                                <Text style={styles.competitionOptionMeta} numberOfLines={1}>
+                                  {competition.isMyCompetitionsOption
+                                    ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
+                                    : [competition.city, competition.country, competition.dateRange]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : (
+                        <Text style={styles.competitionDropdownEmpty}>
+                          {loadingCompetitions
+                            ? "Loading competitions..."
+                            : "No competitions found."}
+                        </Text>
+                      )}
+                    </View>
+                  ) : null}
+                  {competitionDropdownOpen && competitions.length >= competitionLimit ? (
                     <Pressable
                       style={styles.loadMoreButton}
                       onPress={() =>
@@ -1399,6 +1427,23 @@ const styles = StyleSheet.create({
   optionList: {
     gap: 8,
     marginTop: 10,
+  },
+  competitionDropdown: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  competitionDropdownScroll: {
+    maxHeight: 260,
+  },
+  competitionDropdownEmpty: {
+    ...typography.caption,
+    color: colors.muted,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
   inlineOption: {
     borderColor: colors.border,
