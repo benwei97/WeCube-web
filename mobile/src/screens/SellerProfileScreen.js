@@ -43,6 +43,7 @@ const USER_REPORT_REASONS = [
   { value: "suspicious_activity", label: "Suspicious activity" },
   { value: "other", label: "Other" },
 ];
+const INITIAL_PROFILE_LISTING_COUNT = 4;
 
 function getDisplayName(profile) {
   return (
@@ -106,9 +107,13 @@ export default function SellerProfileScreen({ navigation, route }) {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [showAllListings, setShowAllListings] = useState(false);
 
   const isOwnProfile = Boolean(currentUser?.uid && currentUser.uid === userId);
   const displayName = useMemo(() => getDisplayName(profile), [profile]);
+  const visibleListings = showAllListings
+    ? listings
+    : listings.slice(0, INITIAL_PROFILE_LISTING_COUNT);
   const reviewSummary = useMemo(() => {
     const reviewCount = reviews.length;
     const averageRating =
@@ -372,21 +377,33 @@ export default function SellerProfileScreen({ navigation, route }) {
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
-          <FlatList
-            data={listings}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <SellerListingRow
-                listing={item}
-                onPress={() => navigation.navigate("ListingDetail", { listingId: item.id })}
-              />
-            )}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>This seller has no active listings right now.</Text>
-            }
-          />
+          <>
+            <FlatList
+              data={visibleListings}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <SellerListingRow
+                  listing={item}
+                  onPress={() => navigation.navigate("ListingDetail", { listingId: item.id })}
+                />
+              )}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>This seller has no active listings right now.</Text>
+              }
+            />
+            {listings.length > INITIAL_PROFILE_LISTING_COUNT ? (
+              <Pressable
+                style={styles.viewMoreButton}
+                onPress={() => setShowAllListings((current) => !current)}
+              >
+                <Text style={styles.viewMoreText}>
+                  {showAllListings ? "Show fewer listings" : `View all ${listings.length} listings`}
+                </Text>
+              </Pressable>
+            ) : null}
+          </>
         )}
 
         <View style={styles.sectionHeader}>
@@ -670,6 +687,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     paddingVertical: 14,
+  },
+  viewMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  viewMoreText: {
+    ...typography.button,
+    color: colors.text,
   },
   reviewsList: {
     gap: 10,

@@ -53,6 +53,7 @@ import {
 
 const ACCOUNT_DELETE_CONFIRMATION = "DELETE";
 const ACCOUNT_DELETE_RECENT_LOGIN_WINDOW_MS = 5 * 60 * 1000;
+const INITIAL_PROFILE_SECTION_LISTING_COUNT = 4;
 
 function statusLabel(status) {
   if (status === "archived") return "Pending";
@@ -161,6 +162,7 @@ export default function ProfileScreen({ navigation, route }) {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountText, setDeleteAccountText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [expandedListingSections, setExpandedListingSections] = useState({});
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [firstNameDraft, setFirstNameDraft] = useState("");
   const [lastNameDraft, setLastNameDraft] = useState("");
@@ -612,28 +614,51 @@ export default function ProfileScreen({ navigation, route }) {
   }
 
   function renderListingSection(title, data) {
+    const sectionKey = title.toLowerCase();
+    const isExpanded = Boolean(expandedListingSections[sectionKey]);
+    const visibleData = isExpanded
+      ? data
+      : data.slice(0, INITIAL_PROFILE_SECTION_LISTING_COUNT);
+
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {data.length ? (
-          <FlatList
-            key={`profile-listings-${title.toLowerCase()}`}
-            data={data}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ListingRow
-                listing={item}
-                onOpen={(listing) =>
-                  navigation.navigate("ListingDetail", { listingId: listing.id })
+          <>
+            <FlatList
+              key={`profile-listings-${sectionKey}`}
+              data={visibleData}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ListingRow
+                  listing={item}
+                  onOpen={(listing) =>
+                    navigation.navigate("ListingDetail", { listingId: listing.id })
+                  }
+                  onStatusChange={updateListingStatus}
+                  onDelete={confirmDeleteListing}
+                  loading={actionLoadingId === item.id}
+                />
+              )}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+            {data.length > INITIAL_PROFILE_SECTION_LISTING_COUNT ? (
+              <Pressable
+                style={styles.viewMoreButton}
+                onPress={() =>
+                  setExpandedListingSections((current) => ({
+                    ...current,
+                    [sectionKey]: !isExpanded,
+                  }))
                 }
-                onStatusChange={updateListingStatus}
-                onDelete={confirmDeleteListing}
-                loading={actionLoadingId === item.id}
-              />
-            )}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
+              >
+                <Text style={styles.viewMoreText}>
+                  {isExpanded ? "Show fewer listings" : `View all ${data.length} listings`}
+                </Text>
+              </Pressable>
+            ) : null}
+          </>
         ) : (
           <Text style={styles.emptyText}>No {title.toLowerCase()} listings.</Text>
         )}
@@ -1250,6 +1275,18 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     color: colors.muted,
+  },
+  viewMoreButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  viewMoreText: {
+    ...typography.button,
+    color: colors.text,
   },
   infoButton: {
     alignItems: "center",

@@ -7,12 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ClearableTextInput from "../components/ClearableTextInput";
 import MobileListingCard from "../components/MobileListingCard";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
@@ -223,7 +223,11 @@ export default function BrowseScreen({ navigation }) {
     let active = true;
     const queryText = locationDraft.locationInput.trim();
 
-    if (!locationModalOpen || queryText.length < 2) {
+    if (
+      !locationModalOpen ||
+      queryText.length < 2 ||
+      queryText === locationDraft.locationOption?.label
+    ) {
       setLocationOptions([]);
       setLoadingLocations(false);
       return undefined;
@@ -246,7 +250,7 @@ export default function BrowseScreen({ navigation }) {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [locationDraft.locationInput, locationModalOpen]);
+  }, [locationDraft.locationInput, locationDraft.locationOption, locationModalOpen]);
 
   const visibleListings = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -350,13 +354,15 @@ export default function BrowseScreen({ navigation }) {
           <View style={styles.filters}>
             <ScreenTitle>Browse Cubes</ScreenTitle>
             <View style={styles.searchPanel}>
-              <TextInput
+              <ClearableTextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 style={styles.searchInput}
+                wrapperStyle={styles.searchInputWrap}
                 placeholder="Search cubes..."
                 autoCapitalize="none"
                 autoCorrect={false}
+                clearAccessibilityLabel="Clear cube search"
               />
               <Pressable
                 style={[
@@ -449,7 +455,7 @@ export default function BrowseScreen({ navigation }) {
             </View>
 
             <View style={styles.searchPanel}>
-              <TextInput
+              <ClearableTextInput
                 value={locationDraft.locationInput}
                 onChangeText={(value) =>
                   setLocationDraft((prev) => ({
@@ -460,8 +466,10 @@ export default function BrowseScreen({ navigation }) {
                   }))
                 }
                 style={styles.searchInput}
+                wrapperStyle={styles.searchInputWrap}
                 placeholder="Search location"
                 autoCapitalize="words"
+                clearAccessibilityLabel="Clear location search"
               />
               <View style={styles.locationSearchIcon}>
                 <MaterialIcons name="search" size={22} color={colors.text} />
@@ -484,13 +492,14 @@ export default function BrowseScreen({ navigation }) {
                         styles.locationOption,
                         selected && styles.locationOptionSelected,
                       ]}
-                      onPress={() =>
+                      onPress={() => {
                         setLocationDraft((prev) => ({
                           ...prev,
                           locationInput: getLocationOptionLabel(option),
                           locationOption: option,
-                        }))
-                      }
+                        }));
+                        setLocationOptions([]);
+                      }}
                     >
                       <Text
                         style={[
@@ -617,6 +626,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  searchInputWrap: {
+    flex: 1,
   },
   filterLabel: {
     ...typography.caption,

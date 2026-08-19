@@ -6,12 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { doc, updateDoc } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ClearableTextInput from "../components/ClearableTextInput";
 import ScreenTitle from "../components/ScreenTitle";
 import PageState from "../components/PageState";
 import { useAuth } from "../contexts/useAuth";
@@ -248,13 +248,14 @@ export default function CompetitionsScreen({ navigation }) {
         <ScreenTitle>Competitions</ScreenTitle>
 
         <View style={styles.section}>
-          <TextInput
+          <ClearableTextInput
             value={query}
             onChangeText={setQuery}
             style={styles.searchInput}
             placeholder="Search competitions..."
             autoCapitalize="none"
             autoCorrect={false}
+            clearAccessibilityLabel="Clear competition search"
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}

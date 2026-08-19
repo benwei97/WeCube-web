@@ -17,6 +17,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ClearableTextInput from "../components/ClearableTextInput";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
 import PageState from "../components/PageState";
@@ -239,9 +240,11 @@ export default function SellScreen({ navigation }) {
   const competitionOptions = useMemo(
     () =>
       bookmarkedCompetitions.length > 0
-        ? [MY_COMPETITIONS_OPTION, ...competitions]
-        : competitions,
-    [bookmarkedCompetitions.length, competitions]
+        ? [MY_COMPETITIONS_OPTION, ...(competitionSearchInput.trim().length >= 2 ? competitions : [])]
+        : competitionSearchInput.trim().length >= 2
+          ? competitions
+          : [],
+    [bookmarkedCompetitions.length, competitionSearchInput, competitions]
   );
 
   const selectedCompetitionIds = useMemo(
@@ -331,7 +334,11 @@ export default function SellScreen({ navigation }) {
     let active = true;
     const query = meetupLocationLabel.trim();
 
-    if (!localMeetupAvailable || query.length < 2) {
+    if (
+      !localMeetupAvailable ||
+      query.length < 2 ||
+      query === meetupLocation?.label
+    ) {
       setLocationOptions([]);
       setLoadingLocations(false);
       return undefined;
@@ -354,7 +361,7 @@ export default function SellScreen({ navigation }) {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [localMeetupAvailable, meetupLocationLabel]);
+  }, [localMeetupAvailable, meetupLocation, meetupLocationLabel]);
 
   useEffect(() => {
     if (!competitionMeetupAvailable) return;
@@ -364,7 +371,7 @@ export default function SellScreen({ navigation }) {
   useEffect(() => {
     let active = true;
 
-    if (!competitionMeetupAvailable) {
+    if (!competitionMeetupAvailable || competitionSearchInput.trim().length < 2) {
       setCompetitions([]);
       setLoadingCompetitions(false);
       return undefined;
@@ -945,7 +952,7 @@ export default function SellScreen({ navigation }) {
               {localMeetupAvailable ? (
                 <View style={styles.nestedSection}>
                   <RequiredLabel>General Meetup Area</RequiredLabel>
-                  <TextInput
+                  <ClearableTextInput
                     value={meetupLocationLabel}
                     onChangeText={(value) => {
                       clearSubmitNotice();
@@ -962,6 +969,7 @@ export default function SellScreen({ navigation }) {
                         styles.inputError,
                     ]}
                     placeholder="ex. Los Angeles, CA"
+                    clearAccessibilityLabel="Clear meetup location"
                   />
                   {loadingLocations ? (
                     <ActivityIndicator
@@ -1018,7 +1026,7 @@ export default function SellScreen({ navigation }) {
               {competitionMeetupAvailable ? (
                 <View style={styles.competitionSection}>
                   <RequiredLabel>Competitions</RequiredLabel>
-                  <TextInput
+                  <ClearableTextInput
                     value={competitionSearchInput}
                     onChangeText={(value) => {
                       clearSubmitNotice();
@@ -1031,6 +1039,7 @@ export default function SellScreen({ navigation }) {
                         styles.inputError,
                     ]}
                     placeholder="Search competitions..."
+                    clearAccessibilityLabel="Clear competition search"
                   />
                   {loadingCompetitions ? (
                     <ActivityIndicator
@@ -1068,15 +1077,24 @@ export default function SellScreen({ navigation }) {
                           ]}
                           onPress={() => handleCompetitionSelect(competition)}
                         >
-                          <Text
-                            style={[
-                              styles.competitionOptionTitle,
-                              selected && styles.inlineOptionTextSelected,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {competition.displayName || competition.name}
-                          </Text>
+                          <View style={styles.competitionOptionHeader}>
+                            {competition.isMyCompetitionsOption ? (
+                              <MaterialIcons
+                                name="bookmark-border"
+                                size={18}
+                                color={selected ? colors.primary : colors.text}
+                              />
+                            ) : null}
+                            <Text
+                              style={[
+                                styles.competitionOptionTitle,
+                                selected && styles.inlineOptionTextSelected,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {competition.displayName || competition.name}
+                            </Text>
+                          </View>
                           <Text style={styles.competitionOptionMeta} numberOfLines={1}>
                             {competition.isMyCompetitionsOption
                               ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
@@ -1427,9 +1445,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingVertical: 11,
   },
+  competitionOptionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
   competitionOptionTitle: {
     ...typography.caption,
     color: colors.text,
+    flex: 1,
   },
   competitionOptionMeta: {
     ...typography.caption,

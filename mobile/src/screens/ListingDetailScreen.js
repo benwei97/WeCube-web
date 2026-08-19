@@ -26,6 +26,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import ActionSheet from "../components/ActionSheet";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
+import ClearableTextInput from "../components/ClearableTextInput";
 import PageState from "../components/PageState";
 import Screen from "../components/Screen";
 import Toggle from "../components/Toggle";
@@ -383,7 +384,8 @@ export default function ListingDetailScreen({ navigation, route }) {
       !editOpen ||
       !editData.localMeetupAvailable ||
       !hasEditedLocationSearch ||
-      query.length < 2
+      query.length < 2 ||
+      query === editData.meetupLocation?.label
     ) {
       setEditLocationOptions([]);
       setLoadingEditLocations(false);
@@ -409,6 +411,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     };
   }, [
     editData.localMeetupAvailable,
+    editData.meetupLocation,
     editData.meetupLocationLabel,
     editOpen,
     hasEditedLocationSearch,
@@ -432,7 +435,8 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (
       !editOpen ||
       !editData.competitionMeetupAvailable ||
-      !hasEditedCompetitionSearch
+      !hasEditedCompetitionSearch ||
+      editCompetitionSearchInput.trim().length < 2
     ) {
       setEditCompetitions([]);
       setLoadingEditCompetitions(false);
@@ -475,9 +479,14 @@ export default function ListingDetailScreen({ navigation, route }) {
   const editCompetitionOptions = useMemo(
     () =>
       bookmarkedCompetitions.length > 0
-        ? [MY_COMPETITIONS_OPTION, ...editCompetitions]
-        : editCompetitions,
-    [bookmarkedCompetitions.length, editCompetitions]
+        ? [
+            MY_COMPETITIONS_OPTION,
+            ...(editCompetitionSearchInput.trim().length >= 2 ? editCompetitions : []),
+          ]
+        : editCompetitionSearchInput.trim().length >= 2
+          ? editCompetitions
+          : [],
+    [bookmarkedCompetitions.length, editCompetitionSearchInput, editCompetitions]
   );
   const selectedEditCompetitionIds = useMemo(
     () => new Set(selectedEditCompetitions.map((competition) => competition.id)),
@@ -1631,7 +1640,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                 {editData.localMeetupAvailable ? (
                   <View style={styles.editNestedSection}>
                     <RequiredLabel>General Meetup Area</RequiredLabel>
-                    <TextInput
+                    <ClearableTextInput
                       value={editData.meetupLocationLabel}
                       onChangeText={(value) => {
                         clearEditNotice();
@@ -1653,6 +1662,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                           styles.editInputError,
                       ]}
                       placeholder="ex. Los Angeles, CA"
+                      clearAccessibilityLabel="Clear meetup location"
                     />
                     {loadingEditLocations ? (
                       <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
@@ -1710,7 +1720,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                 {editData.competitionMeetupAvailable ? (
                   <View style={styles.editCompetitionSection}>
                     <RequiredLabel>Competitions</RequiredLabel>
-                    <TextInput
+                    <ClearableTextInput
                       value={editCompetitionSearchInput}
                       onChangeText={(value) => {
                         clearEditNotice();
@@ -1724,6 +1734,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                           styles.editInputError,
                       ]}
                       placeholder="Search competitions..."
+                      clearAccessibilityLabel="Clear competition search"
                     />
                     {loadingEditCompetitions ? (
                       <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
@@ -1755,15 +1766,24 @@ export default function ListingDetailScreen({ navigation, route }) {
                             ]}
                             onPress={() => handleEditCompetitionSelect(competition)}
                           >
-                            <Text
-                              style={[
-                                styles.editCompetitionOptionTitle,
-                                selected && styles.editInlineOptionTextSelected,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {competition.displayName || competition.name}
-                            </Text>
+                            <View style={styles.editCompetitionOptionHeader}>
+                              {competition.isMyCompetitionsOption ? (
+                                <MaterialIcons
+                                  name="bookmark-border"
+                                  size={18}
+                                  color={selected ? colors.primary : colors.text}
+                                />
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.editCompetitionOptionTitle,
+                                  selected && styles.editInlineOptionTextSelected,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {competition.displayName || competition.name}
+                              </Text>
+                            </View>
                             <Text style={styles.editCompetitionOptionMeta} numberOfLines={1}>
                               {competition.isMyCompetitionsOption
                                 ? `Add all ${bookmarkedCompetitions.length} bookmarked competitions`
@@ -2793,9 +2813,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingVertical: 11,
   },
+  editCompetitionOptionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
   editCompetitionOptionTitle: {
     ...typography.caption,
     color: colors.text,
+    flex: 1,
   },
   editCompetitionOptionMeta: {
     ...typography.caption,

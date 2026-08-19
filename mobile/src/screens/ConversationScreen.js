@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -27,6 +28,8 @@ import {
   blockUser,
   getListing,
   getUserProfile,
+  isConversationUnread,
+  markConversationAsRead,
   sendMessage,
   subscribeToUserBlock,
   subscribeToConversationMessages,
@@ -241,6 +244,7 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const messageListRef = useRef(null);
+  const lastReadMarkerRef = useRef("");
 
   function scrollToConversationEnd(animated = true) {
     requestAnimationFrame(() => {
@@ -287,6 +291,23 @@ export default function ConversationScreen({ navigation, route }) {
       unsubscribeMessages();
     };
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversation?.id || !currentUser?.uid) return;
+    if (!isConversationUnread(conversation, currentUser.uid)) return;
+
+    const lastMessageMarker =
+      conversation.lastMessageAt?.toMillis?.() ||
+      conversation.lastMessageAt?.seconds ||
+      "pending";
+    const readMarker = `${conversation.id}:${lastMessageMarker}`;
+    if (lastReadMarkerRef.current === readMarker) return;
+
+    lastReadMarkerRef.current = readMarker;
+    markConversationAsRead(conversation.id, currentUser.uid).catch((readError) =>
+      console.error("Error marking open mobile conversation read:", readError)
+    );
+  }, [conversation, currentUser?.uid]);
 
   useEffect(() => {
     if (!conversation || !currentUser?.uid) return undefined;
@@ -702,7 +723,10 @@ export default function ConversationScreen({ navigation, route }) {
       />
 
       <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Report conversation</Text>
             <Text style={styles.modalBody}>
@@ -739,7 +763,10 @@ export default function ConversationScreen({ navigation, route }) {
               placeholder="Add context for the admin review"
               maxLength={1000}
               multiline
+              blurOnSubmit
               editable={!reportSubmitting}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
             <View style={styles.modalActions}>
               <Pressable style={styles.modalCancelButton} onPress={closeReportModal}>
@@ -759,11 +786,14 @@ export default function ConversationScreen({ navigation, route }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={reviewOpen} transparent animationType="fade" onRequestClose={closeReviewModal}>
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Rate your experience</Text>
             <Text style={styles.modalBody}>Share how it went with {otherUserName}.</Text>
@@ -793,7 +823,10 @@ export default function ConversationScreen({ navigation, route }) {
               placeholder="Share how the experience went."
               maxLength={1000}
               multiline
+              blurOnSubmit
               editable={!reviewSubmitting}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
             <Text style={styles.characterCount}>{reviewComment.length}/1000</Text>
             <View style={styles.modalActions}>
@@ -811,7 +844,7 @@ export default function ConversationScreen({ navigation, route }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );

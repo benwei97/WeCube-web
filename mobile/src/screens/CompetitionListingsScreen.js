@@ -4,11 +4,11 @@ import {
   FlatList,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import Screen from "../components/Screen";
+import ClearableTextInput from "../components/ClearableTextInput";
 import MobileListingCard from "../components/MobileListingCard";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
@@ -142,13 +142,14 @@ export default function CompetitionListingsScreen({ navigation, route }) {
               <Text style={styles.meta}>{getCompetitionMeta(competition)}</Text>
             ) : null}
             <View style={styles.searchPanel}>
-              <TextInput
+              <ClearableTextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 style={styles.searchInput}
                 placeholder="Search cubes..."
                 autoCapitalize="none"
                 autoCorrect={false}
+                clearAccessibilityLabel="Clear listing search"
               />
             </View>
             {!isLoading && !error ? (
