@@ -211,13 +211,11 @@ export async function getListingBuyerOptions(listingId, sellerId) {
         const buyerName =
           `${buyerData?.firstName || ""} ${buyerData?.lastName || ""}`.trim() ||
           buyerData?.displayName ||
-          buyerData?.email ||
           "Buyer";
 
         return {
           buyerId: conversation.buyerId,
           buyerName,
-          buyerEmail: buyerData?.email || "",
           buyerAvatarUrl: buyerData?.avatarUrl || "",
           conversationId: conversation.id,
           status: conversation.status,
@@ -407,7 +405,6 @@ export async function closeListingConversationsForSold(
           buyerName =
             `${buyerData?.firstName || ""} ${buyerData?.lastName || ""}`.trim() ||
             buyerData?.displayName ||
-            buyerData?.email ||
             "Buyer";
         }
       } catch (error) {

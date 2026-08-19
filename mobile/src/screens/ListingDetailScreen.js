@@ -2086,7 +2086,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                     <View style={styles.buyerOptionCopy}>
                       <Text style={styles.buyerName}>{buyer.buyerName}</Text>
                       <Text style={styles.buyerMeta} numberOfLines={1}>
-                        {buyer.lastMessage || buyer.buyerEmail || "Buyer chat"}
+                        {buyer.lastMessage || "Buyer chat"}
                       </Text>
                     </View>
                   </Pressable>

@@ -240,9 +240,7 @@ export async function getListingBuyerOptions(listingId, sellerId) {
         buyerName:
           `${buyerData?.firstName || ""} ${buyerData?.lastName || ""}`.trim() ||
           buyerData?.displayName ||
-          buyerData?.email ||
           "Buyer",
-        buyerEmail: buyerData?.email || "",
         buyerAvatarUrl: buyerData?.avatarUrl || "",
         conversationId: conversation.id,
         status: conversation.status,

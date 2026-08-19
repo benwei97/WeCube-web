@@ -48,7 +48,6 @@ function getDisplayName(user) {
   return (
     user?.displayName ||
     `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    user?.email ||
     "WeCube user"
   );
 }

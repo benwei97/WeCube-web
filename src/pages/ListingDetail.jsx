@@ -2248,16 +2248,14 @@ function ListingDetail() {
                                     >
                                       {buyer.buyerName}
                                     </Typography>
-                                    {buyer.buyerEmail && (
-                                      <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        noWrap
-                                        component="div"
-                                      >
-                                        {buyer.buyerEmail}
-                                      </Typography>
-                                    )}
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      noWrap
+                                      component="div"
+                                    >
+                                      {buyer.lastMessage || "Buyer chat"}
+                                    </Typography>
                                   </Box>
                                 </Stack>
                               </CardContent>
