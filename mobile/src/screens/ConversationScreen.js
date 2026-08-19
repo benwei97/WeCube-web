@@ -47,6 +47,8 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
+const IOS_KEYBOARD_LAYOUT_DURATION_MS = 120;
+const IOS_KEYBOARD_TRANSITION_BUFFER_MS = 20;
 
 function getTimestampDate(timestamp) {
   if (!timestamp) return null;
@@ -298,14 +300,13 @@ export default function ConversationScreen({ navigation, route }) {
   const keyboardTransitioningRef = useRef(false);
   const keyboardTransitionTimeoutRef = useRef(null);
 
-  function scrollToConversationEnd(animated = true) {
+  const scrollToConversationEnd = useCallback((animated = true) => {
     requestAnimationFrame(() => {
-      messageListRef.current?.scrollToOffset({
-        offset: 0,
+      messageListRef.current?.scrollToEnd({
         animated: animated && !keyboardTransitioningRef.current,
       });
     });
-  }
+  }, []);
 
   const otherUserId =
     conversation && currentUser?.uid
@@ -318,14 +319,23 @@ export default function ConversationScreen({ navigation, route }) {
     if (Platform.OS !== "ios") return undefined;
 
     function handleKeyboardTransition(event) {
-      Keyboard.scheduleLayoutAnimation?.(event);
+      const keyboardDuration = event?.duration || IOS_KEYBOARD_LAYOUT_DURATION_MS;
+      const layoutDuration = Math.min(
+        keyboardDuration,
+        IOS_KEYBOARD_LAYOUT_DURATION_MS
+      );
+
+      Keyboard.scheduleLayoutAnimation?.({
+        ...event,
+        duration: layoutDuration,
+      });
       keyboardTransitioningRef.current = true;
       clearTimeout(keyboardTransitionTimeoutRef.current);
 
       keyboardTransitionTimeoutRef.current = setTimeout(() => {
         keyboardTransitioningRef.current = false;
         scrollToConversationEnd(false);
-      }, (event?.duration || 250) + 50);
+      }, layoutDuration + IOS_KEYBOARD_TRANSITION_BUFFER_MS);
     }
 
     const changeSubscription = Keyboard.addListener(
@@ -342,7 +352,7 @@ export default function ConversationScreen({ navigation, route }) {
       changeSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [scrollToConversationEnd]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -480,16 +490,12 @@ export default function ConversationScreen({ navigation, route }) {
       ),
     [getReviewPromptState, messages]
   );
-  const visibleTranscriptItems = useMemo(
-    () => [...transcriptItems].reverse(),
-    [transcriptItems]
-  );
 
   useEffect(() => {
-    if (visibleTranscriptItems.length > 0) {
+    if (transcriptItems.length > 0) {
       scrollToConversationEnd(false);
     }
-  }, [conversationId, visibleTranscriptItems.length]);
+  }, [conversationId, scrollToConversationEnd, transcriptItems.length]);
 
   async function handleSend() {
     const trimmedDraft = draft.trim();
@@ -683,38 +689,39 @@ export default function ConversationScreen({ navigation, route }) {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "height" : undefined}
-        style={styles.container}
-      >
-        <View style={styles.topBar}>
-          <BackButton navigation={navigation} style={styles.backButton} />
-          <View style={styles.headerUser}>
-            <HeaderConversationImage
-              conversation={conversation}
-              listing={listing}
-              onListingPress={openConversationListing}
-              onUserPress={otherUserId ? openOtherUserProfile : null}
-              userAvatarUrl={otherUserAvatarUrl}
-              userName={headerUserName}
-            />
-            <View style={styles.headerCopy}>
-              <Text style={styles.headerName} numberOfLines={1}>
-                {headerUserName}
-              </Text>
-              <Text style={styles.headerListingTitle} numberOfLines={1}>
-                {listingTitle}
-              </Text>
-            </View>
+      <View style={styles.topBar}>
+        <BackButton navigation={navigation} style={styles.backButton} />
+        <View style={styles.headerUser}>
+          <HeaderConversationImage
+            conversation={conversation}
+            listing={listing}
+            onListingPress={openConversationListing}
+            onUserPress={otherUserId ? openOtherUserProfile : null}
+            userAvatarUrl={otherUserAvatarUrl}
+            userName={headerUserName}
+          />
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {headerUserName}
+            </Text>
+            <Text style={styles.headerListingTitle} numberOfLines={1}>
+              {listingTitle}
+            </Text>
           </View>
-          <Pressable
-            style={styles.moreButton}
-            onPress={() => setConversationActionsOpen(true)}
-            accessibilityLabel="Conversation options"
-          >
-            <MaterialIcons name="more-horiz" size={24} color={colors.text} />
-          </Pressable>
         </View>
+        <Pressable
+          style={styles.moreButton}
+          onPress={() => setConversationActionsOpen(true)}
+          accessibilityLabel="Conversation options"
+        >
+          <MaterialIcons name="more-horiz" size={24} color={colors.text} />
+        </Pressable>
+      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "position" : undefined}
+        contentContainerStyle={styles.container}
+        style={styles.keyboardFrame}
+      >
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {conversation?.closedReason === "listing_deleted" ? (
           <Text style={styles.closedNotice}>This listing was deleted, so the conversation is closed.</Text>
@@ -726,14 +733,10 @@ export default function ConversationScreen({ navigation, route }) {
         ) : null}
         <FlatList
           ref={messageListRef}
-          data={visibleTranscriptItems}
-          inverted
+          data={transcriptItems}
           keyExtractor={(item) => item.id}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-          }}
           renderItem={({ item }) => {
             if (item.type === "timeDivider") {
               return (
@@ -953,15 +956,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  keyboardFrame: {
+    flex: 1,
+    overflow: "hidden",
+  },
   topBar: {
     alignItems: "center",
+    backgroundColor: colors.background,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
+    elevation: 2,
     flexDirection: "row",
     gap: 10,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
+    zIndex: 2,
   },
   backButton: {
     marginBottom: 0,
