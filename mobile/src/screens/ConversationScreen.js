@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Image,
-  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -17,6 +15,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { Bubble, Chat, Message } from "@kesha-antonov/react-native-chat";
 import Screen from "../components/Screen";
 import ActionSheet from "../components/ActionSheet";
 import BackButton from "../components/BackButton";
@@ -47,86 +46,12 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "suspicious_messages", label: "Suspicious messages" },
   { value: "other", label: "Other" },
 ];
-const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
-const IOS_KEYBOARD_TRANSITION_BUFFER_MS = 20;
-const IOS_KEYBOARD_MESSAGE_PADDING = 16;
+const AT_BOTTOM_THRESHOLD = 72;
 
 function getTimestampDate(timestamp) {
   if (!timestamp) return null;
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isSameCalendarDay(firstDate, secondDate) {
-  return (
-    firstDate?.getFullYear() === secondDate?.getFullYear() &&
-    firstDate?.getMonth() === secondDate?.getMonth() &&
-    firstDate?.getDate() === secondDate?.getDate()
-  );
-}
-
-function formatTranscriptTimeDivider(timestamp) {
-  const date = getTimestampDate(timestamp);
-  if (!date) return "";
-
-  const now = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-
-  const dayLabel = isSameCalendarDay(date, now)
-    ? "Today"
-    : isSameCalendarDay(date, yesterday)
-      ? "Yesterday"
-      : date.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-          year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-        });
-
-  return `${dayLabel} ${date.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
-}
-
-function getTranscriptItems(messages) {
-  const transcriptItems = [];
-  let previousMessageDate = null;
-
-  messages.forEach((message) => {
-    const messageDate = getTimestampDate(message.createdAt);
-    const previousMessageTime = previousMessageDate?.getTime?.() || 0;
-    const messageTime = messageDate?.getTime?.() || 0;
-    const minutesSincePrevious =
-      previousMessageTime && messageTime
-        ? (messageTime - previousMessageTime) / 60000
-        : 0;
-    const shouldShowDivider =
-      messageDate &&
-      (!previousMessageDate ||
-        !isSameCalendarDay(messageDate, previousMessageDate) ||
-        minutesSincePrevious >= MESSAGE_TIME_DIVIDER_GAP_MINUTES);
-
-    if (shouldShowDivider) {
-      transcriptItems.push({
-        id: `time-${message.id}`,
-        type: "timeDivider",
-        label: formatTranscriptTimeDivider(message.createdAt),
-      });
-    }
-
-    transcriptItems.push({
-      id: message.id,
-      type: "message",
-      message,
-    });
-
-    if (messageDate) {
-      previousMessageDate = messageDate;
-    }
-  });
-
-  return transcriptItems;
 }
 
 function getListingPhotoUrl(listing, conversation) {
@@ -137,6 +62,31 @@ function getListingPhotoUrl(listing, conversation) {
     "";
 
   return s3Key ? getS3PublicUrl(s3Key) : "";
+}
+
+function getChatMessageFromFirestoreMessage(message, otherUser, reviewPromptState) {
+  const createdAt = getTimestampDate(message.createdAt) || new Date(0);
+  const isSystem = message.type === "system";
+  const isReviewPrompt = Boolean(reviewPromptState);
+
+  return {
+    _id: message.id,
+    text: message.text || "",
+    createdAt,
+    user: {
+      _id: isSystem ? "system" : message.senderId || "unknown",
+      name:
+        message.senderId && message.senderId === otherUser?.id
+          ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim()
+          : undefined,
+      avatar: message.senderId === otherUser?.id ? otherUser?.avatarUrl || undefined : undefined,
+    },
+    system: isSystem,
+    sent: true,
+    wecubeMessage: message,
+    reviewPromptState,
+    isReviewPrompt,
+  };
 }
 
 function getComparableSnapshotValue(value) {
@@ -277,7 +227,6 @@ export default function ConversationScreen({ navigation, route }) {
   const { conversationId } = route.params || {};
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -296,49 +245,8 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [composerHeight, setComposerHeight] = useState(0);
-  const [keyboardActive, setKeyboardActive] = useState(false);
-  const messageListRef = useRef(null);
-  const messageListHeightRef = useRef(0);
-  const messageListContentHeightRef = useRef(0);
+  const chatListRef = useRef(null);
   const lastReadMarkerRef = useRef("");
-  const keyboardTransitioningRef = useRef(false);
-  const keyboardTransitionTimeoutRef = useRef(null);
-
-  const scrollToConversationEnd = useCallback((animated = true) => {
-    requestAnimationFrame(() => {
-      messageListRef.current?.scrollToEnd({
-        animated: animated && !keyboardTransitioningRef.current,
-      });
-    });
-  }, []);
-
-  const alignConversationToBottom = useCallback((animated = false) => {
-    requestAnimationFrame(() => {
-      if (
-        messageListHeightRef.current <= 0 ||
-        messageListContentHeightRef.current <= 0
-      ) {
-        return;
-      }
-
-      const bottomOffset = Math.max(
-        0,
-        messageListContentHeightRef.current - messageListHeightRef.current
-      );
-
-      messageListRef.current?.scrollToOffset({
-        animated: animated && !keyboardTransitioningRef.current,
-        offset: bottomOffset,
-      });
-    });
-  }, []);
-
-  const alignConversationToBottomAfterLayout = useCallback(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => alignConversationToBottom(false));
-    });
-  }, [alignConversationToBottom]);
 
   const otherUserId =
     conversation && currentUser?.uid
@@ -346,44 +254,6 @@ export default function ConversationScreen({ navigation, route }) {
         ? conversation.sellerId
         : conversation.buyerId
       : "";
-
-  useEffect(() => {
-    if (Platform.OS !== "ios") return undefined;
-
-    function handleKeyboardTransition(event, keyboardWillBeVisible) {
-      const layoutDuration = event?.duration || 250;
-
-      setKeyboardActive(keyboardWillBeVisible);
-      Keyboard.scheduleLayoutAnimation?.({
-        ...event,
-        duration: layoutDuration,
-      });
-      keyboardTransitioningRef.current = true;
-      clearTimeout(keyboardTransitionTimeoutRef.current);
-
-      keyboardTransitionTimeoutRef.current = setTimeout(() => {
-        keyboardTransitioningRef.current = false;
-        alignConversationToBottom(false);
-      }, layoutDuration + IOS_KEYBOARD_TRANSITION_BUFFER_MS);
-
-      alignConversationToBottomAfterLayout();
-    }
-
-    const changeSubscription = Keyboard.addListener(
-      "keyboardWillChangeFrame",
-      (event) => handleKeyboardTransition(event, true)
-    );
-    const hideSubscription = Keyboard.addListener(
-      "keyboardWillHide",
-      (event) => handleKeyboardTransition(event, false)
-    );
-
-    return () => {
-      clearTimeout(keyboardTransitionTimeoutRef.current);
-      changeSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, [alignConversationToBottom, alignConversationToBottomAfterLayout]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -489,6 +359,11 @@ export default function ConversationScreen({ navigation, route }) {
   const headerUserName = otherUserName === "this user" ? "WeCube user" : otherUserName;
   const otherUserAvatarUrl = otherUser?.avatarUrl || "";
   const listingTitle = listing?.title || conversation?.listingTitle || "Listing";
+  const messagingDisabled =
+    conversation?.closedReason === "listing_deleted" ||
+    blockedByMe ||
+    blockedMe ||
+    sending;
 
   function openConversationListing() {
     if (!conversation?.listingId) return;
@@ -514,54 +389,146 @@ export default function ConversationScreen({ navigation, route }) {
     };
   }, [conversation?.activeSaleEventId, currentUser?.uid]);
 
-  const transcriptItems = useMemo(
+  const chatMessages = useMemo(
     () =>
-      getTranscriptItems(
-        messages.filter((message) => !getReviewPromptState(message)?.hidden)
-      ),
-    [getReviewPromptState, messages]
-  );
-  const messageListContentStyle = useMemo(
-    () => [
-      styles.messageList,
-      Platform.OS === "ios" && keyboardActive && composerHeight > 0
-        ? { paddingBottom: composerHeight + IOS_KEYBOARD_MESSAGE_PADDING }
-        : null,
-    ],
-    [composerHeight, keyboardActive]
+      messages
+        .map((message) => ({
+          message,
+          reviewPromptState: getReviewPromptState(message),
+        }))
+        .filter(({ reviewPromptState }) => !reviewPromptState?.hidden)
+        .map(({ message, reviewPromptState }) =>
+          getChatMessageFromFirestoreMessage(message, otherUser, reviewPromptState)
+        )
+        .reverse(),
+    [getReviewPromptState, messages, otherUser]
   );
 
-  useEffect(() => {
-    if (transcriptItems.length > 0) {
-      alignConversationToBottomAfterLayout();
+  const openReviewModal = useCallback(async (message) => {
+    if (currentUser?.uid && otherUserId) {
+      try {
+        const existingReview = await getExistingReview(currentUser.uid, otherUserId);
+        if (existingReview) {
+          await updateReviewPromptResponse(message.id, currentUser.uid, "reviewed");
+          return;
+        }
+      } catch (reviewCheckError) {
+        console.error("Error checking existing mobile review:", reviewCheckError);
+      }
     }
-  }, [alignConversationToBottomAfterLayout, conversationId, transcriptItems.length]);
 
-  useEffect(() => {
-    if (keyboardActive) {
-      alignConversationToBottomAfterLayout();
-    }
-  }, [alignConversationToBottomAfterLayout, composerHeight, keyboardActive]);
+    setReviewMessage(message);
+    setReviewRating(5);
+    setReviewComment("");
+    setReviewOpen(true);
+  }, [currentUser?.uid, otherUserId]);
 
-  async function handleSend() {
-    const trimmedDraft = draft.trim();
+  const renderChatMessage = useCallback(
+    (messageProps) => {
+      const currentMessage = messageProps.currentMessage;
+      const sourceMessage = currentMessage?.wecubeMessage;
+
+      if (!sourceMessage) {
+        return <Message {...messageProps} />;
+      }
+
+      if (currentMessage?.system || currentMessage?.reviewPromptState) {
+        return (
+          <View style={styles.specialChatMessage}>
+            <MessageBubble
+              message={sourceMessage}
+              isMine={sourceMessage.senderId === currentUser?.uid}
+              reviewPromptState={currentMessage.reviewPromptState}
+              onReviewPress={openReviewModal}
+            />
+          </View>
+        );
+      }
+
+      return <Message {...messageProps} />;
+    },
+    [currentUser?.uid, openReviewModal]
+  );
+
+  const renderChatBubble = useCallback(
+    (bubbleProps) => (
+      <Bubble
+        {...bubbleProps}
+        wrapperStyle={{
+          left: styles.chatIncomingBubble,
+          right: styles.chatOutgoingBubble,
+        }}
+        textStyle={{
+          left: styles.chatIncomingText,
+          right: styles.chatOutgoingText,
+        }}
+      />
+    ),
+    []
+  );
+
+  const handleChatSend = useCallback(async (outgoingMessages = []) => {
+    const outgoingMessage = Array.isArray(outgoingMessages)
+      ? outgoingMessages[0]
+      : outgoingMessages;
+    const trimmedDraft = outgoingMessage?.text?.trim() || "";
     if (!trimmedDraft || !currentUser?.uid || sending) return;
 
     setSending(true);
-    setDraft("");
     setError("");
-    scrollToConversationEnd();
     try {
       await sendMessage(conversationId, currentUser.uid, trimmedDraft);
-      scrollToConversationEnd();
     } catch (sendError) {
       console.error("Error sending mobile message:", sendError);
-      setDraft(trimmedDraft);
       setError(sendError.message || "Unable to send message.");
     } finally {
       setSending(false);
     }
-  }
+  }, [conversationId, currentUser?.uid, sending]);
+
+  const chatTheme = useMemo(
+    () => ({
+      colors: {
+        accent: colors.primary,
+        background: colors.background,
+        incomingBubble: colors.surface,
+        incomingText: colors.text,
+        outgoingBubble: colors.primary,
+        outgoingText: "#fff",
+        separator: colors.border,
+        inputBackground: colors.background,
+        inputBarBackground: colors.surface,
+        inputText: colors.text,
+        placeholder: colors.muted,
+        dayPillBackground: colors.surface,
+        dayPillText: colors.muted,
+        surface: colors.surface,
+      },
+      radii: {
+        bubble: radii.card,
+        bubbleGrouped: radii.card,
+        inputField: radii.control,
+        sendButton: radii.control,
+      },
+      spacing: {
+        screenEdge: 16,
+        inputToolbarPaddingV: 8,
+        withinGroup: 4,
+        betweenGroups: 8,
+      },
+      typography: {
+        message: {
+          fontSize: typography.body.fontSize || 15,
+          lineHeight: typography.body.lineHeight,
+        },
+      },
+      composer: {
+        minHeight: 44,
+        maxHeight: 110,
+      },
+    }),
+    []
+  );
 
   async function handleBlockToggle() {
     if (!currentUser?.uid || !otherUserId || blockLoading) return;
@@ -642,25 +609,6 @@ export default function ConversationScreen({ navigation, route }) {
     }
   }
 
-  async function openReviewModal(message) {
-    if (currentUser?.uid && otherUserId) {
-      try {
-        const existingReview = await getExistingReview(currentUser.uid, otherUserId);
-        if (existingReview) {
-          await updateReviewPromptResponse(message.id, currentUser.uid, "reviewed");
-          return;
-        }
-      } catch (reviewCheckError) {
-        console.error("Error checking existing mobile review:", reviewCheckError);
-      }
-    }
-
-    setReviewMessage(message);
-    setReviewRating(5);
-    setReviewComment("");
-    setReviewOpen(true);
-  }
-
   function closeReviewModal() {
     if (reviewSubmitting) return;
     setReviewOpen(false);
@@ -733,60 +681,6 @@ export default function ConversationScreen({ navigation, route }) {
     );
   }
 
-  const composer = (
-    <View
-      style={styles.composer}
-      onLayout={(event) => {
-        const nextComposerHeight = Math.ceil(event.nativeEvent.layout.height);
-        setComposerHeight((previousComposerHeight) =>
-          previousComposerHeight === nextComposerHeight
-            ? previousComposerHeight
-            : nextComposerHeight
-        );
-      }}
-    >
-      <TextInput
-        value={draft}
-        onChangeText={setDraft}
-        onFocus={() => {
-          if (Platform.OS === "ios") {
-            setKeyboardActive(true);
-            alignConversationToBottomAfterLayout();
-          }
-        }}
-        placeholder="Write a message"
-        style={styles.input}
-        multiline
-        editable={
-          conversation?.closedReason !== "listing_deleted" &&
-          !blockedByMe &&
-          !blockedMe
-        }
-      />
-      <Pressable
-        style={[
-          styles.sendButton,
-          (!draft.trim() ||
-            sending ||
-            conversation?.closedReason === "listing_deleted" ||
-            blockedByMe ||
-            blockedMe) &&
-            styles.sendButtonDisabled,
-        ]}
-        onPress={handleSend}
-        disabled={
-          !draft.trim() ||
-          sending ||
-          conversation?.closedReason === "listing_deleted" ||
-          blockedByMe ||
-          blockedMe
-        }
-      >
-        <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
-      </Pressable>
-    </View>
-  );
-
   return (
     <Screen>
       <View style={styles.topBar}>
@@ -817,11 +711,7 @@ export default function ConversationScreen({ navigation, route }) {
           <MaterialIcons name="more-horiz" size={24} color={colors.text} />
         </Pressable>
       </View>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "height" : undefined}
-        contentContainerStyle={styles.container}
-        style={styles.keyboardFrame}
-      >
+      <View style={styles.chatFrame}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {conversation?.closedReason === "listing_deleted" ? (
           <Text style={styles.closedNotice}>This listing was deleted, so the conversation is closed.</Text>
@@ -831,48 +721,30 @@ export default function ConversationScreen({ navigation, route }) {
             {blockedByMe ? "You blocked this user." : "Messaging is not available."}
           </Text>
         ) : null}
-        <FlatList
-          ref={messageListRef}
-          data={transcriptItems}
-          keyExtractor={(item) => item.id}
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            if (item.type === "timeDivider") {
-              return (
-                <View style={styles.timeDivider}>
-                  <Text style={styles.timeDividerText}>{item.label}</Text>
-                </View>
-              );
-            }
-
-            return (
-              <MessageBubble
-                message={item.message}
-                isMine={item.message.senderId === currentUser?.uid}
-                reviewPromptState={getReviewPromptState(item.message)}
-                onReviewPress={openReviewModal}
-              />
-            );
+        <Chat
+          messages={chatMessages}
+          user={{ _id: currentUser?.uid || "current-user" }}
+          onSend={handleChatSend}
+          messagesContainerRef={chatListRef}
+          isAlignedTop
+          isInverted
+          renderMessage={renderChatMessage}
+          renderBubble={renderChatBubble}
+          isUserAvatarVisible={false}
+          isScrollToBottomEnabled
+          scrollToBottomOffset={AT_BOTTOM_THRESHOLD}
+          theme={chatTheme}
+          labels={{ placeholder: "Write a message" }}
+          textInputProps={{
+            editable: !messagingDisabled,
+            maxLength: 4000,
+            placeholder: messagingDisabled
+              ? "Messaging unavailable"
+              : "Write a message",
+            style: styles.chatComposerInput,
           }}
-          contentContainerStyle={messageListContentStyle}
-          onContentSizeChange={(_, contentHeight) => {
-            messageListContentHeightRef.current = contentHeight;
-            alignConversationToBottomAfterLayout();
-          }}
-          onLayout={(event) => {
-            messageListHeightRef.current = event.nativeEvent.layout.height;
-            alignConversationToBottomAfterLayout();
-          }}
-          style={styles.messageScroller}
         />
-        {Platform.OS === "ios" ? null : composer}
-      </KeyboardAvoidingView>
-      {Platform.OS === "ios" ? (
-        <InputAccessoryView backgroundColor={colors.surface}>
-          {composer}
-        </InputAccessoryView>
-      ) : null}
+      </View>
 
       <ActionSheet
         visible={conversationActionsOpen}
@@ -1030,12 +902,12 @@ export default function ConversationScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardFrame: {
+  chatFrame: {
     flex: 1,
     overflow: "hidden",
+  },
+  chatArea: {
+    flex: 1,
   },
   topBar: {
     alignItems: "center",
@@ -1147,21 +1019,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  messageList: {
-    gap: 8,
-    padding: 16,
+  specialChatMessage: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
   },
-  messageScroller: {
-    flex: 1,
+  chatIncomingBubble: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
   },
-  timeDivider: {
-    alignItems: "center",
-    marginVertical: 8,
+  chatOutgoingBubble: {
+    backgroundColor: colors.primary,
   },
-  timeDividerText: {
-    ...typography.caption,
-    color: colors.muted,
-    textAlign: "center",
+  chatIncomingText: {
+    color: colors.text,
+  },
+  chatOutgoingText: {
+    color: "#fff",
+  },
+  chatComposerInput: {
+    maxHeight: 110,
   },
   bubble: {
     borderRadius: radii.card,
@@ -1233,42 +1110,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.muted,
     marginTop: 8,
-  },
-  composer: {
-    alignItems: "flex-end",
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: 10,
-    padding: 12,
-  },
-  input: {
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    borderWidth: 1,
-    color: colors.text,
-    flex: 1,
-    fontSize: 15,
-    maxHeight: 110,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  sendButton: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: radii.control,
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: 14,
-  },
-  sendButtonDisabled: {
-    opacity: 0.45,
-  },
-  sendText: {
-    ...typography.button,
-    color: "#fff",
   },
   closedNotice: {
     backgroundColor: "#fef3c7",

@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { DMSans_400Regular } from "@expo-google-fonts/dm-sans/400Regular";
 import { DMSans_500Medium } from "@expo-google-fonts/dm-sans/500Medium";
 import { DMSans_600SemiBold } from "@expo-google-fonts/dm-sans/600SemiBold";
@@ -411,11 +412,13 @@ TextInput.defaultProps.style = [
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        <AppContent />
-      </NavigationContainer>
-    </AuthProvider>
+    <KeyboardProvider preload={false}>
+      <AuthProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <AppContent />
+        </NavigationContainer>
+      </AuthProvider>
+    </KeyboardProvider>
   );
 }
