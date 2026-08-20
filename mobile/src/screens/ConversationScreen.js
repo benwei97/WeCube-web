@@ -48,7 +48,6 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
-const IOS_KEYBOARD_LAYOUT_DURATION_MS = 10;
 const IOS_KEYBOARD_TRANSITION_BUFFER_MS = 20;
 const IOS_KEYBOARD_MESSAGE_PADDING = 16;
 
@@ -300,6 +299,8 @@ export default function ConversationScreen({ navigation, route }) {
   const [composerHeight, setComposerHeight] = useState(0);
   const [keyboardActive, setKeyboardActive] = useState(false);
   const messageListRef = useRef(null);
+  const messageListHeightRef = useRef(0);
+  const messageListContentHeightRef = useRef(0);
   const lastReadMarkerRef = useRef("");
   const keyboardTransitioningRef = useRef(false);
   const keyboardTransitionTimeoutRef = useRef(null);
@@ -312,11 +313,32 @@ export default function ConversationScreen({ navigation, route }) {
     });
   }, []);
 
-  const scrollToConversationEndAfterLayout = useCallback(() => {
+  const alignConversationToBottom = useCallback((animated = false) => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => scrollToConversationEnd(false));
+      if (
+        messageListHeightRef.current <= 0 ||
+        messageListContentHeightRef.current <= 0
+      ) {
+        return;
+      }
+
+      const bottomOffset = Math.max(
+        0,
+        messageListContentHeightRef.current - messageListHeightRef.current
+      );
+
+      messageListRef.current?.scrollToOffset({
+        animated: animated && !keyboardTransitioningRef.current,
+        offset: bottomOffset,
+      });
     });
-  }, [scrollToConversationEnd]);
+  }, []);
+
+  const alignConversationToBottomAfterLayout = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => alignConversationToBottom(false));
+    });
+  }, [alignConversationToBottom]);
 
   const otherUserId =
     conversation && currentUser?.uid
@@ -328,15 +350,8 @@ export default function ConversationScreen({ navigation, route }) {
   useEffect(() => {
     if (Platform.OS !== "ios") return undefined;
 
-    function handleKeyboardTransition(event) {
-      const keyboardWillBeVisible =
-        (event?.endCoordinates?.height || 0) > 0 &&
-        event?.endCoordinates?.screenY !== event?.startCoordinates?.screenY;
-      const keyboardDuration = event?.duration || IOS_KEYBOARD_LAYOUT_DURATION_MS;
-      const layoutDuration = Math.min(
-        keyboardDuration,
-        IOS_KEYBOARD_LAYOUT_DURATION_MS
-      );
+    function handleKeyboardTransition(event, keyboardWillBeVisible) {
+      const layoutDuration = event?.duration || 250;
 
       setKeyboardActive(keyboardWillBeVisible);
       Keyboard.scheduleLayoutAnimation?.({
@@ -348,19 +363,19 @@ export default function ConversationScreen({ navigation, route }) {
 
       keyboardTransitionTimeoutRef.current = setTimeout(() => {
         keyboardTransitioningRef.current = false;
-        scrollToConversationEnd(false);
+        alignConversationToBottom(false);
       }, layoutDuration + IOS_KEYBOARD_TRANSITION_BUFFER_MS);
 
-      scrollToConversationEndAfterLayout();
+      alignConversationToBottomAfterLayout();
     }
 
     const changeSubscription = Keyboard.addListener(
       "keyboardWillChangeFrame",
-      handleKeyboardTransition
+      (event) => handleKeyboardTransition(event, true)
     );
     const hideSubscription = Keyboard.addListener(
       "keyboardWillHide",
-      handleKeyboardTransition
+      (event) => handleKeyboardTransition(event, false)
     );
 
     return () => {
@@ -368,7 +383,7 @@ export default function ConversationScreen({ navigation, route }) {
       changeSubscription.remove();
       hideSubscription.remove();
     };
-  }, [scrollToConversationEnd, scrollToConversationEndAfterLayout]);
+  }, [alignConversationToBottom, alignConversationToBottomAfterLayout]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -518,15 +533,15 @@ export default function ConversationScreen({ navigation, route }) {
 
   useEffect(() => {
     if (transcriptItems.length > 0) {
-      scrollToConversationEnd(false);
+      alignConversationToBottomAfterLayout();
     }
-  }, [conversationId, scrollToConversationEnd, transcriptItems.length]);
+  }, [alignConversationToBottomAfterLayout, conversationId, transcriptItems.length]);
 
   useEffect(() => {
     if (keyboardActive) {
-      scrollToConversationEndAfterLayout();
+      alignConversationToBottomAfterLayout();
     }
-  }, [composerHeight, keyboardActive, scrollToConversationEndAfterLayout]);
+  }, [alignConversationToBottomAfterLayout, composerHeight, keyboardActive]);
 
   async function handleSend() {
     const trimmedDraft = draft.trim();
@@ -736,7 +751,7 @@ export default function ConversationScreen({ navigation, route }) {
         onFocus={() => {
           if (Platform.OS === "ios") {
             setKeyboardActive(true);
-            scrollToConversationEndAfterLayout();
+            alignConversationToBottomAfterLayout();
           }
         }}
         placeholder="Write a message"
@@ -841,8 +856,14 @@ export default function ConversationScreen({ navigation, route }) {
             );
           }}
           contentContainerStyle={messageListContentStyle}
-          onContentSizeChange={() => scrollToConversationEnd()}
-          onLayout={() => scrollToConversationEnd(false)}
+          onContentSizeChange={(_, contentHeight) => {
+            messageListContentHeightRef.current = contentHeight;
+            alignConversationToBottomAfterLayout();
+          }}
+          onLayout={(event) => {
+            messageListHeightRef.current = event.nativeEvent.layout.height;
+            alignConversationToBottomAfterLayout();
+          }}
           style={styles.messageScroller}
         />
         {Platform.OS === "ios" ? null : composer}
