@@ -50,6 +50,7 @@ const CONVERSATION_REPORT_REASONS = [
 const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 const IOS_KEYBOARD_LAYOUT_DURATION_MS = 10;
 const IOS_KEYBOARD_TRANSITION_BUFFER_MS = 20;
+const IOS_KEYBOARD_MESSAGE_PADDING = 16;
 
 function getTimestampDate(timestamp) {
   if (!timestamp) return null;
@@ -296,6 +297,8 @@ export default function ConversationScreen({ navigation, route }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(0);
+  const [keyboardActive, setKeyboardActive] = useState(false);
   const messageListRef = useRef(null);
   const lastReadMarkerRef = useRef("");
   const keyboardTransitioningRef = useRef(false);
@@ -309,6 +312,12 @@ export default function ConversationScreen({ navigation, route }) {
     });
   }, []);
 
+  const scrollToConversationEndAfterLayout = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollToConversationEnd(false));
+    });
+  }, [scrollToConversationEnd]);
+
   const otherUserId =
     conversation && currentUser?.uid
       ? conversation.buyerId === currentUser.uid
@@ -320,12 +329,16 @@ export default function ConversationScreen({ navigation, route }) {
     if (Platform.OS !== "ios") return undefined;
 
     function handleKeyboardTransition(event) {
+      const keyboardWillBeVisible =
+        (event?.endCoordinates?.height || 0) > 0 &&
+        event?.endCoordinates?.screenY !== event?.startCoordinates?.screenY;
       const keyboardDuration = event?.duration || IOS_KEYBOARD_LAYOUT_DURATION_MS;
       const layoutDuration = Math.min(
         keyboardDuration,
         IOS_KEYBOARD_LAYOUT_DURATION_MS
       );
 
+      setKeyboardActive(keyboardWillBeVisible);
       Keyboard.scheduleLayoutAnimation?.({
         ...event,
         duration: layoutDuration,
@@ -337,6 +350,8 @@ export default function ConversationScreen({ navigation, route }) {
         keyboardTransitioningRef.current = false;
         scrollToConversationEnd(false);
       }, layoutDuration + IOS_KEYBOARD_TRANSITION_BUFFER_MS);
+
+      scrollToConversationEndAfterLayout();
     }
 
     const changeSubscription = Keyboard.addListener(
@@ -353,7 +368,7 @@ export default function ConversationScreen({ navigation, route }) {
       changeSubscription.remove();
       hideSubscription.remove();
     };
-  }, [scrollToConversationEnd]);
+  }, [scrollToConversationEnd, scrollToConversationEndAfterLayout]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -491,12 +506,27 @@ export default function ConversationScreen({ navigation, route }) {
       ),
     [getReviewPromptState, messages]
   );
+  const messageListContentStyle = useMemo(
+    () => [
+      styles.messageList,
+      Platform.OS === "ios" && keyboardActive && composerHeight > 0
+        ? { paddingBottom: composerHeight + IOS_KEYBOARD_MESSAGE_PADDING }
+        : null,
+    ],
+    [composerHeight, keyboardActive]
+  );
 
   useEffect(() => {
     if (transcriptItems.length > 0) {
       scrollToConversationEnd(false);
     }
   }, [conversationId, scrollToConversationEnd, transcriptItems.length]);
+
+  useEffect(() => {
+    if (keyboardActive) {
+      scrollToConversationEndAfterLayout();
+    }
+  }, [composerHeight, keyboardActive, scrollToConversationEndAfterLayout]);
 
   async function handleSend() {
     const trimmedDraft = draft.trim();
@@ -689,10 +719,26 @@ export default function ConversationScreen({ navigation, route }) {
   }
 
   const composer = (
-    <View style={styles.composer}>
+    <View
+      style={styles.composer}
+      onLayout={(event) => {
+        const nextComposerHeight = Math.ceil(event.nativeEvent.layout.height);
+        setComposerHeight((previousComposerHeight) =>
+          previousComposerHeight === nextComposerHeight
+            ? previousComposerHeight
+            : nextComposerHeight
+        );
+      }}
+    >
       <TextInput
         value={draft}
         onChangeText={setDraft}
+        onFocus={() => {
+          if (Platform.OS === "ios") {
+            setKeyboardActive(true);
+            scrollToConversationEndAfterLayout();
+          }
+        }}
         placeholder="Write a message"
         style={styles.input}
         multiline
@@ -794,7 +840,7 @@ export default function ConversationScreen({ navigation, route }) {
               />
             );
           }}
-          contentContainerStyle={styles.messageList}
+          contentContainerStyle={messageListContentStyle}
           onContentSizeChange={() => scrollToConversationEnd()}
           onLayout={() => scrollToConversationEnd(false)}
           style={styles.messageScroller}
