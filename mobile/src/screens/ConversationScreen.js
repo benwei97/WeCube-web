@@ -467,6 +467,27 @@ export default function ConversationScreen({ navigation, route }) {
     []
   );
 
+  const renderChatSend = useCallback(
+    (sendProps) => {
+      const trimmedText = sendProps.text?.trim() || "";
+      const canSend = Boolean(trimmedText) && !messagingDisabled;
+
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          accessibilityState={{ disabled: !canSend }}
+          disabled={!canSend}
+          onPress={() => sendProps.onSend?.({ text: trimmedText }, true)}
+          style={[styles.chatSendButton, !canSend && styles.chatSendButtonDisabled]}
+        >
+          <Text style={styles.chatSendText}>{sending ? "..." : "Send"}</Text>
+        </Pressable>
+      );
+    },
+    [messagingDisabled, sending]
+  );
+
   const handleChatSend = useCallback(async (outgoingMessages = []) => {
     const outgoingMessage = Array.isArray(outgoingMessages)
       ? outgoingMessages[0]
@@ -500,6 +521,7 @@ export default function ConversationScreen({ navigation, route }) {
         inputBarBackground: colors.surface,
         inputText: colors.text,
         placeholder: colors.muted,
+        inputFieldBorder: colors.border,
         dayPillBackground: colors.surface,
         dayPillText: colors.muted,
         surface: colors.surface,
@@ -511,10 +533,12 @@ export default function ConversationScreen({ navigation, route }) {
         sendButton: radii.control,
       },
       spacing: {
-        screenEdge: 16,
+        screenEdge: 12,
         inputToolbarPaddingV: 8,
         withinGroup: 4,
         betweenGroups: 8,
+        bubblePaddingH: 12,
+        bubblePaddingV: 9,
       },
       typography: {
         message: {
@@ -525,6 +549,7 @@ export default function ConversationScreen({ navigation, route }) {
       composer: {
         minHeight: 44,
         maxHeight: 110,
+        fieldPaddingH: 12,
       },
     }),
     []
@@ -730,10 +755,13 @@ export default function ConversationScreen({ navigation, route }) {
           isInverted
           renderMessage={renderChatMessage}
           renderBubble={renderChatBubble}
+          renderSend={renderChatSend}
           isUserAvatarVisible={false}
           isScrollToBottomEnabled
           scrollToBottomOffset={AT_BOTTOM_THRESHOLD}
           theme={chatTheme}
+          containerStyle={styles.chatComposerBar}
+          primaryStyle={styles.chatComposerPrimary}
           labels={{ placeholder: "Write a message" }}
           textInputProps={{
             editable: !messagingDisabled,
@@ -1026,10 +1054,14 @@ const styles = StyleSheet.create({
   chatIncomingBubble: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
+    borderRadius: radii.card,
     borderWidth: 1,
+    maxWidth: "82%",
   },
   chatOutgoingBubble: {
     backgroundColor: colors.primary,
+    borderRadius: radii.card,
+    maxWidth: "82%",
   },
   chatIncomingText: {
     color: colors.text,
@@ -1037,8 +1069,36 @@ const styles = StyleSheet.create({
   chatOutgoingText: {
     color: "#fff",
   },
+  chatComposerBar: {
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+  },
+  chatComposerPrimary: {
+    gap: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingVertical: 8,
+  },
   chatComposerInput: {
+    color: colors.text,
+    fontSize: 15,
     maxHeight: 110,
+  },
+  chatSendButton: {
+    alignItems: "center",
+    alignSelf: "flex-end",
+    backgroundColor: colors.primary,
+    borderRadius: radii.control,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  chatSendButtonDisabled: {
+    opacity: 0.45,
+  },
+  chatSendText: {
+    ...typography.button,
+    color: "#fff",
   },
   bubble: {
     borderRadius: radii.card,
