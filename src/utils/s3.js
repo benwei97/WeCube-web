@@ -4,6 +4,8 @@ import { functions } from "../../firebase";
 const createSignedS3Upload = httpsCallable(functions, "createSignedS3Upload");
 const deleteS3Objects = httpsCallable(functions, "deleteS3Objects");
 
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -27,6 +29,10 @@ function assertImageFile(file) {
   if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
     throw new Error("Upload a JPG, PNG, or WebP image.");
   }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error("Images must be 10 MB or smaller.");
+  }
 }
 
 async function uploadWithSignedUrl(file, uploadRequest, { validateImage = true } = {}) {
@@ -41,13 +47,21 @@ async function uploadWithSignedUrl(file, uploadRequest, { validateImage = true }
     throw new Error("Failed to prepare image upload.");
   }
 
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type,
-    },
-    body: file,
-  });
+  let response;
+  try {
+    response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type,
+      },
+      body: file,
+    });
+  } catch (error) {
+    console.error("S3 signed URL fetch failed:", error);
+    throw new Error(
+      "The photo upload was blocked or interrupted. Try again, and check S3 CORS if this keeps happening."
+    );
+  }
 
   if (!response.ok) {
     throw new Error(`Image upload failed with status ${response.status}.`);
@@ -122,10 +136,11 @@ export async function uploadAvatarToS3(file, userId) {
  * @returns {Promise<Array<string>>} Array of S3 keys
  */
 export async function uploadMultipleImages(files, listingId) {
-  const uploadPromises = files.map(file => uploadImageToS3(file, listingId));
-
   try {
-    const s3Keys = await Promise.all(uploadPromises);
+    const s3Keys = [];
+    for (const file of files) {
+      s3Keys.push(await uploadImageToS3(file, listingId));
+    }
     return s3Keys;
   } catch (error) {
     console.error('Error uploading multiple files:', error);

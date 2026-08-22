@@ -27,7 +27,7 @@ import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
-import { uploadMultipleImages } from "../utils/s3";
+import { MAX_IMAGE_SIZE_BYTES, uploadMultipleImages } from "../utils/s3";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
   getUpcomingCompetitions,
@@ -58,6 +58,7 @@ const SUPPORTED_PHOTO_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const MAX_PHOTO_SIZE_MB = Math.floor(MAX_IMAGE_SIZE_BYTES / (1024 * 1024));
 const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const MY_COMPETITIONS_OPTION = {
   id: MY_COMPETITIONS_OPTION_ID,
@@ -196,8 +197,19 @@ function Sell() {
 
   const handlePhotoSelection = (e) => {
     const files = Array.from(e.target.files);
-    const imageFiles = files.filter((file) => SUPPORTED_PHOTO_TYPES.has(file.type));
-    const rejectedCount = files.length - imageFiles.length;
+    const imageFiles = files.filter(
+      (file) =>
+        SUPPORTED_PHOTO_TYPES.has(file.type) &&
+        file.size <= MAX_IMAGE_SIZE_BYTES
+    );
+    const rejectedTypeCount = files.filter(
+      (file) => !SUPPORTED_PHOTO_TYPES.has(file.type)
+    ).length;
+    const rejectedSizeCount = files.filter(
+      (file) =>
+        SUPPORTED_PHOTO_TYPES.has(file.type) &&
+        file.size > MAX_IMAGE_SIZE_BYTES
+    ).length;
     const newPhotos = imageFiles.slice(0, 5 - selectedPhotos.length);
 
     const photoObjects = newPhotos.map((file) => ({
@@ -209,14 +221,19 @@ function Sell() {
     if (photoObjects.length > 0) {
       setSelectedPhotos((prev) => [...prev, ...photoObjects]);
     }
-    setSubmitNotice(
-      rejectedCount > 0
-        ? {
-            severity: "error",
-            message: "Photos must be JPG, PNG, or WebP.",
-          }
-        : null
-    );
+    if (rejectedTypeCount > 0) {
+      setSubmitNotice({
+        severity: "error",
+        message: "Photos must be JPG, PNG, or WebP.",
+      });
+    } else if (rejectedSizeCount > 0) {
+      setSubmitNotice({
+        severity: "error",
+        message: `Photos must be ${MAX_PHOTO_SIZE_MB} MB or smaller.`,
+      });
+    } else {
+      setSubmitNotice(null);
+    }
     e.target.value = "";
   };
 
