@@ -332,7 +332,6 @@ function getCompetitionFulfillmentOption(competition = {}) {
 
 function Browse() {
   const { currentUser } = useAuth();
-  const [listings, setListings] = useState([]);
   const [allListings, setAllListings] = useState([]); // For search/filter
   const [filteredListings, setFilteredListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -362,6 +361,9 @@ function Browse() {
     !locationDraft.meetupLocationOption;
   const locationButtonLabel = getLocationButtonLabel(filters);
   const locationFilterStorageKey = getLocationFilterStorageKey(currentUser?.uid);
+  const displayedListings = isSearching
+    ? filteredListings
+    : filteredListings.slice(0, visibleCount);
 
   useEffect(() => {
     const listingsQuery = query(
@@ -460,9 +462,7 @@ function Browse() {
   }, [locationDraft.meetupLocation]);
 
   const applyFilters = useCallback(() => {
-    const hasActiveFilter = Boolean(filters.search || filters.meetupLocation.trim());
-    const sourceListings = hasActiveFilter ? allListings : listings;
-    let filtered = sourceListings.filter(
+    let filtered = allListings.filter(
       (listing) =>
         listing.userId === currentUser?.uid ||
         isSoldListingPubliclyVisible(listing)
@@ -486,7 +486,7 @@ function Browse() {
     }
 
     setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
-  }, [allListings, currentUser?.uid, filters, listings]);
+  }, [allListings, currentUser?.uid, filters]);
 
   const loadMoreListings = useCallback(() => {
     if (!isSearching && hasMore && !loadingMore) {
@@ -503,10 +503,8 @@ function Browse() {
   }, [applyFilters, isSearching]);
 
   useEffect(() => {
-    const sortedListings = sortListingsByAvailabilityAndDate(allListings);
-    setListings(sortedListings.slice(0, visibleCount));
-    setHasMore(sortedListings.length > visibleCount);
-  }, [allListings, visibleCount]);
+    setHasMore(!isSearching && filteredListings.length > visibleCount);
+  }, [filteredListings.length, isSearching, visibleCount]);
 
   // Check if user is actively searching/filtering
   useEffect(() => {
@@ -822,7 +820,7 @@ function Browse() {
 
       {/* Listings Grid */}
       <Box sx={LISTING_CARD_GRID_SX}>
-        {filteredListings.map((listing) => (
+        {displayedListings.map((listing) => (
           <Box key={listing.id}>
             {(() => {
               const normalizedListing = {
@@ -950,14 +948,6 @@ function Browse() {
         </Box>
       )}
 
-      {/* Show total when searching */}
-      {isSearching && (
-        <Box sx={{ textAlign: "center", mt: 4 }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing all results from {allListings.length} total cubes
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 }
