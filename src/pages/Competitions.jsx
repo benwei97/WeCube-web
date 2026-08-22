@@ -5,6 +5,7 @@ import {
   TextField,
   Skeleton,
   Alert,
+  Snackbar,
   Stack,
   IconButton,
 } from "@mui/material";
@@ -69,6 +70,7 @@ function Competitions() {
     useState([]);
   const [error, setError] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [actionSnackbar, setActionSnackbar] = useState(null);
 
   const savedCompetitions = optimisticSavedCompetitions;
   const pinnedSavedCompetitions = savedCompetitions.filter((competition) =>
@@ -174,7 +176,10 @@ function Competitions() {
       });
     } catch (saveError) {
       console.error("Error saving attending competitions:", saveError);
-      alert("Failed to save your competitions.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Failed to save your competitions.",
+      });
       throw saveError;
     }
   };
@@ -408,6 +413,28 @@ function Competitions() {
           )}
         </Card>
       </Box>
+
+      <Snackbar
+        open={Boolean(actionSnackbar)}
+        autoHideDuration={3600}
+        onClose={(_, reason) => {
+          if (reason !== "clickaway") {
+            setActionSnackbar(null);
+          }
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {actionSnackbar && (
+          <Alert
+            onClose={() => setActionSnackbar(null)}
+            severity={actionSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {actionSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
 
     </Box>
   );

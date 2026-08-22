@@ -17,6 +17,7 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -158,6 +159,7 @@ function Dashboard() {
   });
   const [profileNameSaving, setProfileNameSaving] = useState(false);
   const [profileNameError, setProfileNameError] = useState("");
+  const [actionSnackbar, setActionSnackbar] = useState(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -359,7 +361,10 @@ function Dashboard() {
     if (!file || !currentUser?.uid) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Please choose an image file.");
+      setActionSnackbar({
+        severity: "info",
+        message: "Please choose an image file.",
+      });
       return;
     }
 
@@ -380,7 +385,10 @@ function Dashboard() {
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      alert(error.message || "Failed to update avatar.");
+      setActionSnackbar({
+        severity: "error",
+        message: error.message || "Failed to update avatar.",
+      });
     } finally {
       setAvatarUploading(false);
     }
@@ -525,7 +533,10 @@ function Dashboard() {
       }
     } catch (error) {
       console.error(`Error updating listing ${listing.id} to ${status}:`, error);
-      alert("Failed to update listing status");
+      setActionSnackbar({
+        severity: "error",
+        message: "Failed to update listing status.",
+      });
     } finally {
       setStatusActionLoading((prev) => ({ ...prev, [listing.id]: false }));
     }
@@ -547,7 +558,10 @@ function Dashboard() {
       });
     } catch (error) {
       console.error("Error removing saved listing:", error);
-      alert("Unable to remove this saved listing right now.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Unable to remove this saved listing right now.",
+      });
     }
   };
 
@@ -576,7 +590,10 @@ function Dashboard() {
       setDeleteDialog({ open: false, listing: null });
     } catch (error) {
       console.error("Error deleting listing:", error);
-      alert(`Failed to delete listing: ${error.message}`);
+      setActionSnackbar({
+        severity: "error",
+        message: `Failed to delete listing: ${error.message}`,
+      });
     } finally {
       setDeleteLoading(false);
     }
@@ -1420,6 +1437,28 @@ function Dashboard() {
         open={showAccountDeletionConfirm}
         onClose={() => setShowAccountDeletionConfirm(false)}
       />
+
+      <Snackbar
+        open={Boolean(actionSnackbar)}
+        autoHideDuration={3600}
+        onClose={(_, reason) => {
+          if (reason !== "clickaway") {
+            setActionSnackbar(null);
+          }
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {actionSnackbar && (
+          <Alert
+            onClose={() => setActionSnackbar(null)}
+            severity={actionSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {actionSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
 
     </Box>
   );

@@ -622,7 +622,10 @@ function Messages() {
       closeReviewDialog();
     } catch (error) {
       console.error("Error submitting conversation review:", error);
-      alert(error.message || "Failed to submit review");
+      setReportSnackbar({
+        severity: "error",
+        message: error.message || "Failed to submit review.",
+      });
     } finally {
       setSubmittingReview(false);
     }

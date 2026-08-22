@@ -14,6 +14,7 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -94,6 +95,7 @@ export default function AdminReports() {
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [activeTab, setActiveTab] = useState("listings");
+  const [actionSnackbar, setActionSnackbar] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.isAdmin) {
@@ -251,7 +253,10 @@ export default function AdminReports() {
       });
     } catch (error) {
       console.error("Error updating report:", error);
-      alert("Unable to update this report right now.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Unable to update this report right now.",
+      });
     } finally {
       setActionLoadingId("");
     }
@@ -278,7 +283,10 @@ export default function AdminReports() {
       );
     } catch (error) {
       console.error("Error hiding listing:", error);
-      alert("Unable to hide this listing right now.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Unable to hide this listing right now.",
+      });
     } finally {
       setActionLoadingId("");
     }
@@ -322,7 +330,10 @@ export default function AdminReports() {
       );
     } catch (error) {
       console.error("Error hiding reported user listings:", error);
-      alert("Unable to hide this user's listings right now.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Unable to hide this user's listings right now.",
+      });
     } finally {
       setActionLoadingId("");
     }
@@ -342,7 +353,10 @@ export default function AdminReports() {
       });
     } catch (error) {
       console.error("Error restoring hidden listing:", error);
-      alert("Unable to restore this listing right now.");
+      setActionSnackbar({
+        severity: "error",
+        message: "Unable to restore this listing right now.",
+      });
     } finally {
       setActionLoadingId("");
     }
@@ -997,6 +1011,28 @@ export default function AdminReports() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={Boolean(actionSnackbar)}
+        autoHideDuration={3600}
+        onClose={(_, reason) => {
+          if (reason !== "clickaway") {
+            setActionSnackbar(null);
+          }
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {actionSnackbar && (
+          <Alert
+            onClose={() => setActionSnackbar(null)}
+            severity={actionSnackbar.severity}
+            variant="filled"
+            sx={{ width: "100%" }}
+          >
+            {actionSnackbar.message}
+          </Alert>
+        )}
+      </Snackbar>
     </Box>
   );
 }
