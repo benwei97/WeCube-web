@@ -241,6 +241,13 @@ function Competitions() {
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Competitions
       </Typography>
+      <Typography
+        variant="body1"
+        color="text.secondary"
+        sx={{ mt: -0.5, mb: 2.5, maxWidth: 760 }}
+      >
+        See what cubes people are bringing to comps you are going to!
+      </Typography>
 
       <AuthModal
         open={showAuth}
@@ -292,6 +299,7 @@ function Competitions() {
                     "aria-label": "Search competitions",
                   },
                 }}
+                helperText="Tip: bookmark your next comp to make buying and selling cubes there easier!"
               />
 
               <Box
