@@ -602,6 +602,13 @@ function Browse() {
       <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
         Browse Cubes
       </Typography>
+      <Typography
+        variant="body2"
+        color="primary"
+        sx={{ mt: -0.5, mb: 2.5, fontWeight: 700 }}
+      >
+        iOS app coming soon!
+      </Typography>
 
       {/* Search and Filter Bar */}
       <Paper sx={{ p: 2, mb: 3, ...SOFT_PANEL_SX }}>

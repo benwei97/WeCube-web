@@ -248,7 +248,6 @@ function Competitions() {
       >
         See what cubes people are bringing to comps you are going to!
       </Typography>
-
       <AuthModal
         open={showAuth}
         onClose={() => setShowAuth(false)}
