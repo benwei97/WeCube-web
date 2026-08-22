@@ -75,6 +75,7 @@ import {
 } from "../utils/messaging";
 import { subscribeToSellerReviews } from "../utils/reviews";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
+import { AuthModal } from "../components/AuthModal";
 import {
   fetchLocationSuggestionOptions,
   getLocationOptionLabel,
@@ -185,6 +186,7 @@ function ListingDetail() {
   const [messageNotice, setMessageNotice] = useState(null);
   const [messageSnackbar, setMessageSnackbar] = useState(null);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
@@ -786,10 +788,7 @@ function ListingDetail() {
 
   const handleMessageRequest = async () => {
     if (!currentUser) {
-      setMessageNotice({
-        severity: "info",
-        message: "Please sign in to message the seller.",
-      });
+      setShowAuth(true);
       return;
     }
 
@@ -854,10 +853,7 @@ function ListingDetail() {
 
   const openMessageDialog = () => {
     if (!currentUser) {
-      setMessageSnackbar({
-        severity: "info",
-        message: "Please sign in to message the seller.",
-      });
+      setShowAuth(true);
       return;
     }
     setMessageNotice(null);
@@ -868,10 +864,7 @@ function ListingDetail() {
     setViewerMenuAnchorEl(null);
 
     if (!currentUser) {
-      setMessageSnackbar({
-        severity: "info",
-        message: "Please sign in to report this listing.",
-      });
+      setShowAuth(true);
       return;
     }
 
@@ -898,10 +891,7 @@ function ListingDetail() {
 
   const handleToggleSavedListing = async () => {
     if (!currentUser?.uid) {
-      setMessageSnackbar({
-        severity: "info",
-        message: "Please sign in to save listings.",
-      });
+      setShowAuth(true);
       return;
     }
 
@@ -2821,6 +2811,12 @@ function ListingDetail() {
           </Alert>
         )}
       </Snackbar>
+
+      <AuthModal
+        open={showAuth}
+        onClose={() => setShowAuth(false)}
+        initialMode="login"
+      />
 
       <Dialog
         open={showReportDialog}

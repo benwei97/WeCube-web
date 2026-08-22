@@ -52,6 +52,7 @@ import {
 } from "../utils/inputLimits";
 import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 import PageState from "../components/PageState";
+import { AuthModal } from "../components/AuthModal";
 
 const SECTION_SX = {
   py: 2.25,
@@ -110,6 +111,7 @@ function SellerProfile() {
   const [reportSnackbar, setReportSnackbar] = useState(null);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockingUser, setBlockingUser] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const isProfileMenuOpen = Boolean(profileMenuAnchorEl);
 
   useEffect(() => {
@@ -239,10 +241,7 @@ function SellerProfile() {
     setProfileMenuAnchorEl(null);
 
     if (!currentUser) {
-      setReportSnackbar({
-        severity: "info",
-        message: "Please sign in to report this user.",
-      });
+      setShowAuth(true);
       return;
     }
 
@@ -317,10 +316,7 @@ function SellerProfile() {
     setProfileMenuAnchorEl(null);
 
     if (!currentUser) {
-      setReportSnackbar({
-        severity: "info",
-        message: "Please sign in to block this user.",
-      });
+      setShowAuth(true);
       return;
     }
 
@@ -964,6 +960,11 @@ function SellerProfile() {
             </Alert>
           )}
         </Snackbar>
+        <AuthModal
+          open={showAuth}
+          onClose={() => setShowAuth(false)}
+          initialMode="login"
+        />
     </Box>
   );
 }

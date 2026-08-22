@@ -51,6 +51,7 @@ import {
   INPUT_LIMITS,
 } from "../utils/inputLimits";
 import PageState from "../components/PageState";
+import { AuthModal } from "../components/AuthModal";
 
 const SUPPORTED_PHOTO_TYPES = new Set([
   "image/jpeg",
@@ -142,6 +143,7 @@ function Sell() {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [submitNotice, setSubmitNotice] = useState(null);
   const [submitNoticePulse, setSubmitNoticePulse] = useState(0);
+  const [showAuth, setShowAuth] = useState(false);
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
   const [competitions, setCompetitions] = useState([]);
   const [allCompetitions, setAllCompetitions] = useState([]);
@@ -506,7 +508,7 @@ function Sell() {
     }
 
     if (!currentUser) {
-      alert("You must be logged in to create a listing");
+      setShowAuth(true);
       return;
     }
 
@@ -626,6 +628,13 @@ function Sell() {
         <PageState
           title="Sign in to list your cube"
           message="Create an account or sign in to add photos, choose fulfillment options, and publish a listing."
+          actionLabel="Log in"
+          onAction={() => setShowAuth(true)}
+        />
+        <AuthModal
+          open={showAuth}
+          onClose={() => setShowAuth(false)}
+          initialMode="login"
         />
       </Box>
     );
