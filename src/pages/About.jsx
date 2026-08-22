@@ -1,4 +1,5 @@
 import { Box, Button, Divider, Stack, Typography } from "@mui/material";
+import benAboutPhoto from "../assets/ben-about.jpg";
 
 const PAGE_SX = {
   width: "100%",
@@ -14,40 +15,75 @@ export default function About() {
   return (
     <Box sx={PAGE_SX}>
       <Stack spacing={{ xs: 3, md: 3.5 }}>
-        <Box>
-          <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
-            About WeCube
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 720 }}>
-            WeCube is a community-first marketplace built for speedcubers to
-            buy, sell, and discover puzzles in a simpler, more focused place.
-          </Typography>
-        </Box>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={{ xs: 2.5, md: 4 }}
+          alignItems={{ xs: "stretch", md: "center" }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h3" component="h1" fontWeight={800} sx={{ lineHeight: 1.08 }}>
+              About WeCube
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 1.25, maxWidth: 620 }}>
+              I built WeCube to give speedcubers a simpler, more natural place to
+              buy, sell, and pass along puzzles inside the community.
+            </Typography>
+          </Box>
+          <Box
+            component="img"
+            src={benAboutPhoto}
+            alt="Ben, founder of WeCube, at a cubing event"
+            loading="eager"
+            sx={{
+              width: { xs: "100%", md: 300 },
+              maxWidth: { xs: 420, md: 300 },
+              alignSelf: { xs: "center", md: "center" },
+              aspectRatio: "5 / 4",
+              objectFit: "cover",
+              objectPosition: "center",
+              borderRadius: 2,
+              boxShadow: "0 16px 36px rgba(31, 53, 99, 0.16)",
+            }}
+          />
+        </Stack>
 
         <Divider />
 
         <Box>
           <Typography variant="h5" component="h2" fontWeight={700}>
-            Why WeCube Exists
+            Why I Built WeCube
           </Typography>
           <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
-            Speedcubers often buy, sell, trade, and discover puzzles through
-            scattered chats, social posts, and general marketplaces. WeCube was
-            built to give the cubing community a dedicated place for puzzle
-            listings, competition meetups, seller profiles, reviews, and safer
-            marketplace tools.
+            My name is Ben, and I have been competing and involved in the WCA
+            community for more than 10 years. Growing up, cubes were expensive.
+            I always wanted to try newer puzzles and upgrade my setup, but I did
+            not always have the money to buy the next cube I wanted.
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 1.5, lineHeight: 1.7 }}>
+            Now I am in the opposite position: I have more cubes than I need,
+            and I know a lot of other cubers do too. I have watched people try
+            to sell old puzzles through YouTube comments, Discord channels,
+            Facebook groups, group chats, and general marketplaces, but there
+            was never one flowing ecosystem built specifically for cubers.
           </Typography>
         </Box>
 
         <Box>
           <Typography variant="h5" component="h2" fontWeight={700}>
-            Community-First
+            Productively Recycling Puzzles
           </Typography>
           <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
-            WeCube is currently run as a community-first project. The goal is to
-            support the cubing community, keep casual marketplace listings
-            accessible, and build tools that make buying and selling puzzles
-            feel easier and more trustworthy.
+            WeCube exists so the community can productively recycle puzzles.
+            A cube sitting unused on someone's shelf could be the exact upgrade
+            another cuber has been saving for. I wanted to make that exchange
+            easier, more organized, and more connected to the community that
+            already understands these puzzles.
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 1.5, lineHeight: 1.7 }}>
+            The goal is not to turn cubing into a generic marketplace. It is to
+            give cubers a dedicated place for puzzle listings, competition
+            meetups, seller profiles, reviews, and safer tools that make buying
+            and selling feel less scattered.
           </Typography>
         </Box>
 
@@ -56,9 +92,10 @@ export default function About() {
             Support WeCube
           </Typography>
           <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>
-            Optional donations help cover hosting, tools, maintenance, and
-            continued development. Donations do not unlock marketplace
-            advantages, listing boosts, badges, or special treatment.
+            I am building WeCube as a community-first project. Optional
+            donations help cover hosting, tools, maintenance, and continued
+            development. Donations do not unlock marketplace advantages, listing
+            boosts, badges, or special treatment.
           </Typography>
           <Button
             href={DONATION_URL || "mailto:support@wecube.app?subject=Support%20WeCube"}
