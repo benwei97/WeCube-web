@@ -2257,8 +2257,9 @@ function ListingDetail() {
                   </Stack>
                 ) : (
                   <Alert severity="info">
-                    No buyer chats were found. Choose sold off app if this sale
-                    happened outside WeCube.
+                    No approved buyer chats were found. Choose sold off app if
+                    this sale happened outside WeCube or before approving the
+                    buyer chat.
                   </Alert>
                 )}
               </>

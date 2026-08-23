@@ -184,14 +184,8 @@ export async function getListingBuyerOptions(listingId, sellerId) {
         id: conversationDoc.id,
         ...conversationDoc.data(),
       }))
-      .filter(
-        (conversation) =>
-          conversation.status === "approved" || conversation.status === "pending"
-      )
+      .filter((conversation) => conversation.status === "approved")
       .sort((a, b) => {
-        if (a.status !== b.status) {
-          return a.status === "approved" ? -1 : 1;
-        }
         const aTime = a.lastMessageAt?.toMillis?.() || 0;
         const bTime = b.lastMessageAt?.toMillis?.() || 0;
         return bTime - aTime;
@@ -371,10 +365,7 @@ export async function closeListingConversationsForSold(
       }
 
       if (conversation.status === "pending") {
-        await updateDoc(conversationRef, {
-          status: "approved",
-          updatedAt: serverTimestamp(),
-        });
+        continue;
       }
 
       if (!isSoldBuyerConversation) {
