@@ -40,6 +40,7 @@ import {
 } from "../utils/locationSearch";
 import {
   CONDITION_OPTIONS,
+  getUpcomingCompetitionsFromList,
   getListingCompetitionPayload,
   PUZZLE_TYPE_OPTIONS,
   parseNonNegativeCurrencyAmount,
@@ -154,7 +155,9 @@ function Sell() {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const { currentUser } = useAuth();
-  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const bookmarkedCompetitions = getUpcomingCompetitionsFromList(
+    currentUser?.attendingCompetitions || []
+  );
   const competitionOptions =
     bookmarkedCompetitions.length > 0
       ? [MY_COMPETITIONS_OPTION, ...competitions]

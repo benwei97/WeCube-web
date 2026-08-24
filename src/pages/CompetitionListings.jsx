@@ -29,9 +29,11 @@ import {
 } from "../components/ListingStatusDecorators";
 import {
   formatListingPrice,
+  getActiveFulfillmentFields,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   isListingModerationHidden,
+  isCompetitionPast,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -111,13 +113,17 @@ function CompetitionListings() {
         }));
 
         const cubesForCompetition = allListings.filter(
-          (listing) =>
-            !isListingModerationHidden(listing) &&
-            isSoldListingPubliclyVisible(listing) &&
-            (
-              listing.meetupCompetitionTags?.some((comp) => comp.id === competitionId) ||
-              listing.competitions?.some((comp) => comp.id === competitionId)
-            )
+          (listing) => {
+            const activeFulfillment = getActiveFulfillmentFields(listing);
+            return (
+              !isListingModerationHidden(listing) &&
+              isSoldListingPubliclyVisible(listing) &&
+              activeFulfillment.competitionMeetupAvailable &&
+              activeFulfillment.meetupCompetitionTags?.some(
+                (comp) => comp.id === competitionId
+              )
+            );
+          }
         );
 
         if (active) {
@@ -145,8 +151,10 @@ function CompetitionListings() {
   const formatPrice = formatListingPrice;
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const isPastCompetition = isCompetitionPast(competition);
+  const visibleCubes = isPastCompetition ? [] : cubes;
   const filteredCubes = normalizedSearchTerm
-    ? cubes.filter((cube) => {
+    ? visibleCubes.filter((cube) => {
         const normalizedListing = {
           ...cube,
           ...getNormalizedFulfillmentFields(cube),
@@ -167,7 +175,7 @@ function CompetitionListings() {
 
         return searchableText.includes(normalizedSearchTerm);
       })
-    : cubes;
+    : visibleCubes;
 
   return (
     <Box sx={LISTING_PAGE_SX}>
@@ -237,6 +245,12 @@ function CompetitionListings() {
               </Typography>
             )}
           </Stack>
+          {isPastCompetition && (
+            <Alert severity="info" sx={{ mt: 3 }}>
+              This competition has already passed, so its meetup listings are no
+              longer shown.
+            </Alert>
+          )}
           <Paper
             sx={{
               p: 2,
@@ -283,7 +297,9 @@ function CompetitionListings() {
             {cubes.length === 0 ? "No cubes available yet" : "No cubes found"}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {cubes.length === 0
+            {isPastCompetition
+              ? "Check upcoming competitions to find cubes people are still bringing."
+              : cubes.length === 0
               ? "Be the first to list a cube for this competition."
               : "Try a different search term."}
           </Typography>

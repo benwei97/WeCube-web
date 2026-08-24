@@ -20,6 +20,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import { AuthModal } from "../components/AuthModal";
+import { getUpcomingCompetitionsFromList } from "../utils/listingUtils";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
   getUpcomingCompetitions,
@@ -72,7 +73,9 @@ function Competitions() {
   const [showAuth, setShowAuth] = useState(false);
   const [actionSnackbar, setActionSnackbar] = useState(null);
 
-  const savedCompetitions = optimisticSavedCompetitions;
+  const savedCompetitions = getUpcomingCompetitionsFromList(
+    optimisticSavedCompetitions
+  );
   const pinnedSavedCompetitions = savedCompetitions.filter((competition) =>
     competitionMatchesSearch(competition, competitionSearchInput)
   );

@@ -59,6 +59,7 @@ import {
 } from "../utils/messaging";
 import {
   formatListingPrice,
+  getUpcomingCompetitionsFromList,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   isListingModerationHidden,
@@ -320,7 +321,7 @@ function Dashboard() {
     ? savedListings
     : savedListings.slice(0, SAVED_LISTING_PREVIEW_LIMIT);
   const savedCompetitions = Array.isArray(currentUser?.attendingCompetitions)
-    ? currentUser.attendingCompetitions
+    ? getUpcomingCompetitionsFromList(currentUser.attendingCompetitions)
     : [];
   const displayedSavedCompetitions = showAllSavedCompetitions
     ? savedCompetitions
@@ -1323,7 +1324,9 @@ function Dashboard() {
           </Typography>
           {savedCompetitions.length === 0 ? (
             <Box sx={EMPTY_STATE_SX}>
-              <Typography variant="body2">No saved competitions yet.</Typography>
+              <Typography variant="body2">
+                No upcoming saved competitions.
+              </Typography>
               <Button
                 size="small"
                 variant="text"

@@ -111,6 +111,31 @@ export function getNormalizedFulfillmentFields(listing = {}) {
   const legacyCompetitions = Array.isArray(listing.competitions)
     ? listing.competitions
     : [];
+  const legacyCompetitionsById = new Map(
+    legacyCompetitions
+      .filter((competition) => competition?.id)
+      .map((competition) => [competition.id, competition])
+  );
+  const normalizeCompetitionTag = (competition = {}) => {
+    const legacyCompetition = legacyCompetitionsById.get(competition.id) || {};
+
+    return {
+      ...legacyCompetition,
+      ...competition,
+      id: competition.id || legacyCompetition.id,
+      name: competition.name || legacyCompetition.name,
+      displayName:
+        competition.displayName ||
+        legacyCompetition.displayName ||
+        competition.name ||
+        legacyCompetition.name,
+      city: competition.city || legacyCompetition.city,
+      country: competition.country || legacyCompetition.country,
+      dateRange: competition.dateRange || legacyCompetition.dateRange || "",
+      startDate: competition.startDate || legacyCompetition.startDate || null,
+      endDate: competition.endDate || legacyCompetition.endDate || null,
+    };
+  };
 
   return {
     shippingAvailable:
@@ -129,13 +154,8 @@ export function getNormalizedFulfillmentFields(listing = {}) {
     meetupCompetitionTags:
       Array.isArray(listing.meetupCompetitionTags) &&
       listing.meetupCompetitionTags.length > 0
-        ? listing.meetupCompetitionTags
-        : legacyCompetitions.map((competition) => ({
-            id: competition.id,
-            name: competition.name,
-            displayName: competition.displayName || competition.name,
-            dateRange: competition.dateRange || "",
-          })),
+        ? listing.meetupCompetitionTags.map(normalizeCompetitionTag)
+        : legacyCompetitions.map(normalizeCompetitionTag),
     shippingIncluded: Boolean(listing.shippingIncluded),
     shippingProfile: listing.shippingProfile || "",
     shippingCost: getShippingPriceFromListing(listing),
@@ -144,6 +164,65 @@ export function getNormalizedFulfillmentFields(listing = {}) {
 
 function getCompetitionLabel(competition = {}) {
   return competition.displayName || competition.name || "Competition meetup";
+}
+
+function getCompetitionEndDate(competition = {}) {
+  const rawDate = competition.endDate || competition.startDate;
+  if (!rawDate) {
+    return null;
+  }
+
+  const date = rawDate.toDate ? rawDate.toDate() : new Date(rawDate);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+export function isCompetitionPast(competition = {}, now = new Date()) {
+  const endDate = getCompetitionEndDate(competition);
+  return Boolean(endDate && endDate.getTime() < now.getTime());
+}
+
+export function getUpcomingCompetitionsFromList(competitions = [], now = new Date()) {
+  return (Array.isArray(competitions) ? competitions : []).filter(
+    (competition) => !isCompetitionPast(competition, now)
+  );
+}
+
+export function getActiveFulfillmentFields(listing = {}, now = new Date()) {
+  const fulfillment = getNormalizedFulfillmentFields(listing);
+  const upcomingCompetitionTags = getUpcomingCompetitionsFromList(
+    fulfillment.meetupCompetitionTags,
+    now
+  );
+  const competitionMeetupAvailable =
+    fulfillment.competitionMeetupAvailable && upcomingCompetitionTags.length > 0;
+
+  return {
+    ...fulfillment,
+    competitionMeetupAvailable,
+    meetupCompetitionTags: upcomingCompetitionTags,
+    hasExpiredCompetitionMeetups:
+      fulfillment.competitionMeetupAvailable &&
+      fulfillment.meetupCompetitionTags.length > upcomingCompetitionTags.length,
+    hasAnyActiveFulfillment:
+      fulfillment.localMeetupAvailable ||
+      fulfillment.shippingAvailable ||
+      competitionMeetupAvailable,
+  };
+}
+
+export function isCompetitionOnlyListingExpired(listing = {}, now = new Date()) {
+  const fulfillment = getActiveFulfillmentFields(listing, now);
+  return (
+    getNormalizedFulfillmentFields(listing).competitionMeetupAvailable &&
+    !fulfillment.localMeetupAvailable &&
+    !fulfillment.shippingAvailable &&
+    !fulfillment.competitionMeetupAvailable
+  );
 }
 
 function formatLocalMeetupLabel(label = "") {
@@ -195,7 +274,7 @@ export function getListingCompetitionPayload(competition = {}, options = {}) {
 }
 
 export function getPrimaryFulfillmentOption(listing = {}, options = {}) {
-  const fulfillment = getNormalizedFulfillmentFields(listing);
+  const fulfillment = getActiveFulfillmentFields(listing);
   const competitionTags = fulfillment.meetupCompetitionTags || [];
 
   if (options.preferShipping && fulfillment.shippingAvailable) {

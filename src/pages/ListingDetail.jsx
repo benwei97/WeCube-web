@@ -87,10 +87,13 @@ import {
   getConditionLabel,
   formatListedLocationLabel,
   getListingCompetitionPayload,
+  getActiveFulfillmentFields,
   getNormalizedFulfillmentFields,
+  getUpcomingCompetitionsFromList,
   getShippingPriceFromListing,
   canViewModerationHiddenListing,
   isListingModerationHidden,
+  isCompetitionOnlyListingExpired,
   normalizeConditionValue,
   parseNonNegativeCurrencyAmount,
   parsePositiveCurrencyAmount,
@@ -221,7 +224,9 @@ function ListingDetail() {
   const [showAllCompetitionMeetups, setShowAllCompetitionMeetups] =
     useState(false);
   const [activeFulfillmentOption, setActiveFulfillmentOption] = useState("");
-  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const bookmarkedCompetitions = getUpcomingCompetitionsFromList(
+    currentUser?.attendingCompetitions || []
+  );
   const competitionOptions =
     bookmarkedCompetitions.length > 0
       ? [MY_COMPETITIONS_OPTION, ...competitions]
@@ -1288,7 +1293,11 @@ function ListingDetail() {
   const activeMedia = mediaCount > 0 ? mediaItems[currentPhotoIndex] : null;
   const descriptionText = listing?.description || "No description provided.";
   const shouldCollapseDescription = descriptionText.length > 280;
-  const meetupCompetitionTags = listing?.meetupCompetitionTags || [];
+  const activeFulfillment = getActiveFulfillmentFields(listing || {});
+  const hasExpiredCompetitionOnlyListing = isCompetitionOnlyListingExpired(
+    listing || {}
+  );
+  const meetupCompetitionTags = activeFulfillment.meetupCompetitionTags || [];
   const visibleCompetitionMeetups = showAllCompetitionMeetups
     ? meetupCompetitionTags
     : meetupCompetitionTags.slice(0, 3);
@@ -1377,7 +1386,7 @@ function ListingDetail() {
     ? "Mark as Available"
     : "Mark as Sold";
   const fulfillmentOptions = [
-    listing.localMeetupAvailable
+    activeFulfillment.localMeetupAvailable
       ? {
           value: "local",
           label: "Local Meetup",
@@ -1385,7 +1394,7 @@ function ListingDetail() {
           icon: LocationOn,
         }
       : null,
-    listing.competitionMeetupAvailable
+    activeFulfillment.competitionMeetupAvailable
       ? {
           value: "competition",
           label: "Competition Meetup",
@@ -1393,7 +1402,7 @@ function ListingDetail() {
           icon: Groups,
         }
       : null,
-    listing.shippingAvailable
+    activeFulfillment.shippingAvailable
       ? {
           value: "shipping",
           label: "Shipping",
@@ -1416,6 +1425,19 @@ function ListingDetail() {
           message="This listing may have been removed or is no longer visible."
           actionLabel="Back"
           onAction={() => navigate(-1)}
+        />
+      </Box>
+    );
+  }
+
+  if (!isOwner && hasExpiredCompetitionOnlyListing) {
+    return (
+      <Box sx={{ width: "80vw", mx: "auto", p: 3, mt: 2 }}>
+        <PageState
+          title="Listing unavailable"
+          message="This listing was only available for competitions that have already passed."
+          actionLabel="Browse cubes"
+          onAction={() => navigate("/")}
         />
       </Box>
     );
@@ -1573,6 +1595,24 @@ function ListingDetail() {
           This listing is hidden from public listing surfaces.
         </Alert>
       )}
+
+      {isOwner &&
+        hasExpiredCompetitionOnlyListing &&
+        (listing.status === "active" || !listing.status) && (
+          <Alert
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" onClick={handleEditToggle}>
+                Update
+              </Button>
+            }
+            sx={{ mb: { xs: 2, lg: 1.25 }, flexShrink: 0 }}
+          >
+            All competition meetups for this listing have passed. Add another
+            competition, local meetup, or shipping to make it visible to buyers
+            again.
+          </Alert>
+        )}
 
       <Grid
         container

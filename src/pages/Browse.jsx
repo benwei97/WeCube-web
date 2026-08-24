@@ -40,9 +40,11 @@ import {
 } from "../components/ListingStatusDecorators";
 import {
   formatListingPrice,
+  getActiveFulfillmentFields,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   isListingModerationHidden,
+  isCompetitionOnlyListingExpired,
   isSoldListingPubliclyVisible,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -219,11 +221,8 @@ function getLocationMatchInfo(listing, filters) {
     };
   }
 
-  const normalizedListing = getNormalizedFulfillmentFields(listing);
-  const competitionTags = [
-    ...(normalizedListing.meetupCompetitionTags || []),
-    ...(listing.competitions || []),
-  ];
+  const normalizedListing = getActiveFulfillmentFields(listing);
+  const competitionTags = normalizedListing.meetupCompetitionTags || [];
   const meetupLocationSearch = filters.meetupLocation.trim().toLowerCase();
   const selectedLocation = filters.meetupLocationOption;
   const selectedRadius = Number(filters.meetupRadius);
@@ -465,7 +464,8 @@ function Browse() {
     let filtered = allListings.filter(
       (listing) =>
         listing.userId === currentUser?.uid ||
-        isSoldListingPubliclyVisible(listing)
+        (isSoldListingPubliclyVisible(listing) &&
+          !isCompetitionOnlyListingExpired(listing))
     );
 
     if (filters.search) {
