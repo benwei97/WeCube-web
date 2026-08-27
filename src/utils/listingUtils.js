@@ -10,6 +10,8 @@ export const PUZZLE_TYPE_OPTIONS = [
   "Megaminx",
   "Square-1",
   "Clock",
+  "Lube",
+  "Custom Mods",
   "Accessories",
   "Bundles",
   "Other",
