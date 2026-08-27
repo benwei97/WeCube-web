@@ -14,8 +14,13 @@ import {
   Slider,
   Checkbox,
   FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
 } from "@mui/material";
-import { Search, LocationOn } from "@mui/icons-material";
+import { Search, Tune } from "@mui/icons-material";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -43,9 +48,11 @@ import {
   getActiveFulfillmentFields,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
+  PUZZLE_TYPE_OPTIONS,
   isListingModerationHidden,
   isCompetitionOnlyListingExpired,
   isSoldListingPubliclyVisible,
+  parseNonNegativeCurrencyAmount,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import {
@@ -68,13 +75,23 @@ const DEFAULT_LOCATION_FILTER = {
   includeCompetitionMeetups: true,
   includeShippableListings: true,
 };
+const DEFAULT_FILTER_PANEL = {
+  puzzleType: "all",
+  minPrice: "",
+  maxPrice: "",
+  ...DEFAULT_LOCATION_FILTER,
+};
+const DEFAULT_BROWSE_FILTERS = {
+  search: "",
+  ...DEFAULT_FILTER_PANEL,
+};
 const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter_v3";
 const SOFT_PANEL_SX = {
   bgcolor: "#ffffff",
   border: "1px solid rgba(148, 163, 184, 0.14)",
   boxShadow: "0 2px 10px rgba(31, 53, 99, 0.04)",
 };
-const LOCATION_FILTER_BUTTON_SX = {
+const FILTER_BUTTON_SX = {
   whiteSpace: "nowrap",
   minWidth: { xs: 44, sm: 64 },
   width: { xs: 44, sm: "auto" },
@@ -199,16 +216,17 @@ function getMilesBetweenLocations(origin, destination) {
   );
 }
 
-function getLocationButtonLabel(filters) {
-  if (!filters.meetupLocation.trim()) {
-    return "All locations";
-  }
+function getPriceAmount(price) {
+  const amount = Number(price);
+  return Number.isFinite(amount) ? amount : null;
+}
 
-  return (
-    filters.meetupLocationOption?.city ||
-    filters.meetupLocation.split(",")[0].trim() ||
-    "Location"
-  );
+function getFilterCount(filters) {
+  return [
+    filters.meetupLocation.trim(),
+    filters.puzzleType !== "all",
+    filters.minPrice.trim() || filters.maxPrice.trim(),
+  ].filter(Boolean).length;
 }
 
 function getLocationMatchInfo(listing, filters) {
@@ -338,27 +356,33 @@ function Browse() {
   const [hasMore, setHasMore] = useState(true);
   const [visibleCount, setVisibleCount] = useState(4);
   const [isSearching, setIsSearching] = useState(false);
-  const [filters, setFilters] = useState({
-    search: "",
-    ...DEFAULT_LOCATION_FILTER,
-  });
-  const [locationDraft, setLocationDraft] = useState({
-    ...DEFAULT_LOCATION_FILTER,
-  });
-  const [locationAnchorEl, setLocationAnchorEl] = useState(null);
+  const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS });
+  const [filterDraft, setFilterDraft] = useState({ ...DEFAULT_FILTER_PANEL });
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [locationSearchOptions, setLocationSearchOptions] = useState([]);
   const [loadingLocationOptions, setLoadingLocationOptions] = useState(false);
+  const [isLocationAutocompleteOpen, setIsLocationAutocompleteOpen] =
+    useState(false);
   const [restoredLocationFilterKey, setRestoredLocationFilterKey] =
     useState(null);
   const navigate = useNavigate();
   const locationOptions =
-    locationDraft.meetupLocation.trim().length >= 2 ? locationSearchOptions : [];
-  const isLocationPopoverOpen = Boolean(locationAnchorEl);
+    filterDraft.meetupLocation.trim().length >= 2 ? locationSearchOptions : [];
+  const isFilterPopoverOpen = Boolean(filterAnchorEl);
   const hasLocationFilter = Boolean(filters.meetupLocation.trim());
-  const isLocationDraftInvalid =
-    Boolean(locationDraft.meetupLocation.trim()) &&
-    !locationDraft.meetupLocationOption;
-  const locationButtonLabel = getLocationButtonLabel(filters);
+  const hasPuzzleTypeFilter = filters.puzzleType !== "all";
+  const hasPriceRangeFilter = Boolean(
+    filters.minPrice.trim() || filters.maxPrice.trim()
+  );
+  const activeFilterCount = getFilterCount(filters);
+  const hasPanelFilters = activeFilterCount > 0;
+  const hasActiveFilters = Boolean(
+    filters.search ||
+      hasPanelFilters
+  );
+  const isFilterDraftInvalid =
+    Boolean(filterDraft.meetupLocation.trim()) &&
+    !filterDraft.meetupLocationOption;
   const locationFilterStorageKey = getLocationFilterStorageKey(currentUser?.uid);
   const displayedListings = isSearching
     ? filteredListings
@@ -396,7 +420,10 @@ function Browse() {
       ...prev,
       ...storedLocationFilter,
     }));
-    setLocationDraft(storedLocationFilter);
+    setFilterDraft((prev) => ({
+      ...prev,
+      ...storedLocationFilter,
+    }));
     setRestoredLocationFilterKey(locationFilterStorageKey);
   }, [currentUser?.uid, locationFilterStorageKey]);
 
@@ -426,7 +453,7 @@ function Browse() {
   ]);
 
   useEffect(() => {
-    const query = locationDraft.meetupLocation.trim();
+    const query = filterDraft.meetupLocation.trim();
     if (query.length < 2) {
       setLocationSearchOptions([]);
       setLoadingLocationOptions(false);
@@ -458,7 +485,7 @@ function Browse() {
       active = false;
       window.clearTimeout(timeoutId);
     };
-  }, [locationDraft.meetupLocation]);
+  }, [filterDraft.meetupLocation]);
 
   const applyFilters = useCallback(() => {
     let filtered = allListings.filter(
@@ -478,6 +505,35 @@ function Browse() {
       );
     }
 
+    if (hasPuzzleTypeFilter) {
+      filtered = filtered.filter(
+        (listing) => listing.puzzleType === filters.puzzleType
+      );
+    }
+
+    if (hasPriceRangeFilter) {
+      const minPrice = parseNonNegativeCurrencyAmount(filters.minPrice);
+      const maxPrice = parseNonNegativeCurrencyAmount(filters.maxPrice);
+
+      filtered = filtered.filter((listing) => {
+        const listingPrice = getPriceAmount(listing.price);
+
+        if (listingPrice === null) {
+          return false;
+        }
+
+        if (minPrice !== null && listingPrice < minPrice) {
+          return false;
+        }
+
+        if (maxPrice !== null && listingPrice > maxPrice) {
+          return false;
+        }
+
+        return true;
+      });
+    }
+
     if (filters.meetupLocation.trim()) {
       filtered = filtered.filter((listing) => {
         const locationMatch = getLocationMatchInfo(listing, filters);
@@ -486,7 +542,13 @@ function Browse() {
     }
 
     setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
-  }, [allListings, currentUser?.uid, filters]);
+  }, [
+    allListings,
+    currentUser?.uid,
+    filters,
+    hasPriceRangeFilter,
+    hasPuzzleTypeFilter,
+  ]);
 
   const loadMoreListings = useCallback(() => {
     if (!isSearching && hasMore && !loadingMore) {
@@ -508,12 +570,8 @@ function Browse() {
 
   // Check if user is actively searching/filtering
   useEffect(() => {
-    const searching =
-      filters.search ||
-      hasLocationFilter;
-    setIsSearching(searching);
-
-  }, [filters, hasLocationFilter]);
+    setIsSearching(hasActiveFilters);
+  }, [hasActiveFilters]);
 
   useEffect(() => {
     if (isSearching || !hasMore || loading) {
@@ -546,16 +604,20 @@ function Browse() {
     }));
   };
 
-  const clearLocationFilter = () => {
+  const clearPanelFilters = () => {
     setFilters((prev) => ({
       ...prev,
-      ...DEFAULT_LOCATION_FILTER,
+      ...DEFAULT_FILTER_PANEL,
     }));
-    setLocationDraft({ ...DEFAULT_LOCATION_FILTER });
+    setFilterDraft({ ...DEFAULT_FILTER_PANEL });
+    setIsLocationAutocompleteOpen(false);
   };
 
-  const handleOpenLocationFilter = (event) => {
-    setLocationDraft({
+  const handleOpenFilter = (event) => {
+    setFilterDraft({
+      puzzleType: filters.puzzleType,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
       meetupLocation: filters.meetupLocation,
       meetupLocationOption: filters.meetupLocationOption,
       meetupRadius: filters.meetupRadius,
@@ -563,19 +625,25 @@ function Browse() {
       includeCompetitionMeetups: filters.includeCompetitionMeetups,
       includeShippableListings: filters.includeShippableListings,
     });
-    setLocationAnchorEl(event.currentTarget);
+    setIsLocationAutocompleteOpen(false);
+    setFilterAnchorEl(event.currentTarget);
   };
 
-  const handleApplyLocationFilter = () => {
-    if (isLocationDraftInvalid) {
+  const handleCloseFilter = () => {
+    setIsLocationAutocompleteOpen(false);
+    setFilterAnchorEl(null);
+  };
+
+  const handleApplyFilterPanel = () => {
+    if (isFilterDraftInvalid) {
       return;
     }
 
     setFilters((prev) => ({
       ...prev,
-      ...locationDraft,
+      ...filterDraft,
     }));
-    setLocationAnchorEl(null);
+    handleCloseFilter();
   };
 
   const formatPrice = formatListingPrice;
@@ -627,11 +695,11 @@ function Browse() {
               }}
             />
             <Button
-              variant={hasLocationFilter ? "contained" : "outlined"}
-              startIcon={<LocationOn />}
-              onClick={handleOpenLocationFilter}
-              aria-label={locationButtonLabel}
-              sx={LOCATION_FILTER_BUTTON_SX}
+              variant={hasPanelFilters ? "contained" : "outlined"}
+              startIcon={<Tune />}
+              onClick={handleOpenFilter}
+              aria-label="Filters"
+              sx={FILTER_BUTTON_SX}
             >
               <Box
                 component="span"
@@ -642,21 +710,23 @@ function Browse() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {locationButtonLabel}
+                {activeFilterCount > 0
+                  ? `Filters (${activeFilterCount})`
+                  : "Filters"}
               </Box>
             </Button>
           </Box>
 
           <Popover
-            open={isLocationPopoverOpen}
-            anchorEl={locationAnchorEl}
-            onClose={() => setLocationAnchorEl(null)}
+            open={isFilterPopoverOpen}
+            anchorEl={filterAnchorEl}
+            onClose={handleCloseFilter}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             transformOrigin={{ vertical: "top", horizontal: "right" }}
             slotProps={{
               paper: {
                 sx: {
-                  width: { xs: "calc(100vw - 32px)", sm: 380 },
+                  width: { xs: "calc(100vw - 32px)", sm: 420 },
                   p: 2.5,
                   mt: 1,
                 },
@@ -666,12 +736,81 @@ function Browse() {
             <Stack spacing={2}>
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Location
+                  Filters
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Find listings available near this location.
+                  Leave location blank to include listings from everywhere.
                 </Typography>
               </Box>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel id="puzzle-type-filter-label">Puzzle type</InputLabel>
+                <Select
+                  labelId="puzzle-type-filter-label"
+                  value={filterDraft.puzzleType}
+                  label="Puzzle type"
+                  onChange={(event) =>
+                    setFilterDraft((prev) => ({
+                      ...prev,
+                      puzzleType: event.target.value,
+                    }))
+                  }
+                >
+                  <MenuItem value="all">All puzzle types</MenuItem>
+                  {PUZZLE_TYPE_OPTIONS.map((puzzleType) => (
+                    <MenuItem key={puzzleType} value={puzzleType}>
+                      {puzzleType}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  size="small"
+                  label="Min price"
+                  type="number"
+                  value={filterDraft.minPrice}
+                  onChange={(event) =>
+                    setFilterDraft((prev) => ({
+                      ...prev,
+                      minPrice: event.target.value,
+                    }))
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">$</InputAdornment>
+                      ),
+                      inputProps: { min: 0, step: "0.01" },
+                    },
+                  }}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  size="small"
+                  label="Max price"
+                  type="number"
+                  value={filterDraft.maxPrice}
+                  onChange={(event) =>
+                    setFilterDraft((prev) => ({
+                      ...prev,
+                      maxPrice: event.target.value,
+                    }))
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">$</InputAdornment>
+                      ),
+                      inputProps: { min: 0, step: "0.01" },
+                    },
+                  }}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+
+              <Divider />
 
               <Autocomplete
                 options={locationOptions}
@@ -679,30 +818,40 @@ function Browse() {
                 isOptionEqualToValue={(option, value) =>
                   option?.label === value?.label
                 }
-                inputValue={locationDraft.meetupLocation}
-                value={locationDraft.meetupLocationOption}
+                inputValue={filterDraft.meetupLocation}
+                value={filterDraft.meetupLocationOption}
                 loading={loadingLocationOptions}
-                open={locationDraft.meetupLocation.trim().length >= 2}
+                open={
+                  isLocationAutocompleteOpen &&
+                  filterDraft.meetupLocation.trim().length >= 2
+                }
+                onOpen={() => {
+                  if (!filterDraft.meetupLocationOption) {
+                    setIsLocationAutocompleteOpen(true);
+                  }
+                }}
+                onClose={() => setIsLocationAutocompleteOpen(false)}
                 filterOptions={(options) => options}
                 noOptionsText={
-                  locationDraft.meetupLocation.trim().length < 2
+                  filterDraft.meetupLocation.trim().length < 2
                     ? "Start typing a location..."
                     : "No matching locations found"
                 }
                 onChange={(_, value) => {
                   const selectedLocation =
                     typeof value === "string" ? null : value;
-                  setLocationDraft((prev) => ({
+                  setFilterDraft((prev) => ({
                     ...prev,
                     meetupLocation: getLocationOptionLabel(value),
                     meetupLocationOption: selectedLocation,
                   }));
+                  setIsLocationAutocompleteOpen(false);
                 }}
                 onInputChange={(_, value, reason) => {
                   if (reason === "reset") {
                     return;
                   }
-                  setLocationDraft((prev) => ({
+                  setFilterDraft((prev) => ({
                     ...prev,
                     meetupLocation: value,
                     meetupLocationOption:
@@ -710,6 +859,7 @@ function Browse() {
                         ? prev.meetupLocationOption
                         : null,
                   }));
+                  setIsLocationAutocompleteOpen(value.trim().length >= 2);
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -725,10 +875,10 @@ function Browse() {
 
               <Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Radius: {locationDraft.meetupRadius} miles
+                  Radius: {filterDraft.meetupRadius} miles
                 </Typography>
                 <Slider
-                  value={locationDraft.meetupRadius}
+                  value={filterDraft.meetupRadius}
                   min={LOCATION_RADIUS_MIN_MILES}
                   max={LOCATION_RADIUS_MAX_MILES}
                   step={5}
@@ -740,7 +890,7 @@ function Browse() {
                   ]}
                   valueLabelDisplay="auto"
                   onChange={(_, value) =>
-                    setLocationDraft((prev) => ({
+                    setFilterDraft((prev) => ({
                       ...prev,
                       meetupRadius: value,
                     }))
@@ -754,9 +904,9 @@ function Browse() {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={locationDraft.includeLocalMeetups}
+                      checked={filterDraft.includeLocalMeetups}
                       onChange={(event) =>
-                        setLocationDraft((prev) => ({
+                        setFilterDraft((prev) => ({
                           ...prev,
                           includeLocalMeetups: event.target.checked,
                         }))
@@ -768,9 +918,9 @@ function Browse() {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={locationDraft.includeCompetitionMeetups}
+                      checked={filterDraft.includeCompetitionMeetups}
                       onChange={(event) =>
-                        setLocationDraft((prev) => ({
+                        setFilterDraft((prev) => ({
                           ...prev,
                           includeCompetitionMeetups: event.target.checked,
                         }))
@@ -782,9 +932,9 @@ function Browse() {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={locationDraft.includeShippableListings}
+                      checked={filterDraft.includeShippableListings}
                       onChange={(event) =>
-                        setLocationDraft((prev) => ({
+                        setFilterDraft((prev) => ({
                           ...prev,
                           includeShippableListings: event.target.checked,
                         }))
@@ -796,13 +946,13 @@ function Browse() {
               </Stack>
 
               <Stack direction="row" justifyContent="space-between" spacing={1}>
-                <Button variant="text" onClick={clearLocationFilter}>
-                  Clear location
+                <Button variant="text" onClick={clearPanelFilters}>
+                  Clear filters
                 </Button>
                 <Button
                   variant="contained"
-                  onClick={handleApplyLocationFilter}
-                  disabled={isLocationDraftInvalid}
+                  onClick={handleApplyFilterPanel}
+                  disabled={isFilterDraftInvalid}
                 >
                   Apply
                 </Button>
