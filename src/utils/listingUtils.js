@@ -391,6 +391,143 @@ export function sortListingsByAvailabilityAndDate(listings = []) {
   });
 }
 
+function getListingStatusScore(listing = {}) {
+  if (listing.status === "sold") {
+    return 0;
+  }
+
+  if (listing.status === "archived") {
+    return 100;
+  }
+
+  return 1000;
+}
+
+function getListingRecencyScore(listing = {}, now = new Date()) {
+  const createdAtMs = getListingTimestampMs(listing.createdAt);
+  if (!createdAtMs) {
+    return 0;
+  }
+
+  const ageInDays = Math.max(
+    0,
+    (now.getTime() - createdAtMs) / (24 * 60 * 60 * 1000)
+  );
+
+  if (ageInDays <= 1) {
+    return 100;
+  }
+
+  if (ageInDays <= 7) {
+    return 70;
+  }
+
+  if (ageInDays <= 30) {
+    return 35;
+  }
+
+  return 10;
+}
+
+function getListingPhotoScore(listing = {}) {
+  const photoCount = Array.isArray(listing.photos) ? listing.photos.length : 0;
+  if (photoCount === 0) {
+    return 0;
+  }
+
+  return photoCount > 1 ? 55 : 40;
+}
+
+function getListingFulfillmentScore(listing = {}) {
+  const fulfillment = getActiveFulfillmentFields(listing);
+  return [
+    fulfillment.shippingAvailable ? 20 : 0,
+    fulfillment.localMeetupAvailable ? 15 : 0,
+    fulfillment.competitionMeetupAvailable ? 15 : 0,
+  ].reduce((total, score) => total + score, 0);
+}
+
+function getListingPriceScore(listing = {}) {
+  const price = Number(listing.price);
+  if (!Number.isFinite(price) || price < 0) {
+    return 0;
+  }
+
+  if (price <= 5) {
+    return 30;
+  }
+
+  if (price <= 15) {
+    return 25;
+  }
+
+  if (price <= 30) {
+    return 18;
+  }
+
+  if (price <= 60) {
+    return 10;
+  }
+
+  return 0;
+}
+
+function getListingQualityScore(listing = {}) {
+  return listing.description?.trim() ? 10 : 0;
+}
+
+function getListingSellerScore(listing = {}) {
+  const sellerReviewCount = Number(
+    listing.sellerReviewCount ||
+      listing.sellerStats?.reviewCount ||
+      listing.sellerReviewsCount ||
+      0
+  );
+  const sellerAverageRating = Number(
+    listing.sellerAverageRating ||
+      listing.sellerStats?.averageRating ||
+      listing.sellerRating ||
+      0
+  );
+
+  if (!Number.isFinite(sellerReviewCount) || sellerReviewCount <= 0) {
+    return 0;
+  }
+
+  const reviewCountScore = Math.min(sellerReviewCount, 10);
+  const ratingScore =
+    Number.isFinite(sellerAverageRating) && sellerAverageRating > 0
+      ? Math.min(sellerAverageRating, 5) * 2
+      : 0;
+
+  return Math.min(reviewCountScore + ratingScore, 20);
+}
+
+export function getRecommendedListingScore(listing = {}, now = new Date()) {
+  return (
+    getListingStatusScore(listing) +
+    getListingRecencyScore(listing, now) +
+    getListingPhotoScore(listing) +
+    getListingFulfillmentScore(listing) +
+    getListingPriceScore(listing) +
+    getListingQualityScore(listing) +
+    getListingSellerScore(listing)
+  );
+}
+
+export function sortListingsByRecommended(listings = [], now = new Date()) {
+  return [...listings].sort((a, b) => {
+    const scoreDelta =
+      getRecommendedListingScore(b, now) - getRecommendedListingScore(a, now);
+
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return getListingTimestampMs(b.createdAt) - getListingTimestampMs(a.createdAt);
+  });
+}
+
 export function getConditionLabel(conditionValue) {
   const normalizedCondition = normalizeConditionValue(conditionValue);
   return (

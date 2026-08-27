@@ -47,6 +47,7 @@ import {
 import {
   formatListingPrice,
   getActiveFulfillmentFields,
+  getListingTimestampMs,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
   PUZZLE_TYPE_OPTIONS,
@@ -55,6 +56,7 @@ import {
   isSoldListingPubliclyVisible,
   parseNonNegativeCurrencyAmount,
   sortListingsByAvailabilityAndDate,
+  sortListingsByRecommended,
 } from "../utils/listingUtils";
 import {
   fetchLocationSuggestionOptions,
@@ -86,6 +88,12 @@ const DEFAULT_BROWSE_FILTERS = {
   search: "",
   ...DEFAULT_FILTER_PANEL,
 };
+const BROWSE_SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended" },
+  { value: "newest", label: "Newest" },
+  { value: "price-low", label: "Price: Low to High" },
+  { value: "price-high", label: "Price: High to Low" },
+];
 const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter_v3";
 const SOFT_PANEL_SX = {
   bgcolor: "#ffffff",
@@ -225,6 +233,59 @@ function getFilterCount(filters) {
   ].filter(Boolean).length;
 }
 
+function getBrowseAvailabilityRank(listing = {}) {
+  if (listing.status === "sold") {
+    return 2;
+  }
+
+  if (listing.status === "archived") {
+    return 1;
+  }
+
+  return 0;
+}
+
+function sortBrowseListings(listings = [], sortMode = "recommended") {
+  if (sortMode === "newest") {
+    return sortListingsByAvailabilityAndDate(listings);
+  }
+
+  if (sortMode === "price-low" || sortMode === "price-high") {
+    const direction = sortMode === "price-low" ? 1 : -1;
+    return [...listings].sort((a, b) => {
+      const availabilityDelta =
+        getBrowseAvailabilityRank(a) - getBrowseAvailabilityRank(b);
+
+      if (availabilityDelta !== 0) {
+        return availabilityDelta;
+      }
+
+      const aPrice = getPriceAmount(a.price);
+      const bPrice = getPriceAmount(b.price);
+
+      if (aPrice === null && bPrice === null) {
+        return 0;
+      }
+
+      if (aPrice === null) {
+        return 1;
+      }
+
+      if (bPrice === null) {
+        return -1;
+      }
+
+      if (aPrice !== bPrice) {
+        return (aPrice - bPrice) * direction;
+      }
+
+      return getListingTimestampMs(b.createdAt) - getListingTimestampMs(a.createdAt);
+    });
+  }
+
+  return sortListingsByRecommended(listings);
+}
+
 function getLocationMatchInfo(listing, filters) {
   if (!filters.meetupLocation.trim()) {
     return {
@@ -353,6 +414,7 @@ function Browse() {
   const [visibleCount, setVisibleCount] = useState(4);
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS });
+  const [sortMode, setSortMode] = useState("recommended");
   const [filterDraft, setFilterDraft] = useState({ ...DEFAULT_FILTER_PANEL });
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [locationSearchOptions, setLocationSearchOptions] = useState([]);
@@ -537,13 +599,14 @@ function Browse() {
       });
     }
 
-    setFilteredListings(sortListingsByAvailabilityAndDate(filtered));
+    setFilteredListings(sortBrowseListings(filtered, sortMode));
   }, [
     allListings,
     currentUser?.uid,
     filters,
     hasPriceRangeFilter,
     hasPuzzleTypeFilter,
+    sortMode,
   ]);
 
   const loadMoreListings = useCallback(() => {
@@ -702,6 +765,24 @@ function Browse() {
             >
               <Tune />
             </IconButton>
+          </Box>
+
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 190 } }}>
+              <InputLabel id="browse-sort-label">Sort</InputLabel>
+              <Select
+                labelId="browse-sort-label"
+                value={sortMode}
+                label="Sort"
+                onChange={(event) => setSortMode(event.target.value)}
+              >
+                {BROWSE_SORT_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
 
           <Popover
