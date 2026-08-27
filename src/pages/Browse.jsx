@@ -7,6 +7,7 @@ import {
   TextField,
   Paper,
   Button,
+  IconButton,
   Stack,
   Divider,
   Autocomplete,
@@ -92,23 +93,18 @@ const SOFT_PANEL_SX = {
   boxShadow: "0 2px 10px rgba(31, 53, 99, 0.04)",
 };
 const FILTER_BUTTON_SX = {
-  whiteSpace: "nowrap",
-  minWidth: { xs: 44, sm: 64 },
-  width: { xs: 44, sm: "auto" },
-  maxWidth: { xs: 44, sm: 280 },
-  px: { xs: 0, sm: 2 },
+  width: 48,
+  height: 48,
+  flexShrink: 0,
   color: "text.primary",
+  border: "1px solid",
   borderColor: "rgba(148, 163, 184, 0.22)",
-  "& .MuiButton-startIcon": {
-    m: { xs: 0, sm: "0 8px 0 -4px" },
-  },
   "&:hover": {
     borderColor: "primary.main",
     bgcolor: "rgba(47, 107, 255, 0.04)",
   },
-  "&.MuiButton-contained": {
+  "&[data-active='true']": {
     color: "text.primary",
-    border: "1px solid",
     borderColor: "primary.main",
     bgcolor: "rgba(47, 107, 255, 0.08)",
     boxShadow: "none",
@@ -694,27 +690,18 @@ function Browse() {
                 },
               }}
             />
-            <Button
-              variant={hasPanelFilters ? "contained" : "outlined"}
-              startIcon={<Tune />}
+            <IconButton
               onClick={handleOpenFilter}
-              aria-label="Filters"
+              aria-label={
+                activeFilterCount > 0
+                  ? `${activeFilterCount} active filters`
+                  : "Filters"
+              }
+              data-active={hasPanelFilters ? "true" : "false"}
               sx={FILTER_BUTTON_SX}
             >
-              <Box
-                component="span"
-                sx={{
-                  display: { xs: "none", sm: "inline" },
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {activeFilterCount > 0
-                  ? `Filters (${activeFilterCount})`
-                  : "Filters"}
-              </Box>
-            </Button>
+              <Tune />
+            </IconButton>
           </Box>
 
           <Popover
