@@ -79,6 +79,7 @@ const DEFAULT_LOCATION_FILTER = {
   includeShippableListings: true,
 };
 const DEFAULT_FILTER_PANEL = {
+  sortMode: "recommended",
   puzzleType: "all",
   minPrice: "",
   maxPrice: "",
@@ -227,6 +228,7 @@ function getPriceAmount(price) {
 
 function getFilterCount(filters) {
   return [
+    filters.sortMode !== "recommended",
     filters.meetupLocation.trim(),
     filters.puzzleType !== "all",
     filters.minPrice.trim() || filters.maxPrice.trim(),
@@ -414,7 +416,6 @@ function Browse() {
   const [visibleCount, setVisibleCount] = useState(4);
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS });
-  const [sortMode, setSortMode] = useState("recommended");
   const [filterDraft, setFilterDraft] = useState({ ...DEFAULT_FILTER_PANEL });
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [locationSearchOptions, setLocationSearchOptions] = useState([]);
@@ -599,14 +600,13 @@ function Browse() {
       });
     }
 
-    setFilteredListings(sortBrowseListings(filtered, sortMode));
+    setFilteredListings(sortBrowseListings(filtered, filters.sortMode));
   }, [
     allListings,
     currentUser?.uid,
     filters,
     hasPriceRangeFilter,
     hasPuzzleTypeFilter,
-    sortMode,
   ]);
 
   const loadMoreListings = useCallback(() => {
@@ -674,6 +674,7 @@ function Browse() {
 
   const handleOpenFilter = (event) => {
     setFilterDraft({
+      sortMode: filters.sortMode,
       puzzleType: filters.puzzleType,
       minPrice: filters.minPrice,
       maxPrice: filters.maxPrice,
@@ -767,24 +768,6 @@ function Browse() {
             </IconButton>
           </Box>
 
-          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 190 } }}>
-              <InputLabel id="browse-sort-label">Sort</InputLabel>
-              <Select
-                labelId="browse-sort-label"
-                value={sortMode}
-                label="Sort"
-                onChange={(event) => setSortMode(event.target.value)}
-              >
-                {BROWSE_SORT_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
           <Popover
             open={isFilterPopoverOpen}
             anchorEl={filterAnchorEl}
@@ -810,6 +793,27 @@ function Browse() {
                   Leave location blank to include listings from everywhere.
                 </Typography>
               </Box>
+
+              <FormControl size="small" fullWidth>
+                <InputLabel id="browse-sort-label">Sort by</InputLabel>
+                <Select
+                  labelId="browse-sort-label"
+                  value={filterDraft.sortMode}
+                  label="Sort by"
+                  onChange={(event) =>
+                    setFilterDraft((prev) => ({
+                      ...prev,
+                      sortMode: event.target.value,
+                    }))
+                  }
+                >
+                  {BROWSE_SORT_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               <FormControl size="small" fullWidth>
                 <InputLabel id="puzzle-type-filter-label">Puzzle type</InputLabel>
