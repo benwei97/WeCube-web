@@ -8,6 +8,7 @@ export const PUZZLE_TYPE_OPTIONS = [
   "Pyraminx",
   "Skewb",
   "Megaminx",
+  "FTO",
   "Square-1",
   "Clock",
   "Lube",
