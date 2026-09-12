@@ -38,6 +38,7 @@ import { radii, typography } from "../theme/design";
 import {
   formatListingPrice,
   getDateTime,
+  getUpcomingCompetitionsFromList,
   shouldShowListingInMarketplace,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -173,7 +174,7 @@ export default function ProfileScreen({ navigation, route }) {
   const displayName = `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim();
   const avatarUrl = currentUser?.avatarUrl || "";
   const attendingCompetitions = Array.isArray(currentUser?.attendingCompetitions)
-    ? currentUser.attendingCompetitions
+    ? getUpcomingCompetitionsFromList(currentUser.attendingCompetitions)
     : [];
 
   useEffect(() => {

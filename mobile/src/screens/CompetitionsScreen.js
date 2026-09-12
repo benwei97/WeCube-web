@@ -18,6 +18,7 @@ import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { radii, typography } from "../theme/design";
+import { getUpcomingCompetitionsFromList } from "../utils/listingUtils";
 import { searchCompetitions } from "../utils/wcaApi";
 
 const COMPETITION_BATCH_SIZE = 50;
@@ -120,7 +121,9 @@ export default function CompetitionsScreen({ navigation }) {
   const savedCompetitions = useMemo(
     () =>
       Array.isArray(currentUser?.attendingCompetitions)
-        ? currentUser.attendingCompetitions.filter((competition) => competition?.id)
+        ? getUpcomingCompetitionsFromList(
+            currentUser.attendingCompetitions
+          ).filter((competition) => competition?.id)
         : [],
     [currentUser?.attendingCompetitions]
   );

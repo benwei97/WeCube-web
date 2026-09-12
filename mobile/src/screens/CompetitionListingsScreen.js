@@ -14,7 +14,8 @@ import { db } from "../lib/firebase";
 import { colors } from "../theme/colors";
 import { radii, typography } from "../theme/design";
 import {
-  getCompetitionTags,
+  getActiveFulfillmentFields,
+  isCompetitionPast,
   shouldShowListingInMarketplace,
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
@@ -92,9 +93,15 @@ export default function CompetitionListingsScreen({ navigation, route }) {
         const nextListings = snapshot.docs
           .map((listingDoc) => ({ id: listingDoc.id, ...listingDoc.data() }))
           .filter(shouldShowListingInMarketplace)
-          .filter((listing) =>
-            getCompetitionTags(listing).some((item) => item.id === competitionId)
-          );
+          .filter((listing) => {
+            const activeFulfillment = getActiveFulfillmentFields(listing);
+            return (
+              activeFulfillment.competitionMeetupAvailable &&
+              activeFulfillment.meetupCompetitionTags.some(
+                (item) => item.id === competitionId
+              )
+            );
+          });
 
         if (active) {
           setListings(sortListingsByAvailabilityAndDate(nextListings));
@@ -116,12 +123,13 @@ export default function CompetitionListingsScreen({ navigation, route }) {
 
   const filteredListings = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
+    if (isCompetitionPast(competition)) return [];
     if (!normalizedSearch) return listings;
 
     return listings.filter((listing) =>
       getSearchText(listing).includes(normalizedSearch)
     );
-  }, [listings, searchQuery]);
+  }, [competition, listings, searchQuery]);
 
   const isLoading = loadingCompetition || loadingListings;
 
@@ -140,6 +148,11 @@ export default function CompetitionListingsScreen({ navigation, route }) {
             <Text style={styles.title}>{competition?.name || "Competition"}</Text>
             {competition ? (
               <Text style={styles.meta}>{getCompetitionMeta(competition)}</Text>
+            ) : null}
+            {competition && isCompetitionPast(competition) ? (
+              <Text style={styles.noticeText}>
+                This competition has already passed, so its meetup listings are no longer shown.
+              </Text>
             ) : null}
             <View style={styles.searchPanel}>
               <ClearableTextInput
@@ -183,7 +196,9 @@ export default function CompetitionListingsScreen({ navigation, route }) {
               </Text>
               <Text style={styles.emptyText}>
                 {listings.length === 0
-                  ? "Be the first to list a cube for this competition."
+                  ? isCompetitionPast(competition)
+                    ? "Check upcoming competitions to find cubes people are still bringing."
+                    : "Be the first to list a cube for this competition."
                   : "Try a different search term."}
               </Text>
             </View>
@@ -223,6 +238,16 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.caption,
     color: colors.muted,
+  },
+  noticeText: {
+    ...typography.caption,
+    backgroundColor: "#eff6ff",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    color: colors.text,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   searchPanel: {
     marginTop: 2,

@@ -17,11 +17,16 @@ import MobileListingCard from "../components/MobileListingCard";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
 import PageState from "../components/PageState";
+import { useAuth } from "../contexts/useAuth";
 import { db } from "../lib/firebase";
 import {
+  getActiveFulfillmentFields,
   getLocationMatchInfo,
+  parseNonNegativeCurrencyAmount,
+  PUZZLE_TYPE_OPTIONS,
   shouldShowListingInMarketplace,
   sortListingsByAvailabilityAndDate,
+  sortListingsByRecommended,
 } from "../utils/listingUtils";
 import {
   fetchLocationSuggestionOptions,
@@ -34,6 +39,24 @@ const DEFAULT_LOCATION_RADIUS_MILES = 25;
 const LOCATION_RADIUS_OPTIONS = [5, 10, 25, 50, 100];
 const INITIAL_VISIBLE_LISTINGS = 4;
 const LISTING_LOAD_INCREMENT = 8;
+const DEFAULT_BROWSE_FILTERS = {
+  sortMode: "recommended",
+  puzzleType: "all",
+  minPrice: "",
+  maxPrice: "",
+  locationInput: "",
+  locationOption: null,
+  radiusMiles: DEFAULT_LOCATION_RADIUS_MILES,
+  includeLocalMeetups: true,
+  includeCompetitionMeetups: true,
+  includeShippableListings: true,
+};
+const BROWSE_SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended" },
+  { value: "newest", label: "Newest" },
+  { value: "price-low", label: "Price: Low to High" },
+  { value: "price-high", label: "Price: High to Low" },
+];
 
 function getSearchText(listing) {
   const competitionTags = [
@@ -61,6 +84,10 @@ function getSearchText(listing) {
 
 function getInitialLocationDraft(locationFilter) {
   return {
+    sortMode: locationFilter.sortMode,
+    puzzleType: locationFilter.puzzleType,
+    minPrice: locationFilter.minPrice,
+    maxPrice: locationFilter.maxPrice,
     locationInput: locationFilter.locationInput,
     locationOption: locationFilter.locationOption,
     radiusMiles: locationFilter.radiusMiles,
@@ -79,7 +106,71 @@ function hasFulfillmentMethodFilter(filter) {
 }
 
 function hasLocationFilterControls(filter) {
-  return Boolean(filter.locationOption) || hasFulfillmentMethodFilter(filter);
+  return (
+    filter.sortMode !== "recommended" ||
+    filter.puzzleType !== "all" ||
+    Boolean(filter.minPrice.trim() || filter.maxPrice.trim()) ||
+    Boolean(filter.locationOption) ||
+    hasFulfillmentMethodFilter(filter)
+  );
+}
+
+function getBrowseAvailabilityRank(listing = {}) {
+  if (listing.status === "sold") {
+    return 2;
+  }
+
+  if (listing.status === "archived") {
+    return 1;
+  }
+
+  return 0;
+}
+
+function getPriceAmount(price) {
+  const amount = Number(price);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function sortBrowseListings(listings = [], sortMode = "recommended") {
+  if (sortMode === "newest") {
+    return sortListingsByAvailabilityAndDate(listings);
+  }
+
+  if (sortMode === "price-low" || sortMode === "price-high") {
+    const direction = sortMode === "price-low" ? 1 : -1;
+    return [...listings].sort((a, b) => {
+      const availabilityDelta =
+        getBrowseAvailabilityRank(a) - getBrowseAvailabilityRank(b);
+
+      if (availabilityDelta !== 0) {
+        return availabilityDelta;
+      }
+
+      const aPrice = getPriceAmount(a.price);
+      const bPrice = getPriceAmount(b.price);
+
+      if (aPrice === null && bPrice === null) {
+        return 0;
+      }
+
+      if (aPrice === null) {
+        return 1;
+      }
+
+      if (bPrice === null) {
+        return -1;
+      }
+
+      if (aPrice !== bPrice) {
+        return (aPrice - bPrice) * direction;
+      }
+
+      return sortListingsByAvailabilityAndDate([a, b])[0]?.id === a.id ? -1 : 1;
+    });
+  }
+
+  return sortListingsByRecommended(listings);
 }
 
 function RadiusSlider({ value, onChange }) {
@@ -179,18 +270,12 @@ function RadiusSlider({ value, onChange }) {
 }
 
 export default function BrowseScreen({ navigation }) {
+  const { currentUser } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [locationFilter, setLocationFilter] = useState({
-    locationInput: "",
-    locationOption: null,
-    radiusMiles: DEFAULT_LOCATION_RADIUS_MILES,
-    includeLocalMeetups: true,
-    includeCompetitionMeetups: true,
-    includeShippableListings: true,
-  });
+  const [locationFilter, setLocationFilter] = useState(DEFAULT_BROWSE_FILTERS);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [locationDraft, setLocationDraft] = useState(() =>
     getInitialLocationDraft(locationFilter)
@@ -205,7 +290,11 @@ export default function BrowseScreen({ navigation }) {
       (snapshot) => {
         const nextListings = snapshot.docs
           .map((listingDoc) => ({ id: listingDoc.id, ...listingDoc.data() }))
-          .filter(shouldShowListingInMarketplace);
+          .filter(
+            (listing) =>
+              listing.userId === currentUser?.uid ||
+              shouldShowListingInMarketplace(listing)
+          );
         setListings(sortListingsByAvailabilityAndDate(nextListings));
         setLoading(false);
       },
@@ -217,7 +306,7 @@ export default function BrowseScreen({ navigation }) {
     );
 
     return unsubscribe;
-  }, []);
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     let active = true;
@@ -256,17 +345,32 @@ export default function BrowseScreen({ navigation }) {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const hasLocationFilter = Boolean(locationFilter.locationOption);
     const hasFulfillmentFilter = hasFulfillmentMethodFilter(locationFilter);
+    const minPrice = parseNonNegativeCurrencyAmount(locationFilter.minPrice);
+    const maxPrice = parseNonNegativeCurrencyAmount(locationFilter.maxPrice);
 
     const filteredListings = listings.filter((listing) => {
       const matchesSearch =
         !normalizedSearch || getSearchText(listing).includes(normalizedSearch);
       if (!matchesSearch) return false;
+      if (locationFilter.puzzleType !== "all" && listing.puzzleType !== locationFilter.puzzleType) {
+        return false;
+      }
+
+      const listingPrice = getPriceAmount(listing.price);
+      if (minPrice !== null && (listingPrice === null || listingPrice < minPrice)) {
+        return false;
+      }
+      if (maxPrice !== null && (listingPrice === null || listingPrice > maxPrice)) {
+        return false;
+      }
+
       if (!hasLocationFilter && !hasFulfillmentFilter) return true;
+      const activeFulfillment = getActiveFulfillmentFields(listing);
       if (!hasLocationFilter) {
         return (
-          (locationFilter.includeLocalMeetups && listing.localMeetupAvailable) ||
-          (locationFilter.includeCompetitionMeetups && listing.competitionMeetupAvailable) ||
-          (locationFilter.includeShippableListings && listing.shippingAvailable)
+          (locationFilter.includeLocalMeetups && activeFulfillment.localMeetupAvailable) ||
+          (locationFilter.includeCompetitionMeetups && activeFulfillment.competitionMeetupAvailable) ||
+          (locationFilter.includeShippableListings && activeFulfillment.shippingAvailable)
         );
       }
 
@@ -274,7 +378,7 @@ export default function BrowseScreen({ navigation }) {
       return locationMatch.matchesLocation || locationMatch.matchesShipping;
     });
 
-    return sortListingsByAvailabilityAndDate(filteredListings);
+    return sortBrowseListings(filteredListings, locationFilter.sortMode);
   }, [listings, locationFilter, searchQuery]);
 
   const hasActiveFilter =
@@ -289,9 +393,9 @@ export default function BrowseScreen({ navigation }) {
     Boolean(locationDraft.locationInput.trim()) && !locationDraft.locationOption;
   const locationButtonLabel = locationFilter.locationOption
     ? locationFilter.locationOption.city || locationFilter.locationOption.label
-    : hasFulfillmentMethodFilter(locationFilter)
-      ? "Fulfillment filters"
-      : "All locations";
+    : hasActiveLocationControls
+      ? "Active filters"
+      : "Filters";
 
   const openLocationModal = useCallback(() => {
     setLocationDraft(getInitialLocationDraft(locationFilter));
@@ -299,14 +403,7 @@ export default function BrowseScreen({ navigation }) {
   }, [locationFilter]);
 
   function clearLocationFilter() {
-    const nextFilter = {
-      locationInput: "",
-      locationOption: null,
-      radiusMiles: DEFAULT_LOCATION_RADIUS_MILES,
-      includeLocalMeetups: true,
-      includeCompetitionMeetups: true,
-      includeShippableListings: true,
-    };
+    const nextFilter = DEFAULT_BROWSE_FILTERS;
     setLocationFilter(nextFilter);
     setLocationDraft(nextFilter);
     setLocationOptions([]);
@@ -373,7 +470,7 @@ export default function BrowseScreen({ navigation }) {
                 accessibilityLabel={locationButtonLabel}
               >
                 <MaterialIcons
-                  name="location-on"
+                  name="tune"
                   size={24}
                   color={hasActiveLocationControls ? colors.primary : colors.text}
                 />
@@ -444,15 +541,122 @@ export default function BrowseScreen({ navigation }) {
           <View style={styles.locationPanel}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Location</Text>
+                <Text style={styles.modalTitle}>Filters</Text>
                 <Text style={styles.modalSubtitle}>
-                  Find listings available near this location.
+                  Sort and narrow down the cubes you see.
                 </Text>
               </View>
               <Pressable onPress={() => setLocationModalOpen(false)}>
                 <Text style={styles.closeText}>Close</Text>
               </Pressable>
             </View>
+
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.optionChipRow}
+            >
+              {BROWSE_SORT_OPTIONS.map((option) => {
+                const selected = locationDraft.sortMode === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[styles.optionChip, selected && styles.optionChipSelected]}
+                    onPress={() =>
+                      setLocationDraft((prev) => ({
+                        ...prev,
+                        sortMode: option.value,
+                      }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected && styles.optionChipTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.filterLabel}>Puzzle type</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.optionChipRow}
+              >
+                {["all", ...PUZZLE_TYPE_OPTIONS].map((puzzleType) => {
+                  const selected = locationDraft.puzzleType === puzzleType;
+                  return (
+                    <Pressable
+                      key={puzzleType}
+                      style={[styles.optionChip, selected && styles.optionChipSelected]}
+                      onPress={() =>
+                        setLocationDraft((prev) => ({
+                          ...prev,
+                          puzzleType,
+                        }))
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          selected && styles.optionChipTextSelected,
+                        ]}
+                      >
+                        {puzzleType === "all" ? "All types" : puzzleType}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.filterLabel}>Price range</Text>
+              <View style={styles.priceRow}>
+                <ClearableTextInput
+                  value={locationDraft.minPrice}
+                  onChangeText={(value) =>
+                    setLocationDraft((prev) => ({
+                      ...prev,
+                      minPrice: value,
+                    }))
+                  }
+                  style={styles.priceInput}
+                  wrapperStyle={styles.priceInputWrap}
+                  placeholder="Min"
+                  keyboardType="decimal-pad"
+                  clearAccessibilityLabel="Clear minimum price"
+                />
+                <ClearableTextInput
+                  value={locationDraft.maxPrice}
+                  onChangeText={(value) =>
+                    setLocationDraft((prev) => ({
+                      ...prev,
+                      maxPrice: value,
+                    }))
+                  }
+                  style={styles.priceInput}
+                  wrapperStyle={styles.priceInputWrap}
+                  placeholder="Max"
+                  keyboardType="decimal-pad"
+                  clearAccessibilityLabel="Clear maximum price"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalDivider} />
 
             <View style={styles.searchPanel}>
               <ClearableTextInput
@@ -570,6 +774,7 @@ export default function BrowseScreen({ navigation }) {
                 />
               </View>
             </View>
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <Pressable style={styles.secondaryButton} onPress={clearLocationFilter}>
@@ -634,6 +839,56 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text,
     marginTop: 6,
+  },
+  optionChipRow: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  optionChip: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 36,
+    paddingHorizontal: 12,
+  },
+  optionChipSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: colors.primary,
+  },
+  optionChipText: {
+    ...typography.caption,
+    color: colors.text,
+    fontWeight: "700",
+  },
+  optionChipTextSelected: {
+    color: colors.primary,
+  },
+  priceRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+  priceInputWrap: {
+    flex: 1,
+  },
+  priceInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    color: colors.text,
+    fontFamily: typography.body.fontFamily,
+    fontSize: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  modalDivider: {
+    backgroundColor: colors.border,
+    height: 1,
+    marginVertical: 20,
   },
   searchPanel: {
     alignItems: "center",
@@ -739,6 +994,12 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.primary,
     paddingVertical: 4,
+  },
+  modalBody: {
+    flexShrink: 1,
+  },
+  modalBodyContent: {
+    paddingBottom: 4,
   },
   locationLoader: {
     marginTop: 12,

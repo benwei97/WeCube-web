@@ -27,6 +27,7 @@ import { colors } from "../theme/colors";
 import { radii, typography } from "../theme/design";
 import {
   CONDITION_OPTIONS,
+  getUpcomingCompetitionsFromList,
   PUZZLE_TYPE_OPTIONS,
 } from "../utils/listingUtils";
 import {
@@ -237,7 +238,9 @@ export default function SellScreen({ navigation }) {
   const [publishing, setPublishing] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
-  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const bookmarkedCompetitions = getUpcomingCompetitionsFromList(
+    currentUser?.attendingCompetitions || []
+  );
   const competitionOptions = useMemo(
     () => {
       if (!competitionDropdownOpen) return [];

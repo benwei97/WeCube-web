@@ -38,7 +38,10 @@ import {
   CONDITION_OPTIONS,
   PUZZLE_TYPE_OPTIONS,
   formatListingPrice,
+  getActiveFulfillmentFields,
   getCompetitionTags,
+  getUpcomingCompetitionsFromList,
+  isCompetitionOnlyListingExpired,
 } from "../utils/listingUtils";
 import {
   characterCountText,
@@ -478,8 +481,15 @@ export default function ListingDetailScreen({ navigation, route }) {
   const photos = listing?.photos || [];
   const activePhoto = photos[photoIndex];
   const activePhotoUrl = activePhoto?.s3Key ? getS3PublicUrl(activePhoto.s3Key) : null;
-  const meetupCompetitionTags = useMemo(() => getCompetitionTags(listing), [listing]);
-  const bookmarkedCompetitions = currentUser?.attendingCompetitions || [];
+  const activeFulfillment = useMemo(
+    () => getActiveFulfillmentFields(listing || {}),
+    [listing]
+  );
+  const meetupCompetitionTags = activeFulfillment.meetupCompetitionTags || [];
+  const hasExpiredCompetitionOnlyListing = isCompetitionOnlyListingExpired(listing || {});
+  const bookmarkedCompetitions = getUpcomingCompetitionsFromList(
+    currentUser?.attendingCompetitions || []
+  );
   const editCompetitionOptions = useMemo(
     () => {
       if (!editCompetitionDropdownOpen) return [];
@@ -506,13 +516,13 @@ export default function ListingDetailScreen({ navigation, route }) {
     Boolean(listing?.description) &&
     listing.description.length > DESCRIPTION_VIEW_MORE_THRESHOLD;
   const fulfillmentOptions = [
-    listing?.localMeetupAvailable
+    activeFulfillment.localMeetupAvailable
       ? { value: "local", label: "Local" }
       : null,
-    listing?.competitionMeetupAvailable
+    activeFulfillment.competitionMeetupAvailable
       ? { value: "competition", label: "Competition" }
       : null,
-    listing?.shippingAvailable ? { value: "shipping", label: "Shipping" } : null,
+    activeFulfillment.shippingAvailable ? { value: "shipping", label: "Shipping" } : null,
   ].filter(Boolean);
   const selectedFulfillmentOption =
     fulfillmentOptions.find((option) => option.value === activeFulfillmentOption) ||
@@ -1282,6 +1292,11 @@ export default function ListingDetailScreen({ navigation, route }) {
 
         <View style={styles.panel}>
           <Text style={styles.sectionTitle}>Fulfillment</Text>
+          {hasExpiredCompetitionOnlyListing ? (
+            <Text style={styles.fulfillmentNotice}>
+              This listing was only available at competitions that have already passed.
+            </Text>
+          ) : null}
           {fulfillmentOptions.length ? (
             <View style={styles.fulfillmentTabsSection}>
               <ScrollView
@@ -2271,6 +2286,17 @@ const styles = StyleSheet.create({
   },
   fulfillmentTabsSection: {
     gap: 12,
+  },
+  fulfillmentNotice: {
+    ...typography.caption,
+    backgroundColor: "#eff6ff",
+    borderColor: colors.border,
+    borderRadius: radii.control,
+    borderWidth: 1,
+    color: colors.text,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   fulfillmentTabScroller: {
     alignSelf: "center",
