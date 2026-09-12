@@ -16,6 +16,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Screen from "../components/Screen";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ScreenTitle from "../components/ScreenTitle";
@@ -129,6 +130,7 @@ function SelectField({
   onChange,
 }) {
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const selectedOption = options.find((option) => option.value === value);
 
   return (
@@ -143,10 +145,11 @@ function SelectField({
             styles.selectText,
             !selectedOption && styles.placeholderText,
           ]}
+          numberOfLines={1}
         >
           {selectedOption?.label || placeholder}
         </Text>
-        <Text style={styles.selectChevron}>⌄</Text>
+        <MaterialIcons name="keyboard-arrow-down" size={22} color={colors.muted} />
       </Pressable>
       <HelperText error={error}>{helperText}</HelperText>
 
@@ -157,38 +160,59 @@ function SelectField({
         onRequestClose={() => setOpen(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.selectPanel}>
+          <View
+            style={[
+              styles.selectPanel,
+              { paddingBottom: Math.max(insets.bottom, 12) + 12 },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label}</Text>
-              <Pressable onPress={() => setOpen(false)}>
-                <Text style={styles.closeText}>Close</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Close ${label} selector`}
+                hitSlop={8}
+                onPress={() => setOpen(false)}
+                style={styles.selectCloseButton}
+              >
+                <MaterialIcons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
-            {options.map((option) => {
-              const selected = option.value === value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.selectOption,
-                    selected && styles.selectOptionSelected,
-                  ]}
-                  onPress={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Text
+            <ScrollView
+              style={styles.selectOptionList}
+              contentContainerStyle={styles.selectOptionListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {options.map((option) => {
+                const selected = option.value === value;
+                return (
+                  <Pressable
+                    key={option.value}
                     style={[
-                      styles.selectOptionText,
-                      selected && styles.selectOptionTextSelected,
+                      styles.selectOption,
+                      selected && styles.selectOptionSelected,
                     ]}
+                    onPress={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.selectOptionText,
+                        selected && styles.selectOptionTextSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {option.label}
+                    </Text>
+                    {selected ? (
+                      <MaterialIcons name="check" size={20} color={colors.primary} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1311,22 +1335,18 @@ const styles = StyleSheet.create({
   selectInput: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 8,
     justifyContent: "space-between",
   },
   selectText: {
     ...typography.bodyStrong,
     color: colors.text,
     flex: 1,
+    minWidth: 0,
   },
   placeholderText: {
     color: colors.muted,
     fontWeight: "500",
-  },
-  selectChevron: {
-    fontFamily: typography.button.fontFamily,
-    color: colors.muted,
-    fontSize: 18,
-    fontWeight: "700",
   },
   inlineFields: {
     flexDirection: "row",
@@ -1567,30 +1587,50 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+    flexShrink: 1,
     maxHeight: "82%",
-    padding: 18,
+    paddingHorizontal: 18,
+    paddingTop: 18,
   },
   modalHeader: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   modalTitle: {
     ...typography.sectionTitle,
     color: colors.text,
+    flex: 1,
+    paddingRight: 12,
   },
-  closeText: {
-    ...typography.caption,
-    color: colors.primary,
+  selectCloseButton: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  selectOptionList: {
+    flexShrink: 1,
+  },
+  selectOptionListContent: {
+    gap: 8,
+    paddingBottom: 2,
   },
   selectOption: {
+    alignItems: "center",
     borderColor: colors.border,
     borderRadius: radii.control,
     borderWidth: 1,
-    marginBottom: 8,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    minHeight: 50,
     paddingHorizontal: 12,
-    paddingVertical: 13,
+    paddingVertical: 10,
   },
   selectOptionSelected: {
     backgroundColor: "#eff6ff",
@@ -1599,6 +1639,8 @@ const styles = StyleSheet.create({
   selectOptionText: {
     ...typography.bodyStrong,
     color: colors.text,
+    flex: 1,
+    minWidth: 0,
   },
   selectOptionTextSelected: {
     color: colors.primary,
