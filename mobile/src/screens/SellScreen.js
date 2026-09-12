@@ -28,8 +28,8 @@ import { colors } from "../theme/colors";
 import { radii, typography } from "../theme/design";
 import {
   CONDITION_OPTIONS,
-  getUpcomingCompetitionsFromList,
   PUZZLE_TYPE_OPTIONS,
+  getUpcomingCompetitionsFromList,
 } from "../utils/listingUtils";
 import {
   characterCountText,
@@ -44,18 +44,31 @@ import {
 import { uploadImageAssetToS3 } from "../utils/s3";
 import { searchCompetitions } from "../utils/wcaApi";
 
-const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
-const COMPETITION_BATCH_SIZE = 25;
-const INITIAL_COMPETITION_LIMIT = 12;
 const SELL_DRAFT_KEY_PREFIX = "wecube:sellDraft:";
 const sellDrafts = new Map();
-
+const MY_COMPETITIONS_OPTION_ID = "__my_competitions__";
 const MY_COMPETITIONS_OPTION = {
   id: MY_COMPETITIONS_OPTION_ID,
   name: "My competitions",
   displayName: "My competitions",
   isMyCompetitionsOption: true,
 };
+
+function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
+  const competitionsById = new Map(
+    currentCompetitions
+      .filter((competition) => !competition.isMyCompetitionsOption)
+      .map((competition) => [competition.id, competition])
+  );
+
+  competitionsToAdd.forEach((competition) => {
+    if (competition?.id && !competitionsById.has(competition.id)) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
+
+  return [...competitionsById.values()];
+}
 
 function parseNonNegativeCurrencyAmount(value) {
   const amount = Number.parseFloat(value);
@@ -83,22 +96,6 @@ function getListingCompetitionPayload(competition = {}, options = {}) {
   }
 
   return payload;
-}
-
-function mergeCompetitionsById(currentCompetitions, competitionsToAdd) {
-  const competitionsById = new Map(
-    currentCompetitions
-      .filter((competition) => !competition.isMyCompetitionsOption)
-      .map((competition) => [competition.id, competition])
-  );
-
-  competitionsToAdd.forEach((competition) => {
-    if (competition?.id && !competitionsById.has(competition.id)) {
-      competitionsById.set(competition.id, competition);
-    }
-  });
-
-  return [...competitionsById.values()];
 }
 
 function RequiredLabel({ children }) {
@@ -253,7 +250,6 @@ export default function SellScreen({ navigation }) {
   const [competitionDropdownOpen, setCompetitionDropdownOpen] = useState(false);
   const [competitions, setCompetitions] = useState([]);
   const [competitionSearchInput, setCompetitionSearchInput] = useState("");
-  const [competitionLimit, setCompetitionLimit] = useState(INITIAL_COMPETITION_LIMIT);
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
   const [selectedCompetitions, setSelectedCompetitions] = useState([]);
   const [photos, setPhotos] = useState([]);
@@ -268,13 +264,18 @@ export default function SellScreen({ navigation }) {
   const competitionOptions = useMemo(
     () => {
       if (!competitionDropdownOpen) return [];
-
       return bookmarkedCompetitions.length > 0
         ? [MY_COMPETITIONS_OPTION, ...competitions]
         : competitions;
     },
     [bookmarkedCompetitions.length, competitionDropdownOpen, competitions]
   );
+  const shouldShowCompetitionDropdown =
+    competitionDropdownOpen &&
+    (bookmarkedCompetitions.length > 0 ||
+      competitionSearchInput.trim().length >= 2 ||
+      loadingCompetitions ||
+      competitionOptions.length > 0);
 
   const selectedCompetitionIds = useMemo(
     () => new Set(selectedCompetitions.map((competition) => competition.id)),
@@ -393,14 +394,14 @@ export default function SellScreen({ navigation }) {
   }, [localMeetupAvailable, meetupLocation, meetupLocationLabel]);
 
   useEffect(() => {
-    if (!competitionMeetupAvailable || !competitionDropdownOpen) return;
-    setCompetitionLimit(INITIAL_COMPETITION_LIMIT);
-  }, [competitionDropdownOpen, competitionMeetupAvailable, competitionSearchInput]);
-
-  useEffect(() => {
     let active = true;
+    const normalizedSearch = competitionSearchInput.trim();
 
-    if (!competitionMeetupAvailable || !competitionDropdownOpen) {
+    if (
+      !competitionMeetupAvailable ||
+      !competitionDropdownOpen ||
+      normalizedSearch.length < 2
+    ) {
       setCompetitions([]);
       setLoadingCompetitions(false);
       return undefined;
@@ -409,18 +410,17 @@ export default function SellScreen({ navigation }) {
     setLoadingCompetitions(true);
     const timeoutId = setTimeout(async () => {
       try {
-        const results = await searchCompetitions(
-          competitionSearchInput,
-          competitionLimit
-        );
-        if (active) setCompetitions(results);
+        const results = await searchCompetitions(competitionSearchInput, 100);
+        if (active) {
+          setCompetitions(results);
+        }
       } catch (competitionError) {
         console.error("Error loading mobile sell competitions:", competitionError);
         if (active) setCompetitions([]);
       } finally {
         if (active) setLoadingCompetitions(false);
       }
-    }, competitionSearchInput.trim().length >= 2 ? 300 : 0);
+    }, 300);
 
     return () => {
       active = false;
@@ -428,7 +428,6 @@ export default function SellScreen({ navigation }) {
     };
   }, [
     competitionDropdownOpen,
-    competitionLimit,
     competitionMeetupAvailable,
     competitionSearchInput,
   ]);
@@ -528,6 +527,9 @@ export default function SellScreen({ navigation }) {
   function handleCompetitionMeetupChange(value) {
     clearSubmitNotice();
     setCompetitionMeetupAvailable(value);
+    if (value) {
+      setCompetitionDropdownOpen(true);
+    }
     if (!value) {
       setCompetitionDropdownOpen(false);
       setSelectedCompetitions([]);
@@ -543,6 +545,7 @@ export default function SellScreen({ navigation }) {
         mergeCompetitionsById(current, bookmarkedCompetitions)
       );
       setCompetitionSearchInput("");
+      setCompetitions([]);
       return;
     }
 
@@ -1104,7 +1107,7 @@ export default function SellScreen({ navigation }) {
                       ))}
                     </View>
                   ) : null}
-                  {competitionDropdownOpen ? (
+                  {shouldShowCompetitionDropdown ? (
                     <View style={styles.competitionDropdown}>
                       {competitionOptions.length > 0 ? (
                         <ScrollView
@@ -1154,24 +1157,10 @@ export default function SellScreen({ navigation }) {
                         </ScrollView>
                       ) : (
                         <Text style={styles.competitionDropdownEmpty}>
-                          {loadingCompetitions
-                            ? "Loading competitions..."
-                            : "No competitions found."}
+                          {loadingCompetitions ? "Loading competitions..." : "No competitions found."}
                         </Text>
                       )}
                     </View>
-                  ) : null}
-                  {competitionDropdownOpen && competitions.length >= competitionLimit ? (
-                    <Pressable
-                      style={styles.loadMoreButton}
-                      onPress={() =>
-                        setCompetitionLimit(
-                          (currentLimit) => currentLimit + COMPETITION_BATCH_SIZE
-                        )
-                      }
-                    >
-                      <Text style={styles.loadMoreText}>Load more competitions</Text>
-                    </Pressable>
                   ) : null}
                   <HelperText error={hasAttemptedSubmit && !isCompetitionValid}>
                     {hasAttemptedSubmit && !isCompetitionValid

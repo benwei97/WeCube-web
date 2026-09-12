@@ -1,10 +1,15 @@
 const WCA_API_BASE = "https://www.worldcubeassociation.org/api/v0";
 const UNITED_STATES_COUNTRY_CODE = "US";
 const WCA_PAGE_SIZE = 25;
+export const DEFAULT_COMPETITION_LOAD_LIMIT = 50;
 
 let competitionCache = {
   data: null,
   timestamp: null,
+  isLoading: false,
+  isLoadingMore: false,
+  loadedPages: 0,
+  hasLoadedAllPages: false,
 };
 
 const CACHE_DURATION = 60 * 60 * 1000;
@@ -79,6 +84,15 @@ function isCacheValid() {
   );
 }
 
+async function waitForCompetitionCacheLimit(limit) {
+  while (
+    competitionCache.isLoadingMore &&
+    (!competitionCache.data || competitionCache.data.length < limit)
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 async function fetchCompetitionPage(page, searchTerm = "") {
   const today = new Date().toISOString().split("T")[0];
   const params = new URLSearchParams({
@@ -99,33 +113,132 @@ async function fetchCompetitionPage(page, searchTerm = "") {
   return response.json();
 }
 
-export async function getUpcomingCompetitions(limit = 50) {
-  if (isCacheValid() && competitionCache.data.length >= limit) {
-    return competitionCache.data.slice(0, limit);
-  }
-
-  const allCompetitions = [];
-  let page = 1;
-
-  while (allCompetitions.length < limit) {
-    const pageCompetitions = await fetchCompetitionPage(page);
-    allCompetitions.push(...pageCompetitions);
-
-    if (pageCompetitions.length < WCA_PAGE_SIZE) break;
-    page += 1;
-  }
-
-  const formattedCompetitions = dedupeCompetitionsById(allCompetitions)
+function formatOfficialCompetitions(competitions = []) {
+  return dedupeCompetitionsById(competitions)
     .filter((competition) => competition.country_iso2 === UNITED_STATES_COUNTRY_CODE)
     .map(formatCompetition)
     .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate));
+}
+
+function mergeCompetitionsIntoCache(competitions = []) {
+  if (!competitions.length) return;
+
+  const existingCompetitions = Array.isArray(competitionCache.data)
+    ? competitionCache.data
+    : [];
+  const competitionsById = new Map(
+    existingCompetitions.map((competition) => [competition.id, competition])
+  );
+
+  competitions.forEach((competition) => {
+    if (competition?.id) {
+      competitionsById.set(competition.id, competition);
+    }
+  });
 
   competitionCache = {
-    data: formattedCompetitions,
-    timestamp: Date.now(),
+    ...competitionCache,
+    data: [...competitionsById.values()]
+      .filter((competition) => competition.country === UNITED_STATES_COUNTRY_CODE)
+      .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate)),
+    timestamp: competitionCache.timestamp || Date.now(),
   };
+}
 
-  return formattedCompetitions.slice(0, limit);
+async function fetchCompetitionPagesUntilUsLimit({
+  limit,
+  searchTerm = "",
+  startPage = 1,
+}) {
+  const allCompetitions = [];
+  let page = startPage;
+  let hasMorePages = true;
+  const maxPages = 50;
+
+  while (hasMorePages && page <= maxPages) {
+    const pageCompetitions = await fetchCompetitionPage(page, searchTerm);
+    allCompetitions.push(...pageCompetitions);
+
+    const unitedStatesCompetitionCount = allCompetitions.filter(
+      (competition) => competition.country_iso2 === UNITED_STATES_COUNTRY_CODE
+    ).length;
+
+    if (
+      pageCompetitions.length < WCA_PAGE_SIZE ||
+      unitedStatesCompetitionCount >= limit
+    ) {
+      hasMorePages = false;
+    } else {
+      page += 1;
+    }
+  }
+
+  return {
+    competitions: allCompetitions,
+    loadedPages: page,
+    hasLoadedAllPages: !hasMorePages,
+  };
+}
+
+async function loadMoreUpcomingCompetitions(limit) {
+  if (competitionCache.isLoadingMore) {
+    await waitForCompetitionCacheLimit(limit);
+    return competitionCache.data || [];
+  }
+
+  competitionCache.isLoadingMore = true;
+  try {
+    const result = await fetchCompetitionPagesUntilUsLimit({
+      limit,
+      startPage: Math.max(competitionCache.loadedPages + 1, 1),
+    });
+    mergeCompetitionsIntoCache(formatOfficialCompetitions(result.competitions));
+    competitionCache.loadedPages = result.loadedPages;
+    competitionCache.hasLoadedAllPages = result.hasLoadedAllPages;
+    return competitionCache.data || [];
+  } finally {
+    competitionCache.isLoadingMore = false;
+  }
+}
+
+export async function getUpcomingCompetitions(limit = DEFAULT_COMPETITION_LOAD_LIMIT) {
+  if (isCacheValid()) {
+    if (
+      competitionCache.data.length < limit &&
+      !competitionCache.hasLoadedAllPages
+    ) {
+      await loadMoreUpcomingCompetitions(limit);
+    }
+
+    return dedupeCompetitionsById(competitionCache.data || []).slice(0, limit);
+  }
+
+  if (competitionCache.isLoading) {
+    while (competitionCache.isLoading) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    return dedupeCompetitionsById(competitionCache.data || []).slice(0, limit);
+  }
+
+  competitionCache.isLoading = true;
+  try {
+    const result = await fetchCompetitionPagesUntilUsLimit({ limit });
+    const formattedCompetitions = formatOfficialCompetitions(result.competitions);
+
+    competitionCache = {
+      data: formattedCompetitions,
+      timestamp: Date.now(),
+      isLoading: false,
+      isLoadingMore: false,
+      loadedPages: result.loadedPages,
+      hasLoadedAllPages: result.hasLoadedAllPages,
+    };
+
+    return formattedCompetitions.slice(0, limit);
+  } finally {
+    competitionCache.isLoading = false;
+  }
 }
 
 export async function searchCompetitions(query, limit = 50) {
@@ -135,24 +248,12 @@ export async function searchCompetitions(query, limit = 50) {
     return getUpcomingCompetitions(limit);
   }
 
-  if (isCacheValid()) {
-    const cachedMatches = competitionCache.data.filter(
-      (competition) =>
-        competition.name.toLowerCase().includes(searchTerm) ||
-        competition.city.toLowerCase().includes(searchTerm) ||
-        competition.country.toLowerCase().includes(searchTerm)
-    );
-
-    if (cachedMatches.length > 0 || searchTerm.length < 3) {
-      return cachedMatches.slice(0, limit);
-    }
-  }
-
-  const searchResults = await fetchCompetitionPage(1, searchTerm);
-  const formattedResults = dedupeCompetitionsById(searchResults)
-    .filter((competition) => competition.country_iso2 === UNITED_STATES_COUNTRY_CODE)
-    .map(formatCompetition)
-    .sort((a, b) => parseWcaDate(a.startDate) - parseWcaDate(b.startDate));
+  const searchResults = await fetchCompetitionPagesUntilUsLimit({
+    limit,
+    searchTerm,
+  });
+  const formattedResults = formatOfficialCompetitions(searchResults.competitions);
+  mergeCompetitionsIntoCache(formattedResults);
 
   return formattedResults.slice(0, limit);
 }
