@@ -47,11 +47,50 @@ const CONVERSATION_REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 const AT_BOTTOM_THRESHOLD = 72;
+const MESSAGE_TIME_DIVIDER_GAP_MINUTES = 30;
 
 function getTimestampDate(timestamp) {
   if (!timestamp) return null;
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isSameCalendarDay(firstDate, secondDate) {
+  return (
+    firstDate?.getFullYear() === secondDate?.getFullYear() &&
+    firstDate?.getMonth() === secondDate?.getMonth() &&
+    firstDate?.getDate() === secondDate?.getDate()
+  );
+}
+
+function formatTranscriptTimeDivider(timestamp) {
+  const date = getTimestampDate(timestamp);
+
+  if (!date) {
+    return "";
+  }
+
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+
+  const dayLabel = isSameCalendarDay(date, now)
+    ? "Today"
+    : isSameCalendarDay(date, yesterday)
+      ? "Yesterday"
+      : date.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year:
+            date.getFullYear() === now.getFullYear()
+              ? undefined
+              : "numeric",
+        });
+
+  return `${dayLabel} ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
 }
 
 function getListingPhotoUrl(listing, conversation) {
@@ -86,6 +125,47 @@ function getChatMessageFromFirestoreMessage(message, otherUser, reviewPromptStat
     wecubeMessage: message,
     reviewPromptState,
     isReviewPrompt,
+  };
+}
+
+function getChatTimeMarker(message) {
+  const createdAt = getTimestampDate(message.createdAt) || new Date(0);
+  const text = formatTranscriptTimeDivider(message.createdAt);
+
+  return {
+    _id: `time-${message.id}`,
+    text,
+    createdAt,
+    user: {
+      _id: "system",
+    },
+    system: true,
+    sent: true,
+    isTimeMarker: true,
+    wecubeMessage: {
+      id: `time-${message.id}`,
+      text,
+      type: "time_marker",
+      senderId: "system",
+    },
+  };
+}
+
+function getFailedChatMessageFromDraft(message) {
+  const createdAt = getTimestampDate(message.createdAt) || new Date();
+
+  return {
+    _id: message.id,
+    text: message.text || "",
+    createdAt,
+    user: {
+      _id: message.senderId || "current-user",
+    },
+    failed: true,
+    sent: false,
+    received: false,
+    pending: false,
+    wecubeMessage: message,
   };
 }
 
@@ -207,6 +287,14 @@ function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
 
   const isSystem = message.type === "system";
 
+  if (message.type === "time_marker") {
+    return (
+      <View style={styles.timeMarker}>
+        <Text style={styles.timeMarkerText}>{message.text}</Text>
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -222,6 +310,33 @@ function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
   );
 }
 
+function FailedMessageBubble({ message, isRetrying, onRetry }) {
+  return (
+    <View style={styles.failedMessageContainer}>
+      <View style={styles.failedBubble}>
+        <Text style={styles.failedMessageText}>{message.text}</Text>
+      </View>
+      <View style={styles.failedMetaRow}>
+        <Text style={styles.failedMetaText}>Not sent</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry sending message"
+          disabled={isRetrying}
+          onPress={() => onRetry(message)}
+          style={[
+            styles.failedRetryButton,
+            isRetrying && styles.failedRetryButtonDisabled,
+          ]}
+        >
+          <Text style={styles.failedRetryText}>
+            {isRetrying ? "Retrying..." : "Retry"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function ConversationScreen({ navigation, route }) {
   const { currentUser } = useAuth();
   const { conversationId } = route.params || {};
@@ -229,6 +344,8 @@ export default function ConversationScreen({ navigation, route }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [failedMessages, setFailedMessages] = useState([]);
+  const [retryingMessageId, setRetryingMessageId] = useState("");
   const [error, setError] = useState("");
   const [otherUser, setOtherUser] = useState(null);
   const [listing, setListing] = useState(null);
@@ -303,6 +420,11 @@ export default function ConversationScreen({ navigation, route }) {
       unsubscribeMessages();
     };
   }, [conversationId, currentUser?.uid]);
+
+  useEffect(() => {
+    setFailedMessages([]);
+    setRetryingMessageId("");
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversation?.id || !currentUser?.uid) return;
@@ -390,18 +512,58 @@ export default function ConversationScreen({ navigation, route }) {
   }, [conversation?.activeSaleEventId, currentUser?.uid]);
 
   const chatMessages = useMemo(
-    () =>
-      messages
-        .map((message) => ({
+    () => {
+      const transcriptMessages = [];
+      let previousMessageDate = null;
+      const visibleMessages = [
+        ...messages.map((message) => ({
           message,
           reviewPromptState: getReviewPromptState(message),
-        }))
+        })),
+        ...failedMessages.map((message) => ({
+          message,
+          reviewPromptState: null,
+        })),
+      ]
         .filter(({ reviewPromptState }) => !reviewPromptState?.hidden)
-        .map(({ message, reviewPromptState }) =>
-          getChatMessageFromFirestoreMessage(message, otherUser, reviewPromptState)
-        )
-        .reverse(),
-    [getReviewPromptState, messages, otherUser]
+        .sort((firstEntry, secondEntry) => {
+          const firstTime = getTimestampDate(firstEntry.message.createdAt)?.getTime?.() || 0;
+          const secondTime = getTimestampDate(secondEntry.message.createdAt)?.getTime?.() || 0;
+          return firstTime - secondTime;
+        });
+
+      visibleMessages.forEach(({ message, reviewPromptState }) => {
+        const messageDate = getTimestampDate(message.createdAt);
+        const previousMessageTime = previousMessageDate?.getTime?.() || 0;
+        const messageTime = messageDate?.getTime?.() || 0;
+        const minutesSincePrevious =
+          previousMessageTime && messageTime
+            ? (messageTime - previousMessageTime) / 60000
+            : 0;
+        const shouldShowDivider =
+          messageDate &&
+          (!previousMessageDate ||
+            !isSameCalendarDay(messageDate, previousMessageDate) ||
+            minutesSincePrevious >= MESSAGE_TIME_DIVIDER_GAP_MINUTES);
+
+        if (shouldShowDivider) {
+          transcriptMessages.push(getChatTimeMarker(message));
+        }
+
+        transcriptMessages.push(
+          message.type === "failed_message"
+            ? getFailedChatMessageFromDraft(message)
+            : getChatMessageFromFirestoreMessage(message, otherUser, reviewPromptState)
+        );
+
+        if (messageDate) {
+          previousMessageDate = messageDate;
+        }
+      });
+
+      return transcriptMessages.reverse();
+    },
+    [failedMessages, getReviewPromptState, messages, otherUser]
   );
 
   const openReviewModal = useCallback(async (message) => {
@@ -423,6 +585,41 @@ export default function ConversationScreen({ navigation, route }) {
     setReviewOpen(true);
   }, [currentUser?.uid, otherUserId]);
 
+  const retryFailedMessage = useCallback(async (failedMessage) => {
+    if (
+      !failedMessage?.id ||
+      !failedMessage?.text?.trim() ||
+      !conversationId ||
+      !currentUser?.uid ||
+      retryingMessageId ||
+      blockedByMe ||
+      blockedMe ||
+      conversation?.closedReason === "listing_deleted"
+    ) {
+      return;
+    }
+
+    setRetryingMessageId(failedMessage.id);
+    setError("");
+    try {
+      await sendMessage(conversationId, currentUser.uid, failedMessage.text.trim());
+      setFailedMessages((previousMessages) =>
+        previousMessages.filter((message) => message.id !== failedMessage.id)
+      );
+    } catch (retryError) {
+      console.error("Error retrying mobile message:", retryError);
+    } finally {
+      setRetryingMessageId("");
+    }
+  }, [
+    blockedByMe,
+    blockedMe,
+    conversation?.closedReason,
+    conversationId,
+    currentUser?.uid,
+    retryingMessageId,
+  ]);
+
   const renderChatMessage = useCallback(
     (messageProps) => {
       const currentMessage = messageProps.currentMessage;
@@ -430,6 +627,16 @@ export default function ConversationScreen({ navigation, route }) {
 
       if (!sourceMessage) {
         return <Message {...messageProps} />;
+      }
+
+      if (currentMessage?.failed) {
+        return (
+          <FailedMessageBubble
+            message={sourceMessage}
+            isRetrying={retryingMessageId === sourceMessage.id}
+            onRetry={retryFailedMessage}
+          />
+        );
       }
 
       if (currentMessage?.system || currentMessage?.reviewPromptState) {
@@ -447,8 +654,10 @@ export default function ConversationScreen({ navigation, route }) {
 
       return <Message {...messageProps} />;
     },
-    [currentUser?.uid, openReviewModal]
+    [currentUser?.uid, openReviewModal, retryFailedMessage, retryingMessageId]
   );
+
+  const renderChatTicks = useCallback(() => null, []);
 
   const renderChatBubble = useCallback(
     (bubbleProps) => (
@@ -462,10 +671,14 @@ export default function ConversationScreen({ navigation, route }) {
           left: styles.chatIncomingText,
           right: styles.chatOutgoingText,
         }}
+        renderTicks={renderChatTicks}
       />
     ),
-    []
+    [renderChatTicks]
   );
+
+  const renderChatTime = useCallback(() => null, []);
+  const renderChatDay = useCallback(() => null, []);
 
   const renderChatSend = useCallback(
     (sendProps) => {
@@ -509,7 +722,16 @@ export default function ConversationScreen({ navigation, route }) {
       await sendMessage(conversationId, currentUser.uid, trimmedDraft);
     } catch (sendError) {
       console.error("Error sending mobile message:", sendError);
-      setError(sendError.message || "Unable to send message.");
+      setFailedMessages((previousMessages) => [
+        ...previousMessages,
+        {
+          id: `failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: trimmedDraft,
+          senderId: currentUser.uid,
+          createdAt: new Date(),
+          type: "failed_message",
+        },
+      ]);
     } finally {
       setSending(false);
     }
@@ -781,6 +1003,8 @@ export default function ConversationScreen({ navigation, route }) {
           isInverted
           renderMessage={renderChatMessage}
           renderBubble={renderChatBubble}
+          renderTime={renderChatTime}
+          renderDay={renderChatDay}
           renderSend={renderChatSend}
           isUserAvatarVisible={false}
           isScrollToBottomEnabled
@@ -1076,6 +1300,65 @@ const styles = StyleSheet.create({
   specialChatMessage: {
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  failedMessageContainer: {
+    alignItems: "flex-end",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  failedBubble: {
+    backgroundColor: "rgba(47, 107, 255, 0.1)",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 6,
+    borderColor: "rgba(47, 107, 255, 0.22)",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    maxWidth: "82%",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  failedMessageText: {
+    ...typography.body,
+    color: colors.primaryDark,
+  },
+  failedMetaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+    paddingRight: 6,
+  },
+  failedMetaText: {
+    ...typography.caption,
+    color: colors.muted,
+  },
+  failedRetryButton: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  failedRetryButtonDisabled: {
+    opacity: 0.55,
+  },
+  failedRetryText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: "700",
+  },
+  timeMarker: {
+    alignSelf: "center",
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  timeMarkerText: {
+    ...typography.caption,
+    color: colors.muted,
+    fontWeight: "600",
   },
   chatIncomingBubble: {
     backgroundColor: "#f5f5f5",
