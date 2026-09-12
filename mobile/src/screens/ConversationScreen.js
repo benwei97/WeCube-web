@@ -198,7 +198,7 @@ function MessageBubble({ message, isMine, reviewPromptState, onReviewPress }) {
           <Text style={styles.reviewPromptClosed}>Review request closed.</Text>
         ) : (
           <Pressable style={styles.reviewPromptButton} onPress={() => onReviewPress(message)}>
-            <Text style={styles.reviewPromptButtonText}>Write review</Text>
+            <Text style={styles.reviewPromptButtonText}>Rate your experience</Text>
           </Pressable>
         )}
       </View>
@@ -481,7 +481,15 @@ export default function ConversationScreen({ navigation, route }) {
           onPress={() => sendProps.onSend?.({ text: trimmedText }, true)}
           style={[styles.chatSendButton, !canSend && styles.chatSendButtonDisabled]}
         >
-          <Text style={styles.chatSendText}>{sending ? "..." : "Send"}</Text>
+          {sending ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <MaterialIcons
+              name="send"
+              size={22}
+              color={canSend ? colors.primary : colors.muted}
+            />
+          )}
         </Pressable>
       );
     },
@@ -512,12 +520,14 @@ export default function ConversationScreen({ navigation, route }) {
       colors: {
         accent: colors.primary,
         background: colors.background,
-        incomingBubble: colors.surface,
+        incomingBubble: "#f5f5f5",
         incomingText: colors.text,
         outgoingBubble: colors.primary,
         outgoingText: "#fff",
+        incomingMeta: colors.muted,
+        outgoingMeta: "rgba(255, 255, 255, 0.78)",
         separator: colors.border,
-        inputBackground: colors.background,
+        inputBackground: colors.surface,
         inputBarBackground: colors.surface,
         inputText: colors.text,
         placeholder: colors.muted,
@@ -527,17 +537,17 @@ export default function ConversationScreen({ navigation, route }) {
         surface: colors.surface,
       },
       radii: {
-        bubble: radii.card,
-        bubbleGrouped: radii.card,
+        bubble: 20,
+        bubbleGrouped: 6,
         inputField: radii.control,
         sendButton: radii.control,
       },
       spacing: {
-        screenEdge: 12,
+        screenEdge: { left: 10, right: 10 },
         inputToolbarPaddingV: 8,
-        withinGroup: 4,
-        betweenGroups: 8,
-        bubblePaddingH: 12,
+        withinGroup: 3,
+        betweenGroups: 7,
+        bubblePaddingH: 14,
         bubblePaddingV: 9,
       },
       typography: {
@@ -545,9 +555,25 @@ export default function ConversationScreen({ navigation, route }) {
           fontSize: typography.body.fontSize || 15,
           lineHeight: typography.body.lineHeight,
         },
+        time: {
+          fontSize: 11,
+          lineHeight: 14,
+          fontWeight: "500",
+        },
+        day: {
+          fontSize: 12,
+          lineHeight: 16,
+          fontWeight: "600",
+        },
+      },
+      avatar: {
+        size: 28,
+      },
+      sendButton: {
+        size: 42,
       },
       composer: {
-        minHeight: 44,
+        minHeight: 42,
         maxHeight: 110,
         fieldPaddingH: 12,
       },
@@ -939,15 +965,14 @@ const styles = StyleSheet.create({
   },
   topBar: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
-    elevation: 2,
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 9,
+    paddingBottom: 9,
     zIndex: 2,
   },
   backButton: {
@@ -961,19 +986,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   headerPreview: {
-    height: 54,
+    height: 46,
     position: "relative",
-    width: 54,
+    width: 46,
   },
   headerListingImage: {
     backgroundColor: "#e2e8f0",
     borderRadius: radii.card,
-    height: 50,
-    width: 50,
+    height: 42,
+    width: 42,
   },
   headerListingButton: {
-    height: 50,
-    width: 50,
+    height: 42,
+    width: 42,
   },
   headerListingPlaceholder: {
     alignItems: "center",
@@ -981,9 +1006,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radii.card,
     borderWidth: 1,
-    height: 50,
+    height: 42,
     justifyContent: "center",
-    width: 50,
+    width: 42,
   },
   headerAvatarOverlay: {
     alignItems: "center",
@@ -992,18 +1017,18 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 2,
     bottom: 0,
-    height: 26,
+    height: 24,
     justifyContent: "center",
     position: "absolute",
     right: 0,
-    width: 26,
+    width: 24,
   },
   headerAvatarOverlayButton: {
     bottom: 0,
-    height: 26,
+    height: 24,
     position: "absolute",
     right: 0,
-    width: 26,
+    width: 24,
   },
   headerAvatarOverlayImage: {
     backgroundColor: "#e2e8f0",
@@ -1011,10 +1036,10 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 2,
     bottom: 0,
-    height: 26,
+    height: 24,
     position: "absolute",
     right: 0,
-    width: 26,
+    width: 24,
   },
   headerAvatarOverlayText: {
     fontFamily: typography.caption.fontFamily,
@@ -1029,6 +1054,7 @@ const styles = StyleSheet.create({
   headerName: {
     ...typography.bodyStrong,
     color: colors.text,
+    fontSize: 16,
   },
   headerListingTitle: {
     ...typography.caption,
@@ -1037,9 +1063,9 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     alignItems: "center",
-    height: 42,
+    height: 40,
     justifyContent: "center",
-    width: 42,
+    width: 40,
   },
   centerState: {
     alignItems: "center",
@@ -1052,16 +1078,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   chatIncomingBubble: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.card,
-    borderWidth: 1,
+    backgroundColor: "#f5f5f5",
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxWidth: "82%",
   },
   chatOutgoingBubble: {
     backgroundColor: colors.primary,
-    borderRadius: radii.card,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 6,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxWidth: "82%",
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
   chatIncomingText: {
     color: colors.text,
@@ -1072,33 +1106,34 @@ const styles = StyleSheet.create({
   chatComposerBar: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
+    borderTopWidth: 1,
   },
   chatComposerPrimary: {
-    gap: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
+    alignItems: "flex-end",
+    gap: 8,
+    paddingLeft: 10,
+    paddingRight: 8,
     paddingVertical: 8,
   },
   chatComposerInput: {
     color: colors.text,
     fontSize: 15,
+    lineHeight: 20,
     maxHeight: 110,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   chatSendButton: {
     alignItems: "center",
     alignSelf: "flex-end",
-    backgroundColor: colors.primary,
-    borderRadius: radii.control,
+    backgroundColor: "transparent",
+    borderRadius: 21,
+    height: 42,
     justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 14,
+    width: 42,
   },
   chatSendButtonDisabled: {
-    opacity: 0.45,
-  },
-  chatSendText: {
-    ...typography.button,
-    color: "#fff",
+    opacity: 0.55,
   },
   bubble: {
     borderRadius: radii.card,
@@ -1118,7 +1153,9 @@ const styles = StyleSheet.create({
   },
   systemBubble: {
     alignSelf: "center",
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
+    maxWidth: "85%",
+    paddingHorizontal: 0,
   },
   messageText: {
     ...typography.body,
@@ -1137,25 +1174,27 @@ const styles = StyleSheet.create({
   reviewPromptCard: {
     alignSelf: "center",
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.card,
+    backgroundColor: "rgba(248, 250, 252, 0.82)",
+    borderColor: "rgba(148, 163, 184, 0.32)",
+    borderRadius: 12,
     borderWidth: 1,
     maxWidth: "88%",
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
   },
   reviewPromptText: {
     ...typography.body,
     color: colors.muted,
+    lineHeight: 21,
     textAlign: "center",
   },
   reviewPromptButton: {
     borderColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: radii.control,
     borderWidth: 1,
     marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   reviewPromptButtonText: {
     ...typography.caption,
