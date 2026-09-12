@@ -1,8 +1,9 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import * as Notifications from "expo-notifications";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
@@ -32,6 +33,12 @@ import { db } from "./src/lib/firebase";
 import { colors } from "./src/theme/colors";
 import { fontFamilies } from "./src/theme/design";
 import { isConversationUnread } from "./src/utils/messaging";
+import {
+  getActiveNotificationConversationId,
+  getMessageNotificationRouteData,
+  registerForPushNotifications,
+  unregisterPushNotificationToken,
+} from "./src/utils/pushNotifications";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -39,9 +46,55 @@ const BrowseStack = createNativeStackNavigator();
 const CompetitionsStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef();
+
+let pendingMessageNotificationRoute = null;
+
+Notifications.setNotificationHandler({
+  handleNotification: async (notification) => {
+    const data = notification?.request?.content?.data || {};
+    const isActiveConversation =
+      data.type === "message" &&
+      data.conversationId &&
+      data.conversationId === getActiveNotificationConversationId();
+
+    return {
+      shouldShowBanner: !isActiveConversation,
+      shouldShowList: !isActiveConversation,
+      shouldPlaySound: !isActiveConversation,
+      shouldSetBadge: false,
+    };
+  },
+});
+
+function navigateToMessageNotification(routeData) {
+  if (!routeData?.conversationId) return;
+
+  if (!navigationRef.isReady()) {
+    pendingMessageNotificationRoute = routeData;
+    return;
+  }
+
+  navigationRef.navigate("MainTabs", {
+    screen: "Messages",
+    params: {
+      screen: "Conversation",
+      params: { conversationId: routeData.conversationId },
+    },
+  });
+}
+
+function flushPendingMessageNotificationRoute() {
+  if (!pendingMessageNotificationRoute || !navigationRef.isReady()) return;
+
+  const routeData = pendingMessageNotificationRoute;
+  pendingMessageNotificationRoute = null;
+  navigateToMessageNotification(routeData);
+}
 
 function AppContent() {
   const { currentUser, loading } = useAuth();
+  const pushRegistrationRef = useRef(null);
   const [fontsLoaded] = useFonts({
     [fontFamilies.regular]: DMSans_400Regular,
     [fontFamilies.medium]: DMSans_500Medium,
@@ -49,6 +102,69 @@ function AppContent() {
     [fontFamilies.bold]: DMSans_700Bold,
     [fontFamilies.extraBold]: DMSans_800ExtraBold,
   });
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function syncPushRegistration() {
+      const existingRegistration = pushRegistrationRef.current;
+
+      if (!currentUser?.uid) {
+        if (existingRegistration) {
+          await unregisterPushNotificationToken(
+            existingRegistration.userId,
+            existingRegistration.token
+          );
+          pushRegistrationRef.current = null;
+        }
+        return;
+      }
+
+      if (existingRegistration?.userId === currentUser.uid) return;
+
+      if (existingRegistration) {
+        await unregisterPushNotificationToken(
+          existingRegistration.userId,
+          existingRegistration.token
+        );
+        pushRegistrationRef.current = null;
+      }
+
+      const registration = await registerForPushNotifications(currentUser.uid);
+      if (!canceled && registration?.token) {
+        pushRegistrationRef.current = {
+          userId: currentUser.uid,
+          token: registration.token,
+        };
+      }
+    }
+
+    syncPushRegistration().catch((error) => {
+      console.error("Error syncing mobile push notification registration:", error);
+    });
+
+    return () => {
+      canceled = true;
+    };
+  }, [currentUser?.uid]);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        navigateToMessageNotification(getMessageNotificationRouteData(response));
+      }
+    );
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        navigateToMessageNotification(getMessageNotificationRouteData(response));
+      })
+      .catch((error) => {
+        console.error("Error reading initial notification response:", error);
+      });
+
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded || loading) {
     return (
@@ -414,7 +530,7 @@ export default function App() {
   return (
     <KeyboardProvider preload={false}>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef} onReady={flushPendingMessageNotificationRoute}>
           <StatusBar style="dark" />
           <AppContent />
         </NavigationContainer>

@@ -284,6 +284,25 @@ service cloud.firestore {
         && isNonEmptyString(request.resource.data.lastName, 50);
     }
 
+    function validPushTokenWrite(data, userId) {
+      return isSelf(userId)
+        && data.keys().hasOnly([
+          "token",
+          "platform",
+          "appVersion",
+          "disabled",
+          "createdAt",
+          "updatedAt"
+        ])
+        && isNonEmptyString(data.token, 200)
+        && data.platform in ["ios", "android"]
+        && data.appVersion is string
+        && data.appVersion.size() <= 40
+        && data.disabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     function validConversationCreate(data) {
       return signedIn()
         && data.keys().hasOnly([
@@ -638,6 +657,12 @@ service cloud.firestore {
       allow create: if validUserProfileCreate(request.resource.data, userId);
       allow update: if validUserProfileUpdate(userId);
       allow delete: if false;
+
+      match /pushTokens/{tokenId} {
+        allow read: if isSelf(userId);
+        allow create, update: if validPushTokenWrite(request.resource.data, userId);
+        allow delete: if isSelf(userId);
+      }
     }
 
     match /listings/{listingId} {

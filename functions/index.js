@@ -2,8 +2,10 @@
 import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import admin from "firebase-admin";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
+import { logger } from "firebase-functions";
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -18,11 +20,13 @@ const functionOptions = {
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const SIGNED_URL_EXPIRES_SECONDS = 5 * 60;
+const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
 ]);
+const pushFunctionOptions = { region: "us-central1" };
 
 function requireAuth(request) {
   if (!request.auth?.uid) {
@@ -80,6 +84,76 @@ function sanitizeMetadataValue(value) {
   return String(value || "")
     .replace(/[^\x20-\x7E]/g, "")
     .slice(0, 256);
+}
+
+function truncateNotificationText(value, maxLength = 80) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3).trim()}...`;
+}
+
+function getUserDisplayName(user = {}) {
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+    user.displayName ||
+    "Someone"
+  );
+}
+
+function getRecipientId(conversation = {}, senderId) {
+  if (conversation.buyerId === senderId) return conversation.sellerId;
+  if (conversation.sellerId === senderId) return conversation.buyerId;
+  return "";
+}
+
+function getUserBlockDocumentId(blockerId, blockedUserId) {
+  return `${blockerId}_${blockedUserId}`;
+}
+
+async function isBlockedBetween(firstUserId, secondUserId) {
+  if (!firstUserId || !secondUserId) return true;
+
+  const [firstBlocksSecond, secondBlocksFirst] = await Promise.all([
+    firestore
+      .collection("userBlocks")
+      .doc(getUserBlockDocumentId(firstUserId, secondUserId))
+      .get(),
+    firestore
+      .collection("userBlocks")
+      .doc(getUserBlockDocumentId(secondUserId, firstUserId))
+      .get(),
+  ]);
+
+  return firstBlocksSecond.exists || secondBlocksFirst.exists;
+}
+
+async function deletePushTokenDocs(tokenDocs = []) {
+  if (!tokenDocs.length) return;
+
+  const batch = firestore.batch();
+  tokenDocs.forEach((tokenDoc) => batch.delete(tokenDoc.ref));
+  await batch.commit();
+}
+
+async function sendExpoPushNotifications(messages) {
+  if (!messages.length) return [];
+
+  const response = await fetch(EXPO_PUSH_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(messages),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Expo push request failed with HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload.data) ? payload.data : [];
 }
 
 function assertImageRequest({ contentType, fileSize }) {
@@ -247,3 +321,95 @@ export const deleteS3Objects = onCall(functionOptions, async (request) => {
 
   return { deleted: safeKeys.length };
 });
+
+export const sendMessagePushNotification = onDocumentCreated(
+  {
+    ...pushFunctionOptions,
+    document: "messages/{messageId}",
+  },
+  async (event) => {
+    const message = event.data?.data();
+    if (!message?.conversationId || !message?.senderId) return;
+    if (message.type !== "message" && !message.reviewPrompt) return;
+
+    const conversationSnapshot = await firestore
+      .collection("conversations")
+      .doc(message.conversationId)
+      .get();
+    if (!conversationSnapshot.exists) return;
+
+    const conversation = conversationSnapshot.data();
+    const recipientId = getRecipientId(conversation, message.senderId);
+    if (!recipientId || recipientId === message.senderId) return;
+    if (conversation.status === "rejected" || conversation.closedReason === "listing_deleted") {
+      return;
+    }
+    if (await isBlockedBetween(conversation.buyerId, conversation.sellerId)) {
+      return;
+    }
+
+    const recipientSnapshot = await firestore.collection("users").doc(recipientId).get();
+    const recipient = recipientSnapshot.exists ? recipientSnapshot.data() : {};
+    if (recipient.notificationSettings?.messages === false) return;
+
+    const tokenSnapshot = await firestore
+      .collection("users")
+      .doc(recipientId)
+      .collection("pushTokens")
+      .where("disabled", "==", false)
+      .get();
+    if (tokenSnapshot.empty) return;
+
+    const [senderSnapshot, listingSnapshot] = await Promise.all([
+      firestore.collection("users").doc(message.senderId).get(),
+      conversation.listingId
+        ? firestore.collection("listings").doc(conversation.listingId).get()
+        : Promise.resolve(null),
+    ]);
+    const sender = senderSnapshot.exists ? senderSnapshot.data() : {};
+    const listing = listingSnapshot?.exists ? listingSnapshot.data() : {};
+    const senderName = getUserDisplayName(sender);
+    const listingTitle = truncateNotificationText(listing.title || "a listing", 64);
+    const title = message.reviewPrompt
+      ? "Rate your WeCube experience"
+      : `New message from ${truncateNotificationText(senderName, 40)}`;
+    const body = message.reviewPrompt
+      ? `About ${listingTitle}`
+      : `About ${listingTitle}`;
+
+    const validTokenDocs = tokenSnapshot.docs.filter((tokenDoc) => {
+      const token = tokenDoc.data()?.token;
+      return typeof token === "string" && token.startsWith("Expo");
+    });
+    const pushMessages = validTokenDocs.map((tokenDoc) => ({
+      to: tokenDoc.data().token,
+      sound: "default",
+      title,
+      body,
+      data: {
+        type: "message",
+        conversationId: message.conversationId,
+        listingId: conversation.listingId || "",
+      },
+    }));
+
+    try {
+      const tickets = await sendExpoPushNotifications(pushMessages);
+      const invalidTokenDocs = tickets
+        .map((ticket, index) =>
+          ticket?.details?.error === "DeviceNotRegistered"
+            ? validTokenDocs[index]
+            : null
+        )
+        .filter(Boolean);
+
+      await deletePushTokenDocs(invalidTokenDocs);
+    } catch (error) {
+      logger.error("Error sending message push notification", {
+        conversationId: message.conversationId,
+        messageId: event.params.messageId,
+        error,
+      });
+    }
+  }
+);

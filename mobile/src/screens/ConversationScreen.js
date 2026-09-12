@@ -38,6 +38,7 @@ import {
 } from "../utils/messaging";
 import { getExistingReview, submitTransactionReview } from "../utils/reviews";
 import { getS3PublicUrl } from "../utils/s3";
+import { setActiveNotificationConversationId } from "../utils/pushNotifications";
 
 const CONVERSATION_REPORT_REASONS = [
   { value: "scam_or_unsafe", label: "Scam or unsafe behavior" },
@@ -371,6 +372,11 @@ export default function ConversationScreen({ navigation, route }) {
         ? conversation.sellerId
         : conversation.buyerId
       : "";
+
+  useEffect(() => {
+    setActiveNotificationConversationId(conversationId);
+    return () => setActiveNotificationConversationId(null);
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId) {
