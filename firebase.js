@@ -1,6 +1,5 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
@@ -21,12 +20,30 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(
   app,
   import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || "us-central1"
 );
+
+let analyticsPromise = null;
+
+export function getFirebaseAnalytics() {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (!analyticsPromise) {
+    analyticsPromise = import("firebase/analytics")
+      .then(async ({ getAnalytics, isSupported }) => {
+        if (!(await isSupported())) return null;
+        return getAnalytics(app);
+      })
+      .catch((error) => {
+        console.warn("Firebase Analytics is unavailable:", error);
+        return null;
+      });
+  }
+
+  return analyticsPromise;
+}
 
 export { app, auth, db, functions };
