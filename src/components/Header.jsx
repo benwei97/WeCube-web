@@ -357,29 +357,40 @@ function Header() {
                 Policies
               </MenuItem>
               {currentUser?.isAdmin && (
-                <MenuItem onClick={() => handleMenuNavigation("/admin/reports")}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 2,
-                      width: "100%",
-                    }}
+                [
+                  <MenuItem
+                    key="admin-metrics"
+                    onClick={() => handleMenuNavigation("/admin/metrics")}
                   >
-                    <Box component="span">Admin Reports</Box>
-                    <Badge
-                      badgeContent={openReportCount}
-                      color="error"
+                    Admin Metrics
+                  </MenuItem>,
+                  <MenuItem
+                    key="admin-reports"
+                    onClick={() => handleMenuNavigation("/admin/reports")}
+                  >
+                    <Box
                       sx={{
-                        "& .MuiBadge-badge": {
-                          position: "static",
-                          transform: "none",
-                        },
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 2,
+                        width: "100%",
                       }}
-                    />
-                  </Box>
-                </MenuItem>
+                    >
+                      <Box component="span">Admin Reports</Box>
+                      <Badge
+                        badgeContent={openReportCount}
+                        color="error"
+                        sx={{
+                          "& .MuiBadge-badge": {
+                            position: "static",
+                            transform: "none",
+                          },
+                        }}
+                      />
+                    </Box>
+                  </MenuItem>,
+                ]
               )}
               <MenuItem onClick={handleLogoutClick} sx={{ color: "error.main" }}>
                 Sign Out

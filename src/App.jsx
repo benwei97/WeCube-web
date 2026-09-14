@@ -14,6 +14,7 @@ import Sell from "./pages/Sell";
 import ListingDetail from "./pages/ListingDetail";
 import Messages from "./pages/Messages";
 import SellerProfile from "./pages/SellerProfile";
+import AdminMetrics from "./pages/AdminMetrics";
 import AdminReports from "./pages/AdminReports";
 import About from "./pages/About";
 import SafetyGuidelines from "./pages/SafetyGuidelines";
@@ -53,6 +54,7 @@ function App() {
               <Route path="/user/:userId" element={<SellerProfile />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId" element={<Messages />} />
+              <Route path="/admin/metrics" element={<AdminMetrics />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/about" element={<About />} />
               <Route path="/safety" element={<SafetyGuidelines />} />

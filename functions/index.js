@@ -36,6 +36,15 @@ function requireAuth(request) {
   return request.auth.uid;
 }
 
+function requireAdmin(request) {
+  const uid = requireAuth(request);
+  if (request.auth?.token?.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin access is required.");
+  }
+
+  return uid;
+}
+
 function getBucketName() {
   const bucketName = process.env.S3_BUCKET_NAME;
   if (!bucketName) {
@@ -154,6 +163,28 @@ async function sendExpoPushNotifications(messages) {
 
   const payload = await response.json();
   return Array.isArray(payload.data) ? payload.data : [];
+}
+
+function getTimestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value === "string" || value instanceof Date) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  return 0;
+}
+
+function sumNumericField(docs, field) {
+  return docs.reduce((sum, item) => {
+    const value = Number(item[field]);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
+}
+
+function getLastActivityMillis(userId, activityByUserId) {
+  return activityByUserId.get(userId) || 0;
 }
 
 function assertImageRequest({ contentType, fileSize }) {
@@ -320,6 +351,234 @@ export const deleteS3Objects = onCall(functionOptions, async (request) => {
   );
 
   return { deleted: safeKeys.length };
+});
+
+export const getAdminMetrics = onCall({ region: "us-central1" }, async (request) => {
+  requireAdmin(request);
+
+  const [
+    usersSnapshot,
+    listingsSnapshot,
+    conversationsSnapshot,
+    messagesSnapshot,
+    reviewsSnapshot,
+    listingReportsSnapshot,
+    userReportsSnapshot,
+    conversationReportsSnapshot,
+    revenueEventsSnapshot,
+    shareEventsSnapshot,
+  ] = await Promise.all([
+    firestore.collection("users").get(),
+    firestore.collection("listings").get(),
+    firestore.collection("conversations").get(),
+    firestore.collection("messages").get(),
+    firestore.collection("reviews").get(),
+    firestore.collection("listingReports").get(),
+    firestore.collection("userReports").get(),
+    firestore.collection("conversationReports").get(),
+    firestore.collection("revenueEvents").get(),
+    firestore.collection("shareEvents").get(),
+  ]);
+
+  const users = usersSnapshot.docs.map((userDoc) => ({
+    id: userDoc.id,
+    ...userDoc.data(),
+  }));
+  const listings = listingsSnapshot.docs.map((listingDoc) => ({
+    id: listingDoc.id,
+    ...listingDoc.data(),
+  }));
+  const conversations = conversationsSnapshot.docs.map((conversationDoc) => ({
+    id: conversationDoc.id,
+    ...conversationDoc.data(),
+  }));
+  const messages = messagesSnapshot.docs.map((messageDoc) => ({
+    id: messageDoc.id,
+    ...messageDoc.data(),
+  }));
+  const reviews = reviewsSnapshot.docs.map((reviewDoc) => ({
+    id: reviewDoc.id,
+    ...reviewDoc.data(),
+  }));
+  const revenueEvents = revenueEventsSnapshot.docs.map((eventDoc) => ({
+    id: eventDoc.id,
+    ...eventDoc.data(),
+  }));
+  const shareEvents = shareEventsSnapshot.docs.map((eventDoc) => ({
+    id: eventDoc.id,
+    ...eventDoc.data(),
+  }));
+
+  const activityByUserId = new Map();
+  const addActivity = (userId, timestamp) => {
+    if (!userId) return;
+    const currentValue = activityByUserId.get(userId) || 0;
+    activityByUserId.set(userId, Math.max(currentValue, getTimestampMillis(timestamp)));
+  };
+
+  const soldListings = listings.filter((listing) => listing.status === "sold");
+  const activeListings = listings.filter((listing) => listing.status === "active");
+  const pendingListings = listings.filter((listing) => listing.status === "archived");
+  const hiddenListings = listings.filter((listing) => listing.moderationStatus === "hidden");
+  const sellerTransactionCounts = {};
+  const buyerTransactionCounts = {};
+
+  listings.forEach((listing) => {
+    addActivity(listing.userId, listing.updatedAt || listing.createdAt);
+    if (Array.isArray(listing.savedByUserIds)) {
+      listing.savedByUserIds.forEach((userId) => addActivity(userId, listing.updatedAt));
+    }
+
+    if (listing.status !== "sold") return;
+    if (listing.userId) {
+      sellerTransactionCounts[listing.userId] =
+        (sellerTransactionCounts[listing.userId] || 0) + 1;
+    }
+    if (listing.buyerId) {
+      buyerTransactionCounts[listing.buyerId] =
+        (buyerTransactionCounts[listing.buyerId] || 0) + 1;
+    }
+  });
+
+  conversations.forEach((conversation) => {
+    addActivity(conversation.buyerId, conversation.updatedAt || conversation.createdAt);
+    addActivity(conversation.sellerId, conversation.updatedAt || conversation.createdAt);
+  });
+
+  messages.forEach((message) => {
+    addActivity(message.senderId, message.createdAt);
+  });
+
+  reviews.forEach((review) => {
+    addActivity(review.reviewerId, review.updatedAt || review.createdAt);
+    addActivity(review.recipientId, review.updatedAt || review.createdAt);
+  });
+
+  users.forEach((user) => {
+    if (Array.isArray(user.savedListings) && user.savedListings.length > 0) {
+      addActivity(user.id, user.updatedAt || user.createdAt);
+    }
+    if (
+      Array.isArray(user.attendingCompetitions) &&
+      user.attendingCompetitions.length > 0
+    ) {
+      addActivity(user.id, user.updatedAt || user.createdAt);
+    }
+  });
+
+  const deletedUserCount = users.filter((user) => user.deletedAt || user.deletedByUser).length;
+  const realUsers = users.filter(
+    (user) =>
+      !user.deletedAt &&
+      !user.deletedByUser &&
+      !user.isTestAccount &&
+      !user.isAdmin &&
+      getLastActivityMillis(user.id, activityByUserId) > 0
+  );
+  const transactionUserIds = new Set([
+    ...Object.keys(sellerTransactionCounts),
+    ...Object.keys(buyerTransactionCounts),
+  ]);
+  const repeatTransactionUsers = [...transactionUserIds].filter((userId) => {
+    const totalTransactions =
+      (sellerTransactionCounts[userId] || 0) + (buyerTransactionCounts[userId] || 0);
+    return totalTransactions >= 2;
+  });
+
+  const reportCounts = {
+    listing: listingReportsSnapshot.size,
+    user: userReportsSnapshot.size,
+    conversation: conversationReportsSnapshot.size,
+  };
+  const openReportCount = [
+    ...listingReportsSnapshot.docs,
+    ...userReportsSnapshot.docs,
+    ...conversationReportsSnapshot.docs,
+  ].filter((reportDoc) => reportDoc.data().status === "open").length;
+
+  const savedListingCount = users.reduce(
+    (sum, user) => sum + (Array.isArray(user.savedListings) ? user.savedListings.length : 0),
+    0
+  );
+  const savedCompetitionCount = users.reduce(
+    (sum, user) =>
+      sum +
+      (Array.isArray(user.attendingCompetitions)
+        ? user.attendingCompetitions.length
+        : 0),
+    0
+  );
+  const organicSignupCount = users.filter((user) =>
+    ["organic", "friend", "word_of_mouth", "social"].includes(user.referralSource)
+  ).length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    goals: {
+      realUsers: { current: realUsers.length, target: 1000 },
+      transactions: { current: soldListings.length, target: 250 },
+      gmv: { current: sumNumericField(soldListings, "price"), target: 10000 },
+      repeatTransactionUsers: {
+        current: repeatTransactionUsers.length,
+        target: 50,
+      },
+      lifetimeRevenue: {
+        current: sumNumericField(revenueEvents, "amount"),
+        target: 1000,
+        source: revenueEvents.length > 0 ? "revenueEvents" : "not_configured",
+      },
+      organicSignals: {
+        current: organicSignupCount + shareEvents.length,
+        target: 1,
+        source:
+          organicSignupCount + shareEvents.length > 0
+            ? "referralSource/shareEvents"
+            : "not_configured",
+      },
+    },
+    marketplace: {
+      users: {
+        total: users.length,
+        real: realUsers.length,
+        deleted: deletedUserCount,
+      },
+      listings: {
+        total: listings.length,
+        active: activeListings.length,
+        pending: pendingListings.length,
+        sold: soldListings.length,
+        hidden: hiddenListings.length,
+      },
+      transactions: {
+        completed: soldListings.length,
+        estimatedGmv: sumNumericField(soldListings, "price"),
+        uniqueSellers: Object.keys(sellerTransactionCounts).length,
+        uniqueBuyers: Object.keys(buyerTransactionCounts).length,
+        repeatUsers: repeatTransactionUsers.length,
+      },
+      messaging: {
+        conversations: conversations.length,
+        messages: messages.length,
+      },
+      trust: {
+        reviews: reviews.length,
+        reports:
+          reportCounts.listing + reportCounts.user + reportCounts.conversation,
+        openReports: openReportCount,
+        reportCounts,
+      },
+      engagement: {
+        savedListings: savedListingCount,
+        savedCompetitions: savedCompetitionCount,
+        shareEvents: shareEvents.length,
+        organicSignups: organicSignupCount,
+      },
+      revenue: {
+        lifetime: sumNumericField(revenueEvents, "amount"),
+        events: revenueEvents.length,
+      },
+    },
+  };
 });
 
 export const sendMessagePushNotification = onDocumentCreated(
