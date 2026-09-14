@@ -7,9 +7,11 @@ WeCube is a React/Vite marketplace app for buying and selling speedcubes and puz
 - React 19 + Vite
 - Material UI
 - Firebase Auth + Firestore
+- Firebase Cloud Functions for signed S3 uploads/deletes, message push notifications, and admin metrics
 - AWS S3 for listing photos and avatars
 - Mapbox GL with OSM fallback for approximate meetup maps
 - WCA API utilities for US competition lookup
+- Expo/React Native iOS app under `mobile/`
 
 ## Setup
 
@@ -51,7 +53,7 @@ npm run qa
 
 For QA setup and test-account notes, see [docs/qa.md](docs/qa.md).
 
-Known lint note: full lint currently reports a Fast Refresh rule issue in `src/components/ListingStatusDecorators.jsx` because that file exports style constants/functions in addition to components. Several pages also have existing hook dependency warnings.
+Known lint note: full lint currently reports existing mobile issues in `mobile/src/screens/AuthScreen.js` (`process` no-undef) and `mobile/src/screens/ListingDetailScreen.js` (unused `hasEditedCompetitionSearch`).
 
 ## Environment Variables
 
@@ -86,6 +88,8 @@ For AWS account migration notes, see [docs/aws-migration.md](docs/aws-migration.
 
 S3 uploads and deletes use Firebase Cloud Functions for short-lived signed URLs and server-side deletion. Do not put AWS access keys in `VITE_` variables because `VITE_` values are exposed to the browser.
 
+Firebase Analytics is lazy-loaded with `getFirebaseAnalytics()` so browser privacy extensions that block analytics do not block web app startup.
+
 Cloud Functions runtime environment:
 
 ```sh
@@ -102,10 +106,19 @@ S3_BUCKET_NAME=
 - `/listing/:id` - Listing detail and seller controls
 - `/messages` and `/messages/:conversationId` - Messaging and request management
 - `/dashboard` - Account dashboard, listings, and purchases
+- `/admin/metrics` - Admin-only founder and marketplace metrics
+- `/admin/reports` - Admin-only moderation reports
 - `/my-listings`, `/my-purchases`, `/my-reviews` - legacy redirects to `/dashboard`
 - `/seller/:userId` and `/user/:userId` - Public seller profile
 - `/competitions` - WCA competitions
 - `/competitions/:competitionId/listings` - Listings available at a competition
+
+## Cloud Functions
+
+- `createSignedS3Upload`: callable signed URL creation for listing/avatar image uploads.
+- `deleteS3Objects`: callable server-side S3 object deletion.
+- `sendMessagePushNotification`: Firestore-triggered Expo push notification for new mobile messages.
+- `getAdminMetrics`: admin-only callable aggregate metrics endpoint for `/admin/metrics`.
 
 ## Listing Data Model
 

@@ -25,6 +25,8 @@
 - EAS production builds only receive the values present in the build environment at build time. After changing env vars, create a new EAS build.
 - Firebase production auth must allow the iOS OAuth client ids used by the mobile env vars.
 - Sign in with Apple must be configured in Apple Developer and Firebase Auth before App Store review if third-party social sign-in remains enabled.
+- Push notifications use `expo-notifications` and Expo Push Service. EAS must have valid Apple push credentials/APNs setup for `app.wecube.ios`.
+- Message push tokens are stored in Firestore at `users/{uid}/pushTokens/{tokenId}` after the user accepts the WeCube prompt and iOS system notification permission.
 
 ## Local QA
 
@@ -49,6 +51,11 @@ Smoke test:
 - After posting a listing, confirm the app navigates directly to the new listing.
 - Message a seller and confirm unread chat badges clear when opening the conversation.
 - Confirm the active conversation does not keep showing an unread badge while you are already in that chat.
+- Accept the message notification prompt and confirm a push token appears under `users/{uid}/pushTokens`.
+- With two accounts, background the recipient device, send a message, and confirm a push notification arrives.
+- Tap the push notification and confirm it opens the correct conversation.
+- While viewing the active conversation, send a message from the other account and confirm the message appears without a foreground push banner for that same open chat.
+- While elsewhere in the app, send a message from the other account and confirm a foreground notification can appear.
 - Mark a listing pending, available, sold in-app, sold off-app, and deleted.
 - Confirm sold in-app requires selecting a buyer and confirming before status changes.
 - Submit listing, user, and conversation reports.
@@ -87,6 +94,7 @@ After upload:
 - Re-test Google/email auth against the target Firebase project.
 - Re-test Sign in with Apple against the target Firebase project.
 - Re-test Firebase Functions calls for signed S3 upload/delete.
+- Re-test message push notification registration, background delivery, foreground behavior, and tap-to-conversation routing.
 
 ## App Store Review Notes
 
