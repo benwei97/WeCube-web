@@ -215,6 +215,9 @@ export default function AdminMetrics() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => navigate("/admin/affiliates")}>
+              Affiliates
+            </Button>
             <Button variant="outlined" onClick={() => navigate("/admin/reports")}>
               Reports
             </Button>
@@ -343,6 +346,14 @@ export default function AdminMetrics() {
                   detail={`${formatNumber(marketplace.revenue?.events)} tracked event${
                     marketplace.revenue?.events === 1 ? "" : "s"
                   }`}
+                />
+                <MetricCard
+                  icon={<ShareIcon color="primary" />}
+                  label="Affiliates"
+                  value={formatCurrency(marketplace.affiliates?.pendingPayout)}
+                  detail={`${formatNumber(marketplace.affiliates?.total)} affiliate records, ${formatCurrency(
+                    marketplace.affiliates?.paidPayout
+                  )} paid`}
                 />
                 <MetricCard
                   icon={<AssessmentIcon color="primary" />}

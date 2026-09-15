@@ -14,6 +14,10 @@ import {
 import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../firebase.js";
 import { AuthContext } from "./authContextValue";
+import {
+  captureAffiliateReferralFromUrl,
+  getPendingAffiliateReferral,
+} from "../utils/referrals";
 
 const PENDING_PROFILE_STORAGE_KEY = "wecubePendingProfiles";
 const profileCreationPromises = new Map();
@@ -81,6 +85,17 @@ function getFallbackProfile(user) {
   };
 }
 
+function getReferralProfileFields() {
+  const referral = getPendingAffiliateReferral();
+  if (!referral?.code) return {};
+
+  return {
+    referredByAffiliateId: referral.code,
+    referralSource: "affiliate",
+    referredAt: referral.capturedAt,
+  };
+}
+
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -122,6 +137,7 @@ export function AuthProvider({ children }) {
           firstName: profile.firstName,
           lastName: profile.lastName,
           createdAt,
+          ...getReferralProfileFields(),
         });
       } catch (error) {
         if (error.code === "permission-denied") {
@@ -216,6 +232,8 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    captureAffiliateReferralFromUrl();
+
     let unsubscribeUserDoc = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

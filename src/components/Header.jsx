@@ -359,6 +359,12 @@ function Header() {
               {currentUser?.isAdmin && (
                 [
                   <MenuItem
+                    key="admin-affiliates"
+                    onClick={() => handleMenuNavigation("/admin/affiliates")}
+                  >
+                    Admin Affiliates
+                  </MenuItem>,
+                  <MenuItem
                     key="admin-metrics"
                     onClick={() => handleMenuNavigation("/admin/metrics")}
                   >

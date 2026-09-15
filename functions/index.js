@@ -2,7 +2,7 @@
 import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import admin from "firebase-admin";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
@@ -21,12 +21,16 @@ const functionOptions = {
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const SIGNED_URL_EXPIRES_SECONDS = 5 * 60;
 const EXPO_PUSH_ENDPOINT = "https://exp.host/--/api/v2/push/send";
+const AFFILIATE_ACTIVATION_AMOUNT = 1;
+const AFFILIATE_FIRST_TRANSACTION_AMOUNT = 3;
+const AFFILIATE_MAX_PER_REFERRED_USER = 4;
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
 ]);
 const pushFunctionOptions = { region: "us-central1" };
+const affiliateFunctionOptions = { region: "us-central1" };
 
 function requireAuth(request) {
   if (!request.auth?.uid) {
@@ -185,6 +189,156 @@ function sumNumericField(docs, field) {
 
 function getLastActivityMillis(userId, activityByUserId) {
   return activityByUserId.get(userId) || 0;
+}
+
+function normalizeAffiliateCode(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 40);
+}
+
+function getAffiliateEventId({ affiliateId, referredUserId, type }) {
+  return `${affiliateId}_${referredUserId}_${type}`;
+}
+
+function isAffiliateActive(affiliate = {}) {
+  return affiliate.status === "active";
+}
+
+async function getActiveAffiliateForUser(userId) {
+  if (!userId) return null;
+
+  const userSnapshot = await firestore.collection("users").doc(userId).get();
+  if (!userSnapshot.exists) return null;
+
+  const user = userSnapshot.data();
+  const affiliateId = normalizeAffiliateCode(user.referredByAffiliateId);
+  if (!affiliateId) return null;
+
+  const affiliateSnapshot = await firestore.collection("affiliates").doc(affiliateId).get();
+  if (!affiliateSnapshot.exists) return null;
+
+  const affiliate = {
+    id: affiliateSnapshot.id,
+    ...affiliateSnapshot.data(),
+  };
+  if (!isAffiliateActive(affiliate)) return null;
+  if (affiliate.userId && affiliate.userId === userId) return null;
+
+  return {
+    affiliate,
+    referredUser: {
+      id: userSnapshot.id,
+      ...user,
+    },
+  };
+}
+
+async function createAffiliateLedgerEvent({
+  affiliate,
+  amount,
+  referredUserId,
+  type,
+  metadata = {},
+}) {
+  if (!affiliate?.id || !referredUserId || !type) return false;
+
+  const eventId = getAffiliateEventId({
+    affiliateId: affiliate.id,
+    referredUserId,
+    type,
+  });
+  const eventRef = firestore.collection("affiliateEvents").doc(eventId);
+
+  return firestore.runTransaction(async (transaction) => {
+    const existingEvent = await transaction.get(eventRef);
+    if (existingEvent.exists) return false;
+
+    transaction.set(eventRef, {
+      affiliateId: affiliate.id,
+      affiliateCode: affiliate.code || affiliate.id,
+      referredUserId,
+      type,
+      amount,
+      status: "pending",
+      commissionCurrency: "USD",
+      rulesVersion: "2026-09-affiliate-v1",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...metadata,
+    });
+
+    return true;
+  });
+}
+
+async function createAffiliateActivationEvent(userId, metadata = {}) {
+  const attribution = await getActiveAffiliateForUser(userId);
+  if (!attribution) return false;
+
+  return createAffiliateLedgerEvent({
+    affiliate: attribution.affiliate,
+    amount: AFFILIATE_ACTIVATION_AMOUNT,
+    referredUserId: userId,
+    type: "activated_user",
+    metadata,
+  });
+}
+
+async function createAffiliateFirstTransactionEvent(userId, listing = {}, metadata = {}) {
+  const attribution = await getActiveAffiliateForUser(userId);
+  if (!attribution) return false;
+
+  if (
+    attribution.affiliate.userId &&
+    [listing.userId, listing.buyerId].includes(attribution.affiliate.userId)
+  ) {
+    return false;
+  }
+
+  return createAffiliateLedgerEvent({
+    affiliate: attribution.affiliate,
+    amount: AFFILIATE_FIRST_TRANSACTION_AMOUNT,
+    referredUserId: userId,
+    type: "first_transaction",
+    metadata: {
+      listingId: metadata.listingId || "",
+      saleEventId: listing.saleEventId || "",
+      soldAt: listing.soldAt || null,
+      listingPrice: Number(listing.price) || 0,
+      sellerId: listing.userId || "",
+      buyerId: listing.buyerId || "",
+      ...metadata,
+    },
+  });
+}
+
+function summarizeAffiliateEvents(events = []) {
+  return events.reduce(
+    (summary, event) => {
+      summary.totalEvents += 1;
+      summary.totalAmount += Number(event.amount) || 0;
+      summary.byStatus[event.status] =
+        (summary.byStatus[event.status] || 0) + (Number(event.amount) || 0);
+      summary.byType[event.type] = (summary.byType[event.type] || 0) + 1;
+      if (event.status === "paid") {
+        summary.paidAmount += Number(event.amount) || 0;
+      } else if (event.status === "pending") {
+        summary.pendingAmount += Number(event.amount) || 0;
+      }
+      return summary;
+    },
+    {
+      totalEvents: 0,
+      totalAmount: 0,
+      pendingAmount: 0,
+      paidAmount: 0,
+      byStatus: {},
+      byType: {},
+    }
+  );
 }
 
 function assertImageRequest({ contentType, fileSize }) {
@@ -367,6 +521,8 @@ export const getAdminMetrics = onCall({ region: "us-central1" }, async (request)
     conversationReportsSnapshot,
     revenueEventsSnapshot,
     shareEventsSnapshot,
+    affiliatesSnapshot,
+    affiliateEventsSnapshot,
   ] = await Promise.all([
     firestore.collection("users").get(),
     firestore.collection("listings").get(),
@@ -378,6 +534,8 @@ export const getAdminMetrics = onCall({ region: "us-central1" }, async (request)
     firestore.collection("conversationReports").get(),
     firestore.collection("revenueEvents").get(),
     firestore.collection("shareEvents").get(),
+    firestore.collection("affiliates").get(),
+    firestore.collection("affiliateEvents").get(),
   ]);
 
   const users = usersSnapshot.docs.map((userDoc) => ({
@@ -408,6 +566,11 @@ export const getAdminMetrics = onCall({ region: "us-central1" }, async (request)
     id: eventDoc.id,
     ...eventDoc.data(),
   }));
+  const affiliateEvents = affiliateEventsSnapshot.docs.map((eventDoc) => ({
+    id: eventDoc.id,
+    ...eventDoc.data(),
+  }));
+  const affiliateSummary = summarizeAffiliateEvents(affiliateEvents);
 
   const activityByUserId = new Map();
   const addActivity = (userId, timestamp) => {
@@ -577,9 +740,253 @@ export const getAdminMetrics = onCall({ region: "us-central1" }, async (request)
         lifetime: sumNumericField(revenueEvents, "amount"),
         events: revenueEvents.length,
       },
+      affiliates: {
+        total: affiliatesSnapshot.size,
+        events: affiliateSummary.totalEvents,
+        pendingPayout: affiliateSummary.pendingAmount,
+        paidPayout: affiliateSummary.paidAmount,
+      },
     },
   };
 });
+
+export const getAdminAffiliates = onCall({ region: "us-central1" }, async (request) => {
+  requireAdmin(request);
+
+  const [affiliatesSnapshot, eventsSnapshot, usersSnapshot] = await Promise.all([
+    firestore.collection("affiliates").get(),
+    firestore.collection("affiliateEvents").get(),
+    firestore.collection("users").get(),
+  ]);
+
+  const usersById = new Map(
+    usersSnapshot.docs.map((userDoc) => [userDoc.id, { id: userDoc.id, ...userDoc.data() }])
+  );
+  const events = eventsSnapshot.docs.map((eventDoc) => ({
+    id: eventDoc.id,
+    ...eventDoc.data(),
+  }));
+  const eventsByAffiliateId = new Map();
+
+  events.forEach((event) => {
+    const currentEvents = eventsByAffiliateId.get(event.affiliateId) || [];
+    currentEvents.push(event);
+    eventsByAffiliateId.set(event.affiliateId, currentEvents);
+  });
+
+  const affiliates = affiliatesSnapshot.docs
+    .map((affiliateDoc) => {
+      const affiliate = { id: affiliateDoc.id, ...affiliateDoc.data() };
+      const affiliateEvents = eventsByAffiliateId.get(affiliateDoc.id) || [];
+      const referredUsers = usersSnapshot.docs.filter(
+        (userDoc) => normalizeAffiliateCode(userDoc.data().referredByAffiliateId) === affiliateDoc.id
+      );
+
+      return {
+        ...affiliate,
+        summary: {
+          ...summarizeAffiliateEvents(affiliateEvents),
+          signups: referredUsers.length,
+          activatedUsers: new Set(
+            affiliateEvents
+              .filter((event) => event.type === "activated_user")
+              .map((event) => event.referredUserId)
+          ).size,
+          firstTransactions: affiliateEvents.filter(
+            (event) => event.type === "first_transaction"
+          ).length,
+        },
+      };
+    })
+    .sort((a, b) => {
+      const aTime = getTimestampMillis(a.createdAt);
+      const bTime = getTimestampMillis(b.createdAt);
+      return bTime - aTime;
+    });
+
+  const recentEvents = events
+    .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt))
+    .slice(0, 100)
+    .map((event) => {
+      const user = usersById.get(event.referredUserId) || {};
+      return {
+        ...event,
+        referredUserName: getUserDisplayName(user),
+      };
+    });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    affiliates,
+    events: recentEvents,
+    totals: summarizeAffiliateEvents(events),
+  };
+});
+
+export const saveAffiliate = onCall({ region: "us-central1" }, async (request) => {
+  const adminUid = requireAdmin(request);
+  const affiliateId = normalizeAffiliateCode(request.data?.code);
+  const displayName = String(request.data?.displayName || "").trim().slice(0, 80);
+  const userId = String(request.data?.userId || "").trim();
+  const status = request.data?.status === "disabled" ? "disabled" : "active";
+
+  if (!affiliateId) {
+    throw new HttpsError("invalid-argument", "Affiliate code is required.");
+  }
+  if (!displayName) {
+    throw new HttpsError("invalid-argument", "Display name is required.");
+  }
+
+  const affiliateRef = firestore.collection("affiliates").doc(affiliateId);
+  const affiliateSnapshot = await affiliateRef.get();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  await affiliateRef.set(
+    {
+      code: affiliateId,
+      displayName,
+      userId,
+      status,
+      activationAmount: AFFILIATE_ACTIVATION_AMOUNT,
+      firstTransactionAmount: AFFILIATE_FIRST_TRANSACTION_AMOUNT,
+      maxPerReferredUser: AFFILIATE_MAX_PER_REFERRED_USER,
+      updatedAt: now,
+      updatedBy: adminUid,
+      ...(affiliateSnapshot.exists
+        ? {}
+        : {
+            createdAt: now,
+            createdBy: adminUid,
+          }),
+    },
+    { merge: true }
+  );
+
+  return { affiliateId };
+});
+
+export const markAffiliateEventsPaid = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    const adminUid = requireAdmin(request);
+    const affiliateId = normalizeAffiliateCode(request.data?.affiliateId);
+
+    if (!affiliateId) {
+      throw new HttpsError("invalid-argument", "Affiliate id is required.");
+    }
+
+    const pendingEventsSnapshot = await firestore
+      .collection("affiliateEvents")
+      .where("affiliateId", "==", affiliateId)
+      .where("status", "==", "pending")
+      .get();
+
+    if (pendingEventsSnapshot.empty) {
+      return { updated: 0 };
+    }
+
+    const batch = firestore.batch();
+    pendingEventsSnapshot.docs.forEach((eventDoc) => {
+      batch.update(eventDoc.ref, {
+        status: "paid",
+        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        paidBy: adminUid,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+
+    return { updated: pendingEventsSnapshot.size };
+  }
+);
+
+export const createAffiliateActivationFromListing = onDocumentCreated(
+  {
+    ...affiliateFunctionOptions,
+    document: "listings/{listingId}",
+  },
+  async (event) => {
+    const listing = event.data?.data();
+    await createAffiliateActivationEvent(listing?.userId, {
+      activationReason: "listing_created",
+      listingId: event.params.listingId,
+    });
+  }
+);
+
+export const createAffiliateActivationFromMessage = onDocumentCreated(
+  {
+    ...affiliateFunctionOptions,
+    document: "messages/{messageId}",
+  },
+  async (event) => {
+    const message = event.data?.data();
+    await createAffiliateActivationEvent(message?.senderId, {
+      activationReason: "message_sent",
+      conversationId: message?.conversationId || "",
+      messageId: event.params.messageId,
+    });
+  }
+);
+
+export const createAffiliateActivationFromSavedActivity = onDocumentUpdated(
+  {
+    ...affiliateFunctionOptions,
+    document: "users/{userId}",
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    const beforeSavedListings = Array.isArray(before.savedListings)
+      ? before.savedListings.length
+      : 0;
+    const afterSavedListings = Array.isArray(after.savedListings)
+      ? after.savedListings.length
+      : 0;
+    const beforeCompetitions = Array.isArray(before.attendingCompetitions)
+      ? before.attendingCompetitions.length
+      : 0;
+    const afterCompetitions = Array.isArray(after.attendingCompetitions)
+      ? after.attendingCompetitions.length
+      : 0;
+
+    if (
+      afterSavedListings > beforeSavedListings ||
+      afterCompetitions > beforeCompetitions
+    ) {
+      await createAffiliateActivationEvent(event.params.userId, {
+        activationReason:
+          afterSavedListings > beforeSavedListings
+            ? "saved_listing"
+            : "saved_competition",
+      });
+    }
+  }
+);
+
+export const createAffiliateFirstTransactionFromSoldListing = onDocumentUpdated(
+  {
+    ...affiliateFunctionOptions,
+    document: "listings/{listingId}",
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+
+    if (before.status === "sold" || after.status !== "sold") return;
+
+    await Promise.all([
+      createAffiliateFirstTransactionEvent(after.userId, after, {
+        listingId: event.params.listingId,
+        transactionRole: "seller",
+      }),
+      createAffiliateFirstTransactionEvent(after.buyerId, after, {
+        listingId: event.params.listingId,
+        transactionRole: "buyer",
+      }),
+    ]);
+  }
+);
 
 export const sendMessagePushNotification = onDocumentCreated(
   {

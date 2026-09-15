@@ -2,6 +2,7 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFonts } from "expo-font";
@@ -39,6 +40,7 @@ import {
   registerForPushNotifications,
   unregisterPushNotificationToken,
 } from "./src/utils/pushNotifications";
+import { captureAffiliateReferralFromUrl } from "./src/utils/referrals";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -102,6 +104,22 @@ function AppContent() {
     [fontFamilies.bold]: DMSans_700Bold,
     [fontFamilies.extraBold]: DMSans_800ExtraBold,
   });
+
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then((url) => captureAffiliateReferralFromUrl(url))
+      .catch((error) => {
+        console.error("Error reading initial affiliate referral URL:", error);
+      });
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      captureAffiliateReferralFromUrl(url).catch((error) => {
+        console.error("Error capturing affiliate referral URL:", error);
+      });
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     let canceled = false;

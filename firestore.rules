@@ -247,10 +247,24 @@ service cloud.firestore {
     }
 
     function validUserProfileCreate(data, userId) {
-      return data.keys().hasOnly(["email", "firstName", "lastName", "createdAt"])
+      return data.keys().hasOnly([
+          "email",
+          "firstName",
+          "lastName",
+          "createdAt",
+          "referredByAffiliateId",
+          "referralSource",
+          "referredAt"
+        ])
         && data.email is string
         && isNonEmptyString(data.firstName, 50)
         && isNonEmptyString(data.lastName, 50)
+        && isOptionalStringField(data, "referredByAffiliateId", 40)
+        && (
+          !("referralSource" in data) ||
+          data.referralSource == "affiliate"
+        )
+        && isOptionalStringField(data, "referredAt", 40)
         && request.auth.token.email_verified == true
         && isSelf(userId);
     }

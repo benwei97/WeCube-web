@@ -7,7 +7,7 @@ WeCube is a React/Vite marketplace app for buying and selling speedcubes and puz
 - React 19 + Vite
 - Material UI
 - Firebase Auth + Firestore
-- Firebase Cloud Functions for signed S3 uploads/deletes, message push notifications, and admin metrics
+- Firebase Cloud Functions for signed S3 uploads/deletes, message push notifications, admin metrics, and affiliate referral tracking
 - AWS S3 for listing photos and avatars
 - Mapbox GL with OSM fallback for approximate meetup maps
 - WCA API utilities for US competition lookup
@@ -107,6 +107,7 @@ S3_BUCKET_NAME=
 - `/messages` and `/messages/:conversationId` - Messaging and request management
 - `/dashboard` - Account dashboard, listings, and purchases
 - `/admin/metrics` - Admin-only founder and marketplace metrics
+- `/admin/affiliates` - Admin-only affiliate link and payout tracking
 - `/admin/reports` - Admin-only moderation reports
 - `/my-listings`, `/my-purchases`, `/my-reviews` - legacy redirects to `/dashboard`
 - `/seller/:userId` and `/user/:userId` - Public seller profile
@@ -119,6 +120,21 @@ S3_BUCKET_NAME=
 - `deleteS3Objects`: callable server-side S3 object deletion.
 - `sendMessagePushNotification`: Firestore-triggered Expo push notification for new mobile messages.
 - `getAdminMetrics`: admin-only callable aggregate metrics endpoint for `/admin/metrics`.
+- `getAdminAffiliates`, `saveAffiliate`, `markAffiliateEventsPaid`: admin-only affiliate management.
+- `createAffiliateActivationFromListing`, `createAffiliateActivationFromMessage`, `createAffiliateActivationFromSavedActivity`: Firestore-triggered activation ledger events for referred users.
+- `createAffiliateFirstTransactionFromSoldListing`: Firestore-triggered first-transaction affiliate ledger event.
+
+## Affiliate Referrals
+
+Admin-created affiliate links use this format:
+
+```text
+https://wecube.app/?ref=affiliate-code
+```
+
+Web captures `ref`, `affiliate`, and `affiliateCode` URL parameters for 30 days before signup. Mobile captures the same parameters from Expo app links through `expo-linking`; full universal/deferred linking for `https://wecube.app` can be added later if referral links should open the installed app directly.
+
+Referral attribution is stored on new user profiles as `referredByAffiliateId`, `referralSource: "affiliate"`, and `referredAt`. Payouts are tracked server-side in `affiliateEvents` and paid manually from `/admin/affiliates`.
 
 ## Listing Data Model
 

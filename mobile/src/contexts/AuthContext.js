@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+import { getPendingAffiliateReferral } from "../utils/referrals";
 
 export const AuthContext = createContext(null);
 
@@ -42,6 +43,17 @@ function getFallbackProfile(user, pendingProfile = {}) {
       pendingProfile.lastName ||
       displayNameProfile.lastName ||
       "Member",
+  };
+}
+
+async function getReferralProfileFields() {
+  const referral = await getPendingAffiliateReferral();
+  if (!referral?.code) return {};
+
+  return {
+    referredByAffiliateId: referral.code,
+    referralSource: "affiliate",
+    referredAt: referral.capturedAt,
   };
 }
 
@@ -78,6 +90,7 @@ export function AuthProvider({ children }) {
       firstName: profile.firstName,
       lastName: profile.lastName,
       createdAt,
+      ...(await getReferralProfileFields()),
     });
 
     return {
