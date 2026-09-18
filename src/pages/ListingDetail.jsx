@@ -31,6 +31,7 @@ import {
   Menu,
   Radio,
   InputAdornment,
+  CircularProgress,
 } from "@mui/material";
 import {
   CheckCircle,
@@ -50,8 +51,9 @@ import {
   Bookmark,
   BookmarkBorder,
   Flag,
+  AddPhotoAlternate,
 } from "@mui/icons-material";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   arrayRemove,
@@ -103,7 +105,7 @@ import {
   getUpcomingCompetitions,
   searchCompetitions,
 } from "../utils/wcaApi";
-import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
+import { deleteMultipleImages, getS3PublicUrl, uploadImageToS3, MAX_IMAGE_SIZE_BYTES } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
 import PageState from "../components/PageState";
 import {
@@ -180,6 +182,14 @@ function ListingDetail() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [editPhotos, setEditPhotos] = useState([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState("");
+  const photoPreviewUrls = useRef([]);
+
+  useEffect(() => () => {
+    photoPreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
   const [editNotice, setEditNotice] = useState(null);
   const [hasAttemptedEditSave, setHasAttemptedEditSave] = useState(false);
   const [editSnackbar, setEditSnackbar] = useState(null);
@@ -466,9 +476,34 @@ function ListingDetail() {
   }, [listing?.id]);
 
   const handleEditToggle = () => {
+    if (savingEdit) return;
+    photoPreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    photoPreviewUrls.current = [];
+    setEditPhotos(listing.photos || []);
     setEditMode((prev) => !prev);
     setEditNotice(null);
     setHasAttemptedEditSave(false);
+  };
+
+  const handleEditPhotoSelection = (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (savingEdit) return;
+    if (files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > MAX_IMAGE_SIZE_BYTES)) {
+      setEditNotice({ severity: "error", message: "Choose JPG, PNG, or WebP photos up to 10 MB each." });
+      return;
+    }
+    if (editPhotos.length + files.length > 5) {
+      setEditNotice({ severity: "error", message: "You can add up to 5 photos. Remove a photo first to replace it." });
+      return;
+    }
+    const additions = files.map((file) => {
+      const preview = URL.createObjectURL(file);
+      photoPreviewUrls.current.push(preview);
+      return { file, preview, id: preview };
+    });
+    setEditPhotos((current) => [...current, ...additions]);
+    setEditNotice(null);
   };
 
   const handleEditSnackbarClose = (_, reason) => {
@@ -694,10 +729,14 @@ function ListingDetail() {
     hasAttemptedEditSave && !editData.description.trim();
 
   const handleSave = async () => {
+    if (savingEdit) return;
     setHasAttemptedEditSave(true);
+    const newlyUploadedKeys = [];
+    let saved = false;
 
     try {
       if (
+        editPhotos.length < 1 || editPhotos.length > 5 ||
         !editData.title.trim() ||
         parseNonNegativeCurrencyAmount(editData.price) === null ||
         parseNonNegativeCurrencyAmount(editData.price) >
@@ -717,6 +756,19 @@ function ListingDetail() {
         return;
       }
 
+      setSavingEdit(true);
+      const savedPhotos = [];
+      for (const [index, photo] of editPhotos.entries()) {
+        if (!photo.file) {
+          savedPhotos.push(photo);
+          continue;
+        }
+        setPhotoProgress(`Uploading photo ${index + 1} of ${editPhotos.length}...`);
+        const s3Key = await uploadImageToS3(photo.file, listing.listingId || id);
+        newlyUploadedKeys.push(s3Key);
+        savedPhotos.push({ id: s3Key, name: photo.file.name, size: photo.file.size, type: photo.file.type, s3Key, uploadedAt: new Date() });
+      }
+      setPhotoProgress("Saving changes...");
       const docRef = doc(db, "listings", id);
       const resolvedMeetupLocation = await resolveMeetupLocationForSave();
       const shippingCost =
@@ -725,6 +777,7 @@ function ListingDetail() {
           : parsePositiveCurrencyAmount(editData.shippingCost);
 
       await updateDoc(docRef, {
+        photos: savedPhotos,
         title: editData.title.trim(),
         price: parseNonNegativeCurrencyAmount(editData.price),
         description: editData.description.trim(),
@@ -749,8 +802,12 @@ function ListingDetail() {
         updatedAt: new Date(),
       });
 
+      saved = true;
+      setCurrentPhotoIndex(0);
+
       setListing((prev) => ({
         ...prev,
+        photos: savedPhotos,
         title: editData.title,
         price: parseNonNegativeCurrencyAmount(editData.price),
         description: editData.description,
@@ -783,11 +840,17 @@ function ListingDetail() {
         message: "Listing updated successfully.",
       });
     } catch (error) {
+      if (!saved && newlyUploadedKeys.length) {
+        await deleteMultipleImages(newlyUploadedKeys).catch((cleanupError) => console.error("Error cleaning up failed photo edit:", cleanupError));
+      }
       console.error("Error updating listing:", error);
       setEditSnackbar({
         severity: "error",
-        message: "Failed to update listing. Please try again.",
+        message: error.message || "Failed to update listing. Please try again.",
       });
+    } finally {
+      setSavingEdit(false);
+      setPhotoProgress("");
     }
   };
 
@@ -2414,7 +2477,7 @@ function ListingDetail() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={3} sx={{ mt: 1 }}>
+          <Stack component="fieldset" disabled={savingEdit} spacing={3} sx={{ mt: 1, p: 0, border: 0, minWidth: 0 }}>
             <Collapse in={Boolean(editNotice)}>
               {editNotice && (
                 <Alert
@@ -2426,6 +2489,27 @@ function ListingDetail() {
                 </Alert>
               )}
             </Collapse>
+
+            <Box>
+              <Typography variant="subtitle1">Photos (1–5)</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap" sx={{ my: 1 }}>
+                {editPhotos.map((photo, index) => (
+                  <Box key={photo.id || photo.s3Key} sx={{ width: 104 }}>
+                    <Box sx={{ position: "relative" }}>
+                      <Box component="img" src={photo.preview || getS3PublicUrl(photo.s3Key)} alt={`Listing photo ${index + 1}`} sx={{ width: 104, height: 104, objectFit: "contain", borderRadius: 1, bgcolor: "#f1f5f9" }} />
+                      <IconButton aria-label={`Remove photo ${index + 1}`} disabled={savingEdit} size="small" onClick={() => setEditPhotos((current) => current.filter((_, i) => i !== index))} sx={{ position: "absolute", top: 2, right: 2, bgcolor: "white" }}><Close fontSize="small" /></IconButton>
+                    </Box>
+                    <Button size="small" disabled={savingEdit || index === 0} onClick={() => setEditPhotos((current) => [current[index], ...current.filter((_, i) => i !== index)])}>{index === 0 ? "Cover photo" : "Make cover"}</Button>
+                  </Box>
+                ))}
+              </Stack>
+              <Button component="label" disabled={savingEdit || editPhotos.length >= 5} startIcon={<AddPhotoAlternate />}>
+                Add photos
+                <input hidden type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={savingEdit || editPhotos.length >= 5} onChange={handleEditPhotoSelection} />
+              </Button>
+              {hasAttemptedEditSave && !editPhotos.length && <FormHelperText error>Add at least one photo.</FormHelperText>}
+              {savingEdit && <Stack direction="row" gap={1} alignItems="center" role="status"><CircularProgress size={20} /><Typography>{photoProgress}</Typography></Stack>}
+            </Box>
 
             <TextField
               label="Title"
@@ -2810,9 +2894,10 @@ function ListingDetail() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleEditToggle}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained" startIcon={<Save />}>
-            Save Changes
+          {savingEdit && <Typography role="status" variant="body2" sx={{ mr: "auto" }}>{photoProgress}</Typography>}
+          <Button onClick={handleEditToggle} disabled={savingEdit}>Cancel</Button>
+          <Button onClick={handleSave} disabled={savingEdit} variant="contained" startIcon={<Save />}>
+            {savingEdit ? "Saving..." : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>

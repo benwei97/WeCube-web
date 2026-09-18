@@ -23,6 +23,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import ActionSheet from "../components/ActionSheet";
 import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
@@ -62,7 +63,7 @@ import {
   getListingBuyerOptions,
   getUserProfile,
 } from "../utils/messaging";
-import { deleteMultipleImages, getS3PublicUrl } from "../utils/s3";
+import { deleteMultipleImages, getS3PublicUrl, uploadImageAssetToS3 } from "../utils/s3";
 import { searchCompetitions } from "../utils/wcaApi";
 
 const LISTING_REPORT_REASONS = [
@@ -285,6 +286,9 @@ export default function ListingDetailScreen({ navigation, route }) {
   const [editNotice, setEditNotice] = useState("");
   const [hasAttemptedEditSave, setHasAttemptedEditSave] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editPhotos, setEditPhotos] = useState([]);
+  const [pickingEditPhotos, setPickingEditPhotos] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState("");
   const [editLocationOptions, setEditLocationOptions] = useState([]);
   const [hasEditedLocationSearch, setHasEditedLocationSearch] = useState(false);
   const [loadingEditLocations, setLoadingEditLocations] = useState(false);
@@ -586,6 +590,7 @@ export default function ListingDetailScreen({ navigation, route }) {
     if (!listing || !isOwnListing) return;
 
     const shippingCost = Number(listing.shippingCost || 0);
+    setEditPhotos(listing.photos || []);
     setEditData({
       title: listing.title || "",
       price: Number.isFinite(Number(listing.price))
@@ -615,11 +620,36 @@ export default function ListingDetailScreen({ navigation, route }) {
   }
 
   function closeEditListingModal() {
-    if (savingEdit) return;
+    if (savingEdit || pickingEditPhotos) return;
     setEditOpen(false);
     setEditCompetitionDropdownOpen(false);
     setEditNotice("");
     setHasAttemptedEditSave(false);
+  }
+
+  async function addEditPhotos(source) {
+    if (savingEdit || pickingEditPhotos || editPhotos.length >= 5) return;
+    setPickingEditPhotos(true);
+    try {
+      const permission = source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setEditNotice(`Allow ${source === "camera" ? "camera" : "photo"} access in Settings to add photos.`);
+        return;
+      }
+      const result = source === "camera"
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85, allowsMultipleSelection: true, selectionLimit: 5 - editPhotos.length });
+      if (result.canceled) return;
+      setEditPhotos((current) => [...current, ...result.assets].slice(0, 5));
+      setEditNotice("");
+    } catch (photoError) {
+      console.error("Error selecting edit photos:", photoError);
+      setEditNotice("Unable to add photo. Please try again.");
+    } finally {
+      setPickingEditPhotos(false);
+    }
   }
 
   function handleEditTitleChange(value) {
@@ -706,6 +736,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   }
 
   async function saveListingEdits() {
+    if (savingEdit || pickingEditPhotos) return;
     setHasAttemptedEditSave(true);
 
     const parsedPrice = parseNonNegativeCurrencyAmount(editData.price);
@@ -715,6 +746,7 @@ export default function ListingDetailScreen({ navigation, route }) {
 
     if (
       !listing?.id ||
+      editPhotos.length < 1 || editPhotos.length > 5 ||
       !isOwnListing ||
       !editData.title.trim() ||
       parsedPrice === null ||
@@ -736,8 +768,23 @@ export default function ListingDetailScreen({ navigation, route }) {
     }
 
     setSavingEdit(true);
+    setPhotoProgress("Preparing photos...");
     setEditNotice("");
+    const newlyUploadedKeys = [];
+    let saved = false;
     try {
+      const savedPhotos = [];
+      for (const [index, photo] of editPhotos.entries()) {
+        if (photo.s3Key) {
+          savedPhotos.push(photo);
+          continue;
+        }
+        setPhotoProgress(`Uploading photo ${index + 1} of ${editPhotos.length}...`);
+        const uploaded = await uploadImageAssetToS3(photo, listing.listingId || listing.id);
+        newlyUploadedKeys.push(uploaded.s3Key);
+        savedPhotos.push(uploaded);
+      }
+      setPhotoProgress("Saving changes...");
       const shippingCost = editData.shippingAvailable ? parsedShippingCost : 0;
       const meetupLocation =
         editData.localMeetupAvailable && editData.meetupLocation
@@ -748,6 +795,7 @@ export default function ListingDetailScreen({ navigation, route }) {
         : [];
 
       await updateDoc(doc(db, "listings", listing.id), {
+        photos: savedPhotos,
         title: editData.title.trim(),
         price: parsedPrice,
         description: editData.description.trim(),
@@ -771,14 +819,21 @@ export default function ListingDetailScreen({ navigation, route }) {
         updatedAt: new Date(),
       });
 
+      saved = true;
+      setPhotoIndex(0);
+
       setEditOpen(false);
       setHasAttemptedEditSave(false);
       Alert.alert("Listing updated", "Your changes have been saved.");
     } catch (editError) {
+      if (!saved && newlyUploadedKeys.length) {
+        await deleteMultipleImages(newlyUploadedKeys).catch((cleanupError) => console.error("Error cleaning up failed photo edit:", cleanupError));
+      }
       console.error("Error updating mobile listing:", editError);
       setEditNotice(editError.message || "Unable to update listing. Please try again.");
     } finally {
       setSavingEdit(false);
+      setPhotoProgress("");
     }
   }
 
@@ -1485,6 +1540,7 @@ export default function ListingDetailScreen({ navigation, route }) {
           >
             <ScrollView
               contentContainerStyle={styles.editContent}
+              pointerEvents={savingEdit ? "none" : "auto"}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
             >
@@ -1504,6 +1560,40 @@ export default function ListingDetailScreen({ navigation, route }) {
                   <Text style={styles.editNoticeText}>{editNotice}</Text>
                 </View>
               ) : null}
+
+              <View style={styles.editSection}>
+                <Text style={styles.editSectionTitle}>Photos (1-5)</Text>
+                <View style={styles.editPhotoGrid}>
+                  {editPhotos.map((photo, index) => (
+                    <View key={photo.s3Key || photo.uri} style={styles.editPhotoItem}>
+                      <View>
+                        <Image source={{ uri: photo.s3Key ? getS3PublicUrl(photo.s3Key) : photo.uri }} style={styles.editPhotoPreview} />
+                        <Pressable style={styles.editPhotoRemove} disabled={savingEdit || pickingEditPhotos} accessibilityLabel={`Remove photo ${index + 1}`} onPress={() => setEditPhotos((current) => current.filter((_, i) => i !== index))}>
+                          <MaterialIcons name="close" size={20} color={colors.text} />
+                        </Pressable>
+                      </View>
+                      <Pressable style={styles.editPhotoCover} disabled={savingEdit || pickingEditPhotos || index === 0} onPress={() => setEditPhotos((current) => [current[index], ...current.filter((_, i) => i !== index)])}>
+                        <Text style={styles.editPhotoCoverText}>{index === 0 ? "Cover photo" : "Make cover"}</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+                {editPhotos.length < 5 && (
+                  <View style={styles.editPhotoActions}>
+                    <Pressable style={styles.editPhotoAction} disabled={savingEdit || pickingEditPhotos} onPress={() => addEditPhotos("camera")}>
+                      <MaterialIcons name="photo-camera" size={22} color={colors.primary} />
+                      <Text style={styles.editPhotoCoverText}>Take photo</Text>
+                    </Pressable>
+                    <Pressable style={styles.editPhotoAction} disabled={savingEdit || pickingEditPhotos} onPress={() => addEditPhotos("library")}>
+                      <MaterialIcons name="photo-library" size={22} color={colors.primary} />
+                      <Text style={styles.editPhotoCoverText}>Choose from library</Text>
+                    </Pressable>
+                  </View>
+                )}
+                {pickingEditPhotos && <ActivityIndicator color={colors.primary} />}
+                <HelperText error={hasAttemptedEditSave && !editPhotos.length}>{hasAttemptedEditSave && !editPhotos.length ? "Add at least one photo." : ""}</HelperText>
+                {savingEdit && <Text style={styles.editPhotoCoverText} accessibilityLiveRegion="polite">{photoProgress}</Text>}
+              </View>
 
               <View style={styles.editSection}>
                 <Text style={styles.editSectionTitle}>Basic Information</Text>
@@ -1856,18 +1946,19 @@ export default function ListingDetailScreen({ navigation, route }) {
                 ) : null}
               </View>
 
+              {savingEdit && <Text style={styles.editPhotoCoverText} accessibilityLiveRegion="polite">{photoProgress}</Text>}
               <View style={styles.editActionRow}>
                 <Pressable
                   style={styles.editCancelButton}
                   onPress={closeEditListingModal}
-                  disabled={savingEdit}
+                  disabled={savingEdit || pickingEditPhotos}
                 >
                   <Text style={styles.editCancelText}>Cancel</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.editSaveButton, savingEdit && styles.primaryButtonDisabled]}
                   onPress={saveListingEdits}
-                  disabled={savingEdit}
+                  disabled={savingEdit || pickingEditPhotos}
                 >
                   {savingEdit ? (
                     <ActivityIndicator color="#fff" />
@@ -2142,6 +2233,14 @@ export default function ListingDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  editPhotoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  editPhotoItem: { width: 104 },
+  editPhotoPreview: { width: 104, height: 104, resizeMode: "contain", backgroundColor: "#f1f5f9", borderRadius: 8 },
+  editPhotoRemove: { position: "absolute", top: 0, right: 0, width: 44, height: 44, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.9)", borderRadius: 8 },
+  editPhotoCover: { minHeight: 44, justifyContent: "center", alignItems: "center" },
+  editPhotoCoverText: { ...typography.caption, color: colors.primary },
+  editPhotoActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 8 },
+  editPhotoAction: { flexDirection: "row", alignItems: "center", minHeight: 44, gap: 6 },
   content: {
     padding: 16,
     paddingBottom: 20,
