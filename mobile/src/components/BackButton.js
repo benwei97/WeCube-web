@@ -1,13 +1,20 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 import { colors } from "../theme/colors";
 
-export default function BackButton({ navigation, style }) {
-  if (!navigation?.canGoBack?.()) return null;
+export default function BackButton({ fallback, navigation, style }) {
+  const canGoBack = navigation?.canGoBack?.();
+  if (!canGoBack && !fallback) return null;
 
   return (
     <Pressable
       style={[styles.button, style]}
-      onPress={() => navigation.goBack()}
+      onPress={() => {
+        if (canGoBack) {
+          navigation.goBack();
+          return;
+        }
+        fallback();
+      }}
       accessibilityLabel="Go back"
     >
       <Text style={styles.text}>‹</Text>

@@ -963,7 +963,11 @@ export default function ConversationScreen({ navigation, route }) {
   return (
     <Screen>
       <View style={styles.topBar}>
-        <BackButton navigation={navigation} style={styles.backButton} />
+        <BackButton
+          navigation={navigation}
+          style={styles.backButton}
+          fallback={() => navigation.navigate("MessagesList")}
+        />
         <View style={styles.headerUser}>
           <HeaderConversationImage
             conversation={conversation}

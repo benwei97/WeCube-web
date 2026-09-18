@@ -80,6 +80,7 @@ function navigateToMessageNotification(routeData) {
   navigationRef.navigate("MainTabs", {
     screen: "Messages",
     params: {
+      initial: false,
       screen: "Conversation",
       params: { conversationId: routeData.conversationId },
     },
