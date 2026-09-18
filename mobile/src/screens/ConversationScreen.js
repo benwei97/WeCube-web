@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -14,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { Bubble, Chat, Message } from "@kesha-antonov/react-native-chat";
 import Screen from "../components/Screen";
@@ -339,6 +341,8 @@ function FailedMessageBubble({ message, isRetrying, onRetry }) {
 }
 
 export default function ConversationScreen({ navigation, route }) {
+  const isFocused = useIsFocused();
+  const [appState, setAppState] = useState(AppState.currentState);
   const { currentUser } = useAuth();
   const { conversationId } = route.params || {};
   const [conversation, setConversation] = useState(null);
@@ -374,9 +378,16 @@ export default function ConversationScreen({ navigation, route }) {
       : "";
 
   useEffect(() => {
-    setActiveNotificationConversationId(conversationId);
+    const subscription = AppState.addEventListener("change", setAppState);
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    setActiveNotificationConversationId(
+      isFocused && appState === "active" ? conversationId : null
+    );
     return () => setActiveNotificationConversationId(null);
-  }, [conversationId]);
+  }, [appState, conversationId, isFocused]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -433,6 +444,7 @@ export default function ConversationScreen({ navigation, route }) {
   }, [conversationId]);
 
   useEffect(() => {
+    if (!isFocused || appState !== "active" || AppState.currentState !== "active") return;
     if (!conversation?.id || !currentUser?.uid) return;
     if (!isConversationUnread(conversation, currentUser.uid)) return;
 
@@ -444,10 +456,17 @@ export default function ConversationScreen({ navigation, route }) {
     if (lastReadMarkerRef.current === readMarker) return;
 
     lastReadMarkerRef.current = readMarker;
-    markConversationAsRead(conversation.id, currentUser.uid).catch((readError) =>
-      console.error("Error marking open mobile conversation read:", readError)
-    );
-  }, [conversation, currentUser?.uid]);
+    markConversationAsRead(conversation.id, currentUser.uid, () => navigation.isFocused())
+      .then((markedRead) => {
+        if (!markedRead && lastReadMarkerRef.current === readMarker) {
+          lastReadMarkerRef.current = "";
+        }
+      })
+      .catch((readError) => {
+        if (lastReadMarkerRef.current === readMarker) lastReadMarkerRef.current = "";
+        console.error("Error marking open mobile conversation read:", readError);
+      });
+  }, [appState, conversation, currentUser?.uid, isFocused, navigation]);
 
   useEffect(() => {
     if (!otherUserId || !currentUser?.uid) return undefined;

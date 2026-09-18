@@ -14,6 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { AppState } from "react-native";
 import { getDateTime } from "./listingUtils";
 
 function getUserBlockId(blockerId, blockedUserId) {
@@ -152,7 +153,8 @@ export async function sendMessage(conversationId, senderId, text) {
   });
 }
 
-export async function markConversationAsRead(conversationId, userId) {
+export async function markConversationAsRead(conversationId, userId, isVisible = () => true) {
+  if (AppState.currentState !== "active" || !isVisible()) return false;
   const conversationRef = doc(db, "conversations", conversationId);
   const conversationDoc = await getDoc(conversationRef);
 
@@ -171,7 +173,10 @@ export async function markConversationAsRead(conversationId, userId) {
     throw new Error("Unauthorized to mark this conversation as read.");
   }
 
+  // The app may have been backgrounded while fetching the conversation.
+  if (AppState.currentState !== "active" || !isVisible()) return false;
   await updateDoc(conversationRef, updates);
+  return true;
 }
 
 export function isConversationUnread(conversation, userId) {

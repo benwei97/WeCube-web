@@ -22,7 +22,6 @@ import {
   getListing,
   getUserProfile,
   isConversationUnread,
-  markConversationAsRead,
 } from "../utils/messaging";
 
 function formatTime(timestamp) {
@@ -306,11 +305,6 @@ export default function MessagesScreen({ navigation }) {
   }, [conversations]);
 
   async function openConversation(conversation) {
-    if (currentUser?.uid && isConversationUnread(conversation, currentUser.uid)) {
-      markConversationAsRead(conversation.id, currentUser.uid).catch((readError) =>
-        console.error("Error marking mobile conversation read:", readError)
-      );
-    }
     navigation.navigate("Conversation", { conversationId: conversation.id });
   }
 

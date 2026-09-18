@@ -7,7 +7,7 @@ import * as Notifications from "expo-notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { AppState, Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { DMSans_400Regular } from "@expo-google-fonts/dm-sans/400Regular";
@@ -56,6 +56,7 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification?.request?.content?.data || {};
     const isActiveConversation =
+      AppState.currentState === "active" &&
       data.type === "message" &&
       data.conversationId &&
       data.conversationId === getActiveNotificationConversationId();
