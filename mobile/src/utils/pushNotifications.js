@@ -58,15 +58,17 @@ async function askBeforeSystemPrompt() {
 
 async function getNotificationPermission() {
   const existingPermission = await Notifications.getPermissionsAsync();
-  if (existingPermission.granted) return true;
+  if (existingPermission.granted && existingPermission.ios?.allowsBadge !== false) {
+    return true;
+  }
 
-  const shouldPrompt = await askBeforeSystemPrompt();
+  const shouldPrompt = existingPermission.granted || await askBeforeSystemPrompt();
   if (!shouldPrompt) return false;
 
   const requestedPermission = await Notifications.requestPermissionsAsync({
     ios: {
       allowAlert: true,
-      allowBadge: false,
+      allowBadge: true,
       allowSound: true,
     },
   });

@@ -2,10 +2,11 @@
 import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import admin from "firebase-admin";
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
+import { isConversationUnread } from "./unreadConversations.js";
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -168,6 +169,42 @@ async function sendExpoPushNotifications(messages) {
   const payload = await response.json();
   return Array.isArray(payload.data) ? payload.data : [];
 }
+
+async function getUnreadConversationCount(userId) {
+  const snapshots = await Promise.all([
+    firestore.collection("conversations").where("buyerId", "==", userId).get(),
+    firestore.collection("conversations").where("sellerId", "==", userId).get(),
+  ]);
+  return snapshots.flatMap((snapshot) => snapshot.docs)
+    .filter((conversationDoc) => isConversationUnread(conversationDoc.data(), userId)).length;
+}
+
+// Conversation writes also cover reads from web/another device and status changes.
+export const syncMessageUnreadBadge = onDocumentWritten(
+  { ...pushFunctionOptions, document: "conversations/{conversationId}" },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    for (const userId of new Set([
+      before?.buyerId, before?.sellerId, after?.buyerId, after?.sellerId,
+    ].filter(Boolean))) {
+      if (isConversationUnread(before, userId) === isConversationUnread(after, userId)) continue;
+      const [badge, tokens] = await Promise.all([
+        getUnreadConversationCount(userId),
+        firestore.collection("users").doc(userId).collection("pushTokens")
+          .where("disabled", "==", false).get(),
+      ]);
+      const validTokens = tokens.docs.filter((tokenDoc) => tokenDoc.data().token?.startsWith("Expo"));
+      const tickets = await sendExpoPushNotifications(validTokens.map((tokenDoc) => ({
+        to: tokenDoc.data().token,
+        badge,
+      })));
+      await deletePushTokenDocs(validTokens.filter((_, index) =>
+        tickets[index]?.details?.error === "DeviceNotRegistered"
+      ));
+    }
+  }
+);
 
 function getTimestampMillis(value) {
   if (!value) return 0;

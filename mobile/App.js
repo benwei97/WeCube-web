@@ -129,6 +129,7 @@ function AppContent() {
       const existingRegistration = pushRegistrationRef.current;
 
       if (!currentUser?.uid) {
+        await Notifications.setBadgeCountAsync(0);
         if (existingRegistration) {
           await unregisterPushNotificationToken(
             existingRegistration.userId,
@@ -342,13 +343,13 @@ function ProfileNavigator() {
 function AppTabs() {
   const { currentUser } = useAuth();
   const avatarUrl = currentUser?.avatarUrl || "";
-  const [buyerConversations, setBuyerConversations] = useState([]);
-  const [sellerConversations, setSellerConversations] = useState([]);
+  const [buyerConversations, setBuyerConversations] = useState(null);
+  const [sellerConversations, setSellerConversations] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.uid) {
-      setBuyerConversations([]);
-      setSellerConversations([]);
+      setBuyerConversations(null);
+      setSellerConversations(null);
       return undefined;
     }
 
@@ -392,11 +393,18 @@ function AppTabs() {
 
   const unreadConversationCount = useMemo(
     () =>
-      [...buyerConversations, ...sellerConversations].filter((conversation) =>
+      [...(buyerConversations || []), ...(sellerConversations || [])].filter((conversation) =>
         isConversationUnread(conversation, currentUser?.uid)
       ).length,
     [buyerConversations, currentUser?.uid, sellerConversations]
   );
+
+  useEffect(() => {
+    if (!buyerConversations || !sellerConversations) return;
+    Notifications.setBadgeCountAsync(unreadConversationCount).catch((error) => {
+      console.error("Error syncing app icon unread badge:", error);
+    });
+  }, [buyerConversations, sellerConversations, unreadConversationCount]);
 
   return (
     <Tab.Navigator
