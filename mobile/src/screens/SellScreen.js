@@ -256,6 +256,8 @@ export default function SellScreen({ navigation }) {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [submitNotice, setSubmitNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [pickingPhotos, setPickingPhotos] = useState(false);
+  const [publishProgress, setPublishProgress] = useState("");
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const bookmarkedCompetitions = getUpcomingCompetitionsFromList(
@@ -460,23 +462,38 @@ export default function SellScreen({ navigation }) {
     if (submitNotice) setSubmitNotice("");
   }
 
-  async function pickPhotos() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Photo access needed", "Allow photo access to add listing photos.");
-      return;
+  async function pickPhotos(source = "camera") {
+    if (pickingPhotos || publishing || photos.length >= 5) return;
+    setPickingPhotos(true);
+    try {
+      const permission = source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setSubmitNotice(source === "camera"
+          ? "Allow camera access in Settings to take a photo, or choose one from your library."
+          : "Allow photo access in Settings to choose listing photos.");
+        return;
+      }
+
+      const result = source === "camera"
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85 })
+        : await ImagePicker.launchImageLibraryAsync({
+          allowsMultipleSelection: true,
+          mediaTypes: ["images"],
+          quality: 0.85,
+          selectionLimit: Math.max(1, 5 - photos.length),
+        });
+
+      if (result.canceled) return;
+      clearSubmitNotice();
+      setPhotos((prev) => [...prev, ...result.assets].slice(0, 5));
+    } catch (error) {
+      console.error("Error adding listing photo:", error);
+      setSubmitNotice("Unable to add photo. Please try again.");
+    } finally {
+      setPickingPhotos(false);
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsMultipleSelection: true,
-      mediaTypes: ["images"],
-      quality: 0.85,
-      selectionLimit: Math.max(1, 5 - photos.length),
-    });
-
-    if (result.canceled) return;
-    clearSubmitNotice();
-    setPhotos((prev) => [...prev, ...result.assets].slice(0, 5));
   }
 
   function removePhoto(uri) {
@@ -620,6 +637,7 @@ export default function SellScreen({ navigation }) {
   }
 
   async function publishListing() {
+    if (publishing || pickingPhotos) return;
     setHasAttemptedSubmit(true);
     const parsedPrice = parseNonNegativeCurrencyAmount(price);
 
@@ -657,6 +675,7 @@ export default function SellScreen({ navigation }) {
     }
 
     setPublishing(true);
+    setPublishProgress("Preparing photos...");
     setSubmitNotice("");
 
     try {
@@ -665,8 +684,9 @@ export default function SellScreen({ navigation }) {
         .slice(2, 9)}`;
       const uploadedPhotos = [];
 
-      for (const photo of photos) {
-        uploadedPhotos.push(await uploadImageAssetToS3(photo, listingId));
+      for (let index = 0; index < photos.length; index += 1) {
+        setPublishProgress(`Uploading photo ${index + 1} of ${photos.length}...`);
+        uploadedPhotos.push(await uploadImageAssetToS3(photos[index], listingId));
       }
 
       const shippingPrice = shippingAvailable
@@ -699,6 +719,7 @@ export default function SellScreen({ navigation }) {
         listingId,
       };
 
+      setPublishProgress("Publishing your listing...");
       const docRef = await addDoc(collection(db, "listings"), listingToSave);
       await deleteSavedDraft();
       clearListing();
@@ -720,6 +741,7 @@ export default function SellScreen({ navigation }) {
       );
     } finally {
       setPublishing(false);
+      setPublishProgress("");
     }
   }
 
@@ -819,27 +841,36 @@ export default function SellScreen({ navigation }) {
                       styles.addPhoto,
                       isPhotosInvalid && styles.addPhotoError,
                     ]}
-                    onPress={pickPhotos}
+                    onPress={() => pickPhotos("camera")}
+                    disabled={pickingPhotos || publishing}
+                    accessibilityRole="button"
+                    accessibilityLabel="Take listing photo"
                   >
-                    <Text
-                      style={[
-                        styles.addPhotoIcon,
-                        isPhotosInvalid && styles.addPhotoTextError,
-                      ]}
-                    >
-                      ↑
-                    </Text>
+                    {pickingPhotos ? <ActivityIndicator color={colors.primary} /> : (
+                      <MaterialIcons name="photo-camera" size={26} color={isPhotosInvalid ? colors.danger : colors.muted} />
+                    )}
                     <Text
                       style={[
                         styles.addPhotoText,
                         isPhotosInvalid && styles.addPhotoTextError,
                       ]}
                     >
-                      Upload
+                      {pickingPhotos ? "Adding..." : "Take photo"}
                     </Text>
                   </Pressable>
                 )}
               </View>
+              {photos.length < 5 ? (
+                <Pressable
+                  style={styles.libraryButton}
+                  onPress={() => pickPhotos("library")}
+                  disabled={pickingPhotos || publishing}
+                  accessibilityRole="button"
+                >
+                  <MaterialIcons name="photo-library" size={20} color={colors.primary} />
+                  <Text style={styles.libraryButtonText}>Choose from library</Text>
+                </Pressable>
+              ) : null}
               <HelperText error={isPhotosInvalid}>
                 {isPhotosInvalid ? "Add at least one photo." : ""}
               </HelperText>
@@ -1182,14 +1213,14 @@ export default function SellScreen({ navigation }) {
             <Pressable
               style={styles.clearButton}
               onPress={clearListing}
-              disabled={publishing}
+              disabled={publishing || pickingPhotos}
             >
               <Text style={styles.clearButtonText}>Clear All</Text>
             </Pressable>
             <Pressable
               style={[styles.publishButton, publishing && styles.publishButtonDisabled]}
               onPress={publishListing}
-              disabled={publishing}
+              disabled={publishing || pickingPhotos}
             >
               {publishing ? (
                 <ActivityIndicator color="#fff" />
@@ -1200,6 +1231,14 @@ export default function SellScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal visible={publishing} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={styles.progressOverlay}>
+          <View style={styles.progressPanel} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.progressText}>{publishProgress}</Text>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -1399,11 +1438,38 @@ const styles = StyleSheet.create({
   addPhotoError: {
     borderColor: colors.danger,
   },
-  addPhotoIcon: {
-    fontFamily: typography.button.fontFamily,
-    color: colors.muted,
-    fontSize: 24,
-    fontWeight: "700",
+  libraryButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+    marginTop: 8,
+  },
+  libraryButtonText: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  progressOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    padding: 24,
+  },
+  progressPanel: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 24,
+    gap: 16,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 320,
+  },
+  progressText: {
+    ...typography.body,
+    color: colors.text,
+    textAlign: "center",
   },
   addPhotoText: {
     ...typography.caption,
