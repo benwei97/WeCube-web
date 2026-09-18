@@ -29,6 +29,7 @@ import ApproximateMeetupMap from "../components/ApproximateMeetupMap";
 import BackButton from "../components/BackButton";
 import ClearableTextInput from "../components/ClearableTextInput";
 import PageState from "../components/PageState";
+import ListingPrice from "../components/ListingPrice";
 import Screen from "../components/Screen";
 import Toggle from "../components/Toggle";
 import { useAuth } from "../contexts/useAuth";
@@ -1333,7 +1334,7 @@ export default function ListingDetailScreen({ navigation, route }) {
 
         <View style={styles.panel}>
           <Text style={styles.title}>{listing.title || "Untitled listing"}</Text>
-          <Text style={styles.price}>{formatListingPrice(listing.price)}</Text>
+          <Text style={styles.price}><ListingPrice listing={listing} /></Text>
           <View style={styles.metaRow}>
             <Text style={styles.metaPill}>{listing.condition || "Condition not set"}</Text>
           </View>

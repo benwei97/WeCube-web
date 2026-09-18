@@ -188,6 +188,8 @@ The app is currently US-only.
 
 ## Selling and Editing Listings
 
+Price edits from web or mobile are handled by `notifyListingPriceChange`. A decrease stores the immediately previous price for crossed-out display and adds an idempotent system notice to approved, open, unblocked listing chats. Increases clear the previous-price display; unchanged prices do not create notices. Discount metadata is server-managed.
+
 Create listing:
 
 - `src/pages/Sell.jsx`

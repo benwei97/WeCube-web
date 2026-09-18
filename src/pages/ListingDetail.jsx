@@ -108,6 +108,7 @@ import {
 import { deleteMultipleImages, getS3PublicUrl, uploadImageToS3, MAX_IMAGE_SIZE_BYTES } from "../utils/s3";
 import { PendingBadge, SoldRibbon } from "../components/ListingStatusDecorators";
 import PageState from "../components/PageState";
+import ListingPrice from "../components/ListingPrice";
 import {
   characterCountText,
   clampText,
@@ -1858,7 +1859,7 @@ function ListingDetail() {
                   fontWeight={600}
                   sx={{ lineHeight: 1 }}
                 >
-                  {formatPrice(listing.price)}
+                  <ListingPrice listing={listing} />
                 </Typography>
                 {formatShippingPriceNote(listing) && (
                   <Typography

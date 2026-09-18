@@ -37,7 +37,6 @@ import {
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
 import {
-  formatListingPrice,
   getPrimaryFulfillmentOption,
   isListingModerationHidden,
 } from "../utils/listingUtils";
@@ -52,6 +51,7 @@ import {
 } from "../utils/inputLimits";
 import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 import PageState from "../components/PageState";
+import ListingPrice from "../components/ListingPrice";
 import { AuthModal } from "../components/AuthModal";
 
 const SECTION_SX = {
@@ -601,7 +601,7 @@ function SellerProfile() {
                             {listing.title}
                           </Typography>
                           <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
-                              {formatListingPrice(listing.price)}
+                              <ListingPrice listing={listing} />
                           </Typography>
                           <Box sx={{ mt: 0.5 }}>
                             <ListingFulfillmentLine option={fulfillmentOption} />

@@ -3,8 +3,8 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 import { elevation, radii, typography } from "../theme/design";
 import { getS3PublicUrl } from "../utils/s3";
+import ListingPrice from "./ListingPrice";
 import {
-  formatListingPrice,
   getPrimaryFulfillmentOption,
 } from "../utils/listingUtils";
 
@@ -73,7 +73,7 @@ export default function MobileListingCard({ listing, onPress, style }) {
           {listing.title || "Untitled listing"}
         </Text>
         <Text style={styles.price} numberOfLines={1} ellipsizeMode="tail">
-          {formatListingPrice(listing.price)}
+          <ListingPrice listing={listing} />
         </Text>
         <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
       </View>

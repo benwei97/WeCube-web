@@ -45,7 +45,6 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
-  formatListingPrice,
   getActiveFulfillmentFields,
   getListingTimestampMs,
   getNormalizedFulfillmentFields,
@@ -65,6 +64,7 @@ import {
 import { getS3PublicUrl } from "../utils/s3";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 import PageState from "../components/PageState";
+import ListingPrice from "../components/ListingPrice";
 
 const EARTH_RADIUS_MILES = 3958.8;
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
@@ -706,7 +706,6 @@ function Browse() {
     handleCloseFilter();
   };
 
-  const formatPrice = formatListingPrice;
 
   const handleListingClick = (listingId) => {
     navigate(`/listing/${listingId}`);
@@ -1115,7 +1114,7 @@ function Browse() {
                     fontWeight={600}
                     sx={LISTING_CARD_PRICE_SX}
                   >
-                    {formatPrice(listing.price)}
+                    <ListingPrice listing={listing} />
                   </Typography>
                   <ListingFulfillmentLine option={fulfillmentOption} />
                 </Box>

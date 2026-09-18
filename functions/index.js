@@ -7,6 +7,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
 import { isConversationUnread } from "./unreadConversations.js";
+import { handleListingPriceChange } from "./listingPriceDrops.js";
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -32,6 +33,11 @@ const SUPPORTED_IMAGE_TYPES = new Set([
 ]);
 const pushFunctionOptions = { region: "us-central1" };
 const affiliateFunctionOptions = { region: "us-central1" };
+
+export const notifyListingPriceChange = onDocumentUpdated(
+  { region: "us-central1", document: "listings/{listingId}", retry: true },
+  (event) => handleListingPriceChange(firestore, event, isBlockedBetween)
+);
 
 function requireAuth(request) {
   if (!request.auth?.uid) {

@@ -28,7 +28,6 @@ import {
   ListingCardMediaFrame,
 } from "../components/ListingStatusDecorators";
 import {
-  formatListingPrice,
   getActiveFulfillmentFields,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
@@ -38,6 +37,7 @@ import {
   sortListingsByAvailabilityAndDate,
 } from "../utils/listingUtils";
 import { getCompetitionById } from "../utils/wcaApi";
+import ListingPrice from "../components/ListingPrice";
 import { getS3PublicUrl } from "../utils/s3";
 import ListingFulfillmentLine from "../components/ListingFulfillmentLine";
 
@@ -148,7 +148,6 @@ function CompetitionListings() {
     };
   }, [competitionId]);
 
-  const formatPrice = formatListingPrice;
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
   const isPastCompetition = isCompetitionPast(competition);
@@ -363,7 +362,7 @@ function CompetitionListings() {
                         fontWeight={600}
                         sx={LISTING_CARD_PRICE_SX}
                       >
-                        {formatPrice(cube.price)}
+                        <ListingPrice listing={cube} />
                       </Typography>
                       <ListingFulfillmentLine option={fulfillmentOption} />
                     </Box>

@@ -58,7 +58,6 @@ import {
   closeListingConversationsForDeletedListing,
 } from "../utils/messaging";
 import {
-  formatListingPrice,
   getUpcomingCompetitionsFromList,
   getNormalizedFulfillmentFields,
   getPrimaryFulfillmentOption,
@@ -73,6 +72,7 @@ import {
 import AccountDeletionDialog from "../components/AccountDeletionDialog";
 import { LISTING_PAGE_SX } from "../components/listingStatusStyles";
 import PageState from "../components/PageState";
+import ListingPrice from "../components/ListingPrice";
 
 const LISTING_PREVIEW_LIMIT = 6;
 const PURCHASE_PREVIEW_LIMIT = 6;
@@ -341,7 +341,6 @@ function Dashboard() {
     `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim() ||
     "Your Account";
 
-  const formatPrice = formatListingPrice;
 
   const formatDate = (dateValue) => {
     if (!dateValue) return "N/A";
@@ -687,7 +686,7 @@ function Dashboard() {
                     {listing.title}
                   </Typography>
                   <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
-                    {formatPrice(listing.price)}
+                    <ListingPrice listing={listing} />
                   </Typography>
                 </Box>
               <IconButton
@@ -832,7 +831,7 @@ function Dashboard() {
                 {listing.title}
               </Typography>
               <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
-                {formatPrice(listing.price)}
+                <ListingPrice listing={listing} />
               </Typography>
               <Box sx={{ mt: 0.5 }}>
                 <ListingFulfillmentLine option={getPrimaryFulfillmentOption(listing)} />
@@ -925,7 +924,7 @@ function Dashboard() {
                     {listing.title}
                   </Typography>
                   <Typography variant="body2" color="text.primary" fontWeight={600} sx={{ mt: -0.25 }}>
-                    {formatPrice(listing.price)}
+                    <ListingPrice listing={listing} />
                   </Typography>
                 </Box>
                 <IconButton
