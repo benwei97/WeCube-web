@@ -29,6 +29,7 @@ import {
 import ActionSheet from "../components/ActionSheet";
 import BackButton from "../components/BackButton";
 import Screen from "../components/Screen";
+import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import MobileListingCard from "../components/MobileListingCard";
 import ScreenTitle from "../components/ScreenTitle";
 import { useAuth } from "../contexts/useAuth";
@@ -561,6 +562,7 @@ export default function ProfileScreen({ navigation, route }) {
         avatarS3Key: "",
         attendingCompetitions: [],
         savedListings: [],
+        savedMeetupLocation: null,
         deletedAt: new Date(),
         deletedByUser: true,
       });
@@ -839,6 +841,7 @@ export default function ProfileScreen({ navigation, route }) {
           </View>
         </View>
 
+        <SavedMeetupLocation editable />
         <View style={styles.menuList}>
           <ProfileMenuRow
             title="My Listings"

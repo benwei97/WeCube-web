@@ -117,6 +117,7 @@ export default function AccountDeletionDialog({ open, onClose }) {
         avatarS3Key: "",
         attendingCompetitions: [],
         savedListings: [],
+        savedMeetupLocation: null,
         deletedAt: new Date(),
         deletedByUser: true,
       });

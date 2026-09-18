@@ -277,6 +277,7 @@ service cloud.firestore {
           "avatarS3Key",
           "attendingCompetitions",
           "savedListings",
+          "savedMeetupLocation",
           "acceptedPoliciesAt",
           "acceptedPolicyVersion",
           "acceptedTermsVersion",
@@ -289,6 +290,21 @@ service cloud.firestore {
         && isOptionalStringField(request.resource.data, "email", 320)
         && isOptionalStringField(request.resource.data, "avatarUrl", 500)
         && isOptionalStringField(request.resource.data, "avatarS3Key", 512)
+        && (!("savedMeetupLocation" in request.resource.data)
+          || request.resource.data.savedMeetupLocation == null
+          || (request.resource.data.savedMeetupLocation is map
+            && request.resource.data.savedMeetupLocation.keys().hasOnly(["label", "city", "region", "country", "countryCode", "latitude", "longitude"])
+            && isNonEmptyString(request.resource.data.savedMeetupLocation.label, 240)
+            && isNonEmptyString(request.resource.data.savedMeetupLocation.city, 100)
+            && request.resource.data.savedMeetupLocation.countryCode == "US"
+            && request.resource.data.savedMeetupLocation.latitude is number
+            && request.resource.data.savedMeetupLocation.latitude >= -90
+            && request.resource.data.savedMeetupLocation.latitude <= 90
+            && request.resource.data.savedMeetupLocation.longitude is number
+            && request.resource.data.savedMeetupLocation.longitude >= -180
+            && request.resource.data.savedMeetupLocation.longitude <= 180
+            && isOptionalStringField(request.resource.data.savedMeetupLocation, "region", 100)
+            && isOptionalStringField(request.resource.data.savedMeetupLocation, "country", 100)))
         && isOptionalStringField(request.resource.data, "acceptedPolicyVersion", 40)
         && isOptionalStringField(request.resource.data, "acceptedTermsVersion", 40)
         && isOptionalStringField(request.resource.data, "acceptedPrivacyVersion", 40)

@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { addDoc, collection } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Screen from "../components/Screen";
+import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
@@ -534,6 +535,11 @@ export default function SellScreen({ navigation }) {
   function handleLocalMeetupChange(value) {
     clearSubmitNotice();
     setLocalMeetupAvailable(value);
+    if (value && !meetupLocationLabel && currentUser?.savedMeetupLocation) {
+      setMeetupLocation(currentUser.savedMeetupLocation);
+      setMeetupLocationLabel(currentUser.savedMeetupLocation.label);
+      setLocationOptions([]);
+    }
     if (!value) {
       setMeetupLocationLabel("");
       setMeetupLocation(null);
@@ -1084,6 +1090,12 @@ export default function SellScreen({ navigation }) {
                       ? "Select a location from the list."
                       : ""}
                   </HelperText>
+                  <SavedMeetupLocation location={meetupLocation} onUse={(location) => {
+                    setMeetupLocation(location);
+                    setMeetupLocationLabel(location.label);
+                    setLocationOptions([]);
+                    clearSubmitNotice();
+                  }} />
                 </View>
               ) : null}
 

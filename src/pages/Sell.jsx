@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
+import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import { MAX_IMAGE_SIZE_BYTES, uploadMultipleImages } from "../utils/s3";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
@@ -258,6 +259,9 @@ function Sell() {
     setFulfillmentData((prev) => ({
       ...prev,
       [field]: isChecked,
+      ...(field === "localMeetupAvailable" && isChecked && !prev.meetupLocationLabel && currentUser?.savedMeetupLocation
+        ? { meetupLocation: currentUser.savedMeetupLocation, meetupLocationLabel: currentUser.savedMeetupLocation.label }
+        : {}),
       ...(field === "shippingAvailable" && isChecked && !prev.shippingCost
         ? { shippingCost: "0.00" }
         : {}),
@@ -1143,6 +1147,14 @@ function Sell() {
                           required
                         />
                       )}
+                    />
+                    <SavedMeetupLocation
+                      location={fulfillmentData.meetupLocation}
+                      onUse={(location) => {
+                        setFulfillmentData((current) => ({ ...current, meetupLocation: location, meetupLocationLabel: location.label }));
+                        setLocationOptions([]);
+                        setSubmitNotice(null);
+                      }}
                     />
                   </Box>
                 )}

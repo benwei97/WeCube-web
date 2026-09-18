@@ -183,6 +183,7 @@ Key files:
 The app is currently US-only.
 
 - Location search filters Open-Meteo results to US city-like locations in `src/utils/locationSearch.js`
+- Web and mobile users can save one city/area as `users.savedMeetupLocation` from Sell or Profile. Enabling Local Meetup on a new listing prefills the saved location; listing-specific changes and existing drafts remain independent. Profile supports updating and clearing the default.
 - WCA competition utilities filter competitions to USA in `src/utils/wcaApi.js`
 
 ## Selling and Editing Listings

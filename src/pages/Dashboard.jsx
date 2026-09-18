@@ -48,6 +48,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
+import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import {
   subscribeToReceivedReviews,
   subscribeToUserReviews,
@@ -1229,6 +1230,7 @@ function Dashboard() {
                 )}
               </Box>
             </Stack>
+            <SavedMeetupLocation editable />
 
           </Stack>
         </Box>
