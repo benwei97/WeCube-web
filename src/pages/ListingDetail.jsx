@@ -231,6 +231,7 @@ function ListingDetail() {
   const [loadingCompetitions, setLoadingCompetitions] = useState(false);
   const [competitionSearchInput, setCompetitionSearchInput] = useState("");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [failedPhotoKey, setFailedPhotoKey] = useState("");
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllCompetitionMeetups, setShowAllCompetitionMeetups] =
     useState(false);
@@ -1720,8 +1721,14 @@ function ListingDetail() {
                 >
                   {listing.status === "sold" && <SoldRibbon size="large" />}
                   {listing.status === "archived" && <PendingBadge size="large" />}
-                  <Box
+                  {failedPhotoKey === activeMedia.s3Key ? (
+                    <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ height: "100%", minHeight: 200 }}>
+                      <Typography color="text.secondary">This photo couldn't load.</Typography>
+                      <Button onClick={() => setFailedPhotoKey("")}>Retry</Button>
+                    </Stack>
+                  ) : <Box
                     component="img"
+                    key={activeMedia.s3Key}
                     src={getS3PublicUrl(activeMedia.s3Key)}
                     alt={`Listing photo ${currentPhotoIndex + 1}`}
                     sx={{
@@ -1730,11 +1737,11 @@ function ListingDetail() {
                       objectFit: "contain",
                       display: "block",
                     }}
-                    onError={(e) => {
+                    onError={() => {
                       console.error("Failed to load image:", activeMedia.s3Key);
-                      e.target.style.display = "none";
+                      setFailedPhotoKey(activeMedia.s3Key);
                     }}
-                  />
+                  />}
 
                   {mediaCount > 1 && (
                     <>

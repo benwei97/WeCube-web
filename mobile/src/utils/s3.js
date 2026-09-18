@@ -1,29 +1,28 @@
 /* global process */
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../lib/firebase";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
 const createSignedS3Upload = httpsCallable(functions, "createSignedS3Upload");
 const deleteS3Objects = httpsCallable(functions, "deleteS3Objects");
 
-const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function getFileExtension(fileName = "", contentType = "") {
-  const fromName = fileName.split(".").pop()?.toLowerCase();
-  if (fromName && /^[a-z0-9]+$/.test(fromName)) {
-    return fromName === "jpg" ? "jpeg" : fromName;
+async function prepareImage(asset) {
+  // Picker metadata can describe JPEG while the bytes are still HEIC.
+  const format = asset.mimeType === "image/png" ? SaveFormat.PNG : SaveFormat.JPEG;
+  const context = ImageManipulator.manipulate(asset.uri);
+  let image;
+  let result;
+  try {
+    image = await context.renderAsync();
+    result = await image.saveAsync({ format, compress: 0.85 });
+  } finally {
+    image?.release();
+    context.release();
   }
-
-  return contentType.split("/")[1] || "jpeg";
-}
-
-function getImageType(asset) {
-  const mimeType = asset.mimeType || "";
-  if (SUPPORTED_IMAGE_TYPES.has(mimeType)) return mimeType;
-
-  const uri = asset.uri || "";
-  if (uri.toLowerCase().endsWith(".png")) return "image/png";
-  if (uri.toLowerCase().endsWith(".webp")) return "image/webp";
-  return "image/jpeg";
+  const response = await fetch(result.uri);
+  const blob = await response.blob();
+  const fileName = `${(asset.fileName || "photo").replace(/\.[^.]+$/, "")}.${format}`;
+  return { blob, fileName, fileSize: blob.size, contentType: `image/${format}`, fileExtension: format };
 }
 
 export function getS3PublicUrl(s3Key) {
@@ -44,19 +43,13 @@ export async function uploadImageAssetToS3(asset, listingId) {
     throw new Error("Select an image to upload.");
   }
 
-  const contentType = getImageType(asset);
-  if (!SUPPORTED_IMAGE_TYPES.has(contentType)) {
-    throw new Error("Upload a JPG, PNG, or WebP image.");
-  }
-
-  const fileName = asset.fileName || asset.uri.split("/").pop() || "listing-photo.jpg";
-  const fileSize = asset.fileSize || 1;
+  const { blob, contentType, fileName, fileSize, fileExtension } = await prepareImage(asset);
   const { data } = await createSignedS3Upload({
     uploadType: "listing",
     listingId,
     fileName,
     contentType,
-    fileExtension: getFileExtension(fileName, contentType),
+    fileExtension,
     fileSize,
   });
 
@@ -65,14 +58,12 @@ export async function uploadImageAssetToS3(asset, listingId) {
     throw new Error("Failed to prepare image upload.");
   }
 
-  const imageResponse = await fetch(asset.uri);
-  const imageBlob = await imageResponse.blob();
   const uploadResponse = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": contentType,
     },
-    body: imageBlob,
+    body: blob,
   });
 
   if (!uploadResponse.ok) {
@@ -94,19 +85,13 @@ export async function uploadAvatarAssetToS3(asset, userId) {
     throw new Error("Select an avatar image to upload.");
   }
 
-  const contentType = getImageType(asset);
-  if (!SUPPORTED_IMAGE_TYPES.has(contentType)) {
-    throw new Error("Upload a JPG, PNG, or WebP image.");
-  }
-
-  const fileName = asset.fileName || asset.uri.split("/").pop() || "avatar.jpg";
-  const fileSize = asset.fileSize || 1;
+  const { blob, contentType, fileName, fileSize, fileExtension } = await prepareImage(asset);
   const { data } = await createSignedS3Upload({
     uploadType: "avatar",
     userId,
     fileName,
     contentType,
-    fileExtension: getFileExtension(fileName, contentType),
+    fileExtension,
     fileSize,
   });
 
@@ -115,14 +100,12 @@ export async function uploadAvatarAssetToS3(asset, userId) {
     throw new Error("Failed to prepare avatar upload.");
   }
 
-  const imageResponse = await fetch(asset.uri);
-  const imageBlob = await imageResponse.blob();
   const uploadResponse = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": contentType,
     },
-    body: imageBlob,
+    body: blob,
   });
 
   if (!uploadResponse.ok) {
