@@ -1124,12 +1124,6 @@ export default function ListingDetailScreen({ navigation, route }) {
           ? arrayRemove(listing.id)
           : arrayUnion(listing.id),
       });
-      Alert.alert(
-        isSavedListing ? "Removed" : "Saved",
-        isSavedListing
-          ? "Removed from saved listings."
-          : "Saved to your dashboard."
-      );
     } catch (saveError) {
       console.error("Error updating mobile saved listing:", saveError);
       Alert.alert("Unable to save listing", saveError.message || "Please try again.");
