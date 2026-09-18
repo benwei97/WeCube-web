@@ -54,4 +54,18 @@ response = await write("seller", "seller", { savedMeetupLocation: { nullValue: n
 assert.equal(response.status, 200, await response.text());
 response = await write("seller", "seller", { savedListings: { arrayValue: { values: [string("listing-1")] } } }, true);
 assert.equal(response.status, 200, await response.text());
-console.log("Saved location rules passed: own save/clear, preserved profile, rejected cross-user/invalid writes, existing bookmarks.");
+const competitions = { arrayValue: { values: [{ mapValue: { fields: {
+  id: string("Seattle2027"), name: string("Seattle 2027"),
+  startDate: string("2027-01-02"), endDate: string("2027-01-03"),
+} } }] } };
+response = await write("seller", "seller", { savedMeetupCompetitions: competitions }, true);
+assert.equal(response.status, 200, await response.text());
+response = await write("other", "seller", { savedMeetupCompetitions: competitions }, true);
+assert.equal(response.status, 403);
+response = await write("seller", "seller", { savedMeetupCompetitions: string("not a list") }, true);
+assert.equal(response.status, 403);
+response = await write("seller", "seller", { savedMeetupCompetitions: { arrayValue: { values: Array(101).fill(competitions.arrayValue.values[0]) } } }, true);
+assert.equal(response.status, 403);
+response = await write("seller", "seller", { savedMeetupCompetitions: { arrayValue: { values: [] } } }, true);
+assert.equal(response.status, 200, await response.text());
+console.log("Saved meetup rules passed: own location/competition save and clear, preserved profile, rejected cross-user/invalid writes, existing bookmarks.");

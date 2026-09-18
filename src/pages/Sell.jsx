@@ -24,10 +24,9 @@ import {
 import { Bookmark, Upload, Close } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../contexts/useAuth";
-import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import { MAX_IMAGE_SIZE_BYTES, uploadMultipleImages } from "../utils/s3";
 import {
   DEFAULT_COMPETITION_LOAD_LIMIT,
@@ -268,6 +267,9 @@ function Sell() {
     }));
 
     if (field === "competitionMeetupAvailable" && isChecked) {
+      if (!selectedCompetitions.length) {
+        setSelectedCompetitions(getUpcomingCompetitionsFromList(currentUser?.savedMeetupCompetitions));
+      }
       console.log("Meetup option selected, loading competitions");
       loadCompetitions();
     }
@@ -595,6 +597,19 @@ function Sell() {
       };
 
       const docRef = await addDoc(collection(db, "listings"), listingToSave);
+
+      const meetupDefaults = {
+        ...(listingToSave.localMeetupAvailable ? { savedMeetupLocation: listingToSave.meetupLocation } : {}),
+        ...(listingToSave.competitionMeetupAvailable ? {
+          savedMeetupCompetitions: getUpcomingCompetitionsFromList(listingToSave.competitions),
+        } : {}),
+      };
+      if (Object.keys(meetupDefaults).length) {
+        // Remembering preferences must not turn a published listing into a failure.
+        await updateDoc(doc(db, "users", currentUser.uid), meetupDefaults).catch((error) => {
+          console.error("Unable to remember meetup choices:", error);
+        });
+      }
 
       console.log("Listing saved successfully with ID:", docRef.id);
 
@@ -1147,14 +1162,6 @@ function Sell() {
                           required
                         />
                       )}
-                    />
-                    <SavedMeetupLocation
-                      location={fulfillmentData.meetupLocation}
-                      onUse={(location) => {
-                        setFulfillmentData((current) => ({ ...current, meetupLocation: location, meetupLocationLabel: location.label }));
-                        setLocationOptions([]);
-                        setSubmitNotice(null);
-                      }}
                     />
                   </Box>
                 )}

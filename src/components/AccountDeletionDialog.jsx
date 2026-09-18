@@ -118,6 +118,7 @@ export default function AccountDeletionDialog({ open, onClose }) {
         attendingCompetitions: [],
         savedListings: [],
         savedMeetupLocation: null,
+        savedMeetupCompetitions: [],
         deletedAt: new Date(),
         deletedByUser: true,
       });

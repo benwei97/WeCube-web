@@ -15,10 +15,9 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Screen from "../components/Screen";
-import SavedMeetupLocation from "../components/SavedMeetupLocation";
 import ClearableTextInput from "../components/ClearableTextInput";
 import ScreenTitle from "../components/ScreenTitle";
 import Toggle from "../components/Toggle";
@@ -551,6 +550,9 @@ export default function SellScreen({ navigation }) {
     clearSubmitNotice();
     setCompetitionMeetupAvailable(value);
     if (value) {
+      if (!selectedCompetitions.length) {
+        setSelectedCompetitions(getUpcomingCompetitionsFromList(currentUser?.savedMeetupCompetitions));
+      }
       setCompetitionDropdownOpen(true);
     }
     if (!value) {
@@ -727,6 +729,18 @@ export default function SellScreen({ navigation }) {
 
       setPublishProgress("Publishing your listing...");
       const docRef = await addDoc(collection(db, "listings"), listingToSave);
+      const meetupDefaults = {
+        ...(listingToSave.localMeetupAvailable ? { savedMeetupLocation: listingToSave.meetupLocation } : {}),
+        ...(listingToSave.competitionMeetupAvailable ? {
+          savedMeetupCompetitions: getUpcomingCompetitionsFromList(listingToSave.competitions),
+        } : {}),
+      };
+      if (Object.keys(meetupDefaults).length) {
+        // Remembering preferences must not turn a published listing into a failure.
+        await updateDoc(doc(db, "users", currentUser.uid), meetupDefaults).catch((error) => {
+          console.error("Unable to remember meetup choices:", error);
+        });
+      }
       await deleteSavedDraft();
       clearListing();
       navigation?.navigate("MainTabs", {
@@ -1090,12 +1104,6 @@ export default function SellScreen({ navigation }) {
                       ? "Select a location from the list."
                       : ""}
                   </HelperText>
-                  <SavedMeetupLocation location={meetupLocation} onUse={(location) => {
-                    setMeetupLocation(location);
-                    setMeetupLocationLabel(location.label);
-                    setLocationOptions([]);
-                    clearSubmitNotice();
-                  }} />
                 </View>
               ) : null}
 
