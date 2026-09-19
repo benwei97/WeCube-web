@@ -546,6 +546,44 @@ function isFreshListing(listing = {}, now = new Date()) {
   return ageInDays <= 7;
 }
 
+function getRecommendationSellerKey(listing = {}) {
+  return listing.userId || `unknown-seller-${listing.id || "listing"}`;
+}
+
+function diversifyRecommendedListings(sortedListings = []) {
+  const remaining = [...sortedListings];
+  const diversified = [];
+  const sellerCounts = new Map();
+  let previousSellerKey = null;
+
+  while (remaining.length > 0) {
+    const position = diversified.length;
+    const candidateIndex = remaining.findIndex((listing) => {
+      const sellerKey = getRecommendationSellerKey(listing);
+      const sellerCount = sellerCounts.get(sellerKey) || 0;
+      const respectsEarlySellerLimit =
+        position < 4 ? sellerCount === 0 : position < 12 ? sellerCount < 2 : true;
+
+      return respectsEarlySellerLimit && sellerKey !== previousSellerKey;
+    });
+    const fallbackIndex = remaining.findIndex(
+      (listing) => getRecommendationSellerKey(listing) !== previousSellerKey
+    );
+    const selectedIndex = candidateIndex >= 0 ? candidateIndex : fallbackIndex >= 0 ? fallbackIndex : 0;
+    const [selectedListing] = remaining.splice(selectedIndex, 1);
+    const selectedSellerKey = getRecommendationSellerKey(selectedListing);
+
+    diversified.push(selectedListing);
+    sellerCounts.set(
+      selectedSellerKey,
+      (sellerCounts.get(selectedSellerKey) || 0) + 1
+    );
+    previousSellerKey = selectedSellerKey;
+  }
+
+  return diversified;
+}
+
 /**
  * Keeps Recommended relevant while rotating similarly strong listings per viewer/day.
  * Explicit date and price sorts intentionally bypass these options.
@@ -556,7 +594,7 @@ export function sortListingsByRecommended(listings = [], options = {}) {
   const dayKey = options.dayKey || getRecommendationDayKey(now);
   const recentlyShownListingIds = new Set(options.recentlyShownListingIds || []);
 
-  return [...listings].sort((a, b) => {
+  const rankedListings = [...listings].sort((a, b) => {
     const getAdjustedScore = (listing) => {
       const hasRecentlyBeenShown = recentlyShownListingIds.has(listing.id);
       const freshActiveListing =
@@ -595,6 +633,17 @@ export function sortListingsByRecommended(listings = [], options = {}) {
 
     return getListingTimestampMs(b.createdAt) - getListingTimestampMs(a.createdAt);
   });
+
+  // Preserve active/archived/sold ordering while spreading bulk sellers within each group.
+  const listingsByAvailability = new Map();
+  rankedListings.forEach((listing) => {
+    const availabilityScore = getListingStatusScore(listing);
+    const group = listingsByAvailability.get(availabilityScore) || [];
+    group.push(listing);
+    listingsByAvailability.set(availabilityScore, group);
+  });
+
+  return [...listingsByAvailability.values()].flatMap(diversifyRecommendedListings);
 }
 
 export function getConditionLabel(conditionValue) {
