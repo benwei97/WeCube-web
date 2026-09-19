@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ClearableTextInput from "../components/ClearableTextInput";
@@ -57,6 +58,63 @@ const BROWSE_SORT_OPTIONS = [
   { value: "price-low", label: "Price: Low to High" },
   { value: "price-high", label: "Price: High to Low" },
 ];
+const RECOMMENDATION_VISITOR_STORAGE_KEY = "wecube_recommendation_visitor_v1";
+const RECOMMENDATION_EXPOSURE_STORAGE_PREFIX = "wecube_recommendation_exposure_v1";
+const RECOMMENDATION_EXPOSURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const RECOMMENDATION_EXPOSURE_LIMIT = 12;
+
+function getRecommendationExposureStorageKey(viewerSeed) {
+  return `${RECOMMENDATION_EXPOSURE_STORAGE_PREFIX}_${viewerSeed}`;
+}
+
+function createRecommendationVisitorSeed() {
+  return `mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function readRecentRecommendationExposure(viewerSeed) {
+  try {
+    const rawExposure = await AsyncStorage.getItem(
+      getRecommendationExposureStorageKey(viewerSeed)
+    );
+    const parsedExposure = rawExposure ? JSON.parse(rawExposure) : {};
+    const cutoff = Date.now() - RECOMMENDATION_EXPOSURE_WINDOW_MS;
+
+    return Object.entries(parsedExposure)
+      .filter(([, shownAt]) => Number(shownAt) >= cutoff)
+      .map(([listingId]) => listingId);
+  } catch (error) {
+    console.warn("Unable to read mobile browse recommendation history:", error);
+    return [];
+  }
+}
+
+async function recordRecommendationExposure(viewerSeed, listings) {
+  if (!listings.length) return;
+
+  try {
+    const rawExposure = await AsyncStorage.getItem(
+      getRecommendationExposureStorageKey(viewerSeed)
+    );
+    const existingExposure = rawExposure ? JSON.parse(rawExposure) : {};
+    const cutoff = Date.now() - RECOMMENDATION_EXPOSURE_WINDOW_MS;
+    const nextExposure = Object.fromEntries(
+      Object.entries(existingExposure).filter(
+        ([, shownAt]) => Number(shownAt) >= cutoff
+      )
+    );
+
+    listings.forEach((listing) => {
+      nextExposure[listing.id] = Date.now();
+    });
+
+    await AsyncStorage.setItem(
+      getRecommendationExposureStorageKey(viewerSeed),
+      JSON.stringify(nextExposure)
+    );
+  } catch (error) {
+    console.warn("Unable to save mobile browse recommendation history:", error);
+  }
+}
 
 function getSearchText(listing) {
   const competitionTags = [
@@ -132,7 +190,11 @@ function getPriceAmount(price) {
   return Number.isFinite(amount) ? amount : null;
 }
 
-function sortBrowseListings(listings = [], sortMode = "recommended") {
+function sortBrowseListings(
+  listings = [],
+  sortMode = "recommended",
+  recommendationOptions = {}
+) {
   if (sortMode === "newest") {
     return sortListingsByAvailabilityAndDate(listings);
   }
@@ -170,7 +232,7 @@ function sortBrowseListings(listings = [], sortMode = "recommended") {
     });
   }
 
-  return sortListingsByRecommended(listings);
+  return sortListingsByRecommended(listings, recommendationOptions);
 }
 
 function RadiusSlider({ value, onChange }) {
@@ -271,6 +333,9 @@ function RadiusSlider({ value, onChange }) {
 
 export default function BrowseScreen({ navigation }) {
   const { currentUser } = useAuth();
+  const [visitorSeed, setVisitorSeed] = useState("mobile-guest");
+  const recommendationViewerSeed = currentUser?.uid || visitorSeed;
+  const [recentlyShownListingIds, setRecentlyShownListingIds] = useState([]);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -283,6 +348,38 @@ export default function BrowseScreen({ navigation }) {
   const [locationOptions, setLocationOptions] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_LISTINGS);
+
+  useEffect(() => {
+    let active = true;
+
+    AsyncStorage.getItem(RECOMMENDATION_VISITOR_STORAGE_KEY)
+      .then(async (storedSeed) => {
+        const nextSeed = storedSeed || createRecommendationVisitorSeed();
+        if (!storedSeed) {
+          await AsyncStorage.setItem(RECOMMENDATION_VISITOR_STORAGE_KEY, nextSeed);
+        }
+        if (active) setVisitorSeed(nextSeed);
+      })
+      .catch((error) => {
+        console.warn("Unable to persist mobile browse recommendation seed:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    readRecentRecommendationExposure(recommendationViewerSeed).then((listingIds) => {
+      if (active) setRecentlyShownListingIds(listingIds);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [recommendationViewerSeed]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -378,8 +475,17 @@ export default function BrowseScreen({ navigation }) {
       return locationMatch.matchesLocation || locationMatch.matchesShipping;
     });
 
-    return sortBrowseListings(filteredListings, locationFilter.sortMode);
-  }, [listings, locationFilter, searchQuery]);
+    return sortBrowseListings(filteredListings, locationFilter.sortMode, {
+      viewerSeed: recommendationViewerSeed,
+      recentlyShownListingIds,
+    });
+  }, [
+    listings,
+    locationFilter,
+    recommendationViewerSeed,
+    recentlyShownListingIds,
+    searchQuery,
+  ]);
 
   const hasActiveFilter =
     Boolean(searchQuery.trim()) || hasLocationFilterControls(locationFilter);
@@ -387,6 +493,23 @@ export default function BrowseScreen({ navigation }) {
     ? visibleListings
     : visibleListings.slice(0, visibleCount);
   const hasMoreListings = !hasActiveFilter && visibleListings.length > visibleCount;
+
+  useEffect(() => {
+    if (locationFilter.sortMode !== "recommended") return;
+
+    const listingsToRecord = (hasActiveFilter
+      ? visibleListings
+      : visibleListings.slice(0, visibleCount)
+    ).slice(0, RECOMMENDATION_EXPOSURE_LIMIT);
+
+    recordRecommendationExposure(recommendationViewerSeed, listingsToRecord);
+  }, [
+    hasActiveFilter,
+    locationFilter.sortMode,
+    recommendationViewerSeed,
+    visibleCount,
+    visibleListings,
+  ]);
 
   const hasActiveLocationControls = hasLocationFilterControls(locationFilter);
   const isLocationDraftInvalid =

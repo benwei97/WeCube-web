@@ -96,6 +96,10 @@ const BROWSE_SORT_OPTIONS = [
   { value: "price-high", label: "Price: High to Low" },
 ];
 const LOCATION_FILTER_STORAGE_PREFIX = "wecube_browse_location_filter_v3";
+const RECOMMENDATION_VISITOR_STORAGE_KEY = "wecube_recommendation_visitor_v1";
+const RECOMMENDATION_EXPOSURE_STORAGE_PREFIX = "wecube_recommendation_exposure_v1";
+const RECOMMENDATION_EXPOSURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const RECOMMENDATION_EXPOSURE_LIMIT = 12;
 const SOFT_PANEL_SX = {
   bgcolor: "#ffffff",
   border: "1px solid rgba(148, 163, 184, 0.14)",
@@ -193,6 +197,71 @@ function writeStoredLocationFilter(userId, locationFilter) {
   }
 }
 
+function getRecommendationVisitorSeed() {
+  try {
+    const existingSeed = window.localStorage.getItem(
+      RECOMMENDATION_VISITOR_STORAGE_KEY
+    );
+    if (existingSeed) return existingSeed;
+
+    const nextSeed = `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.localStorage.setItem(RECOMMENDATION_VISITOR_STORAGE_KEY, nextSeed);
+    return nextSeed;
+  } catch (error) {
+    console.warn("Unable to persist browse recommendation seed:", error);
+    return "web-guest";
+  }
+}
+
+function getRecommendationExposureStorageKey(viewerSeed) {
+  return `${RECOMMENDATION_EXPOSURE_STORAGE_PREFIX}_${viewerSeed}`;
+}
+
+function readRecentRecommendationExposure(viewerSeed) {
+  try {
+    const rawExposure = window.localStorage.getItem(
+      getRecommendationExposureStorageKey(viewerSeed)
+    );
+    const parsedExposure = rawExposure ? JSON.parse(rawExposure) : {};
+    const cutoff = Date.now() - RECOMMENDATION_EXPOSURE_WINDOW_MS;
+
+    return Object.entries(parsedExposure)
+      .filter(([, shownAt]) => Number(shownAt) >= cutoff)
+      .map(([listingId]) => listingId);
+  } catch (error) {
+    console.warn("Unable to read browse recommendation history:", error);
+    return [];
+  }
+}
+
+function recordRecommendationExposure(viewerSeed, listings) {
+  if (!listings.length) return;
+
+  try {
+    const rawExposure = window.localStorage.getItem(
+      getRecommendationExposureStorageKey(viewerSeed)
+    );
+    const existingExposure = rawExposure ? JSON.parse(rawExposure) : {};
+    const cutoff = Date.now() - RECOMMENDATION_EXPOSURE_WINDOW_MS;
+    const nextExposure = Object.fromEntries(
+      Object.entries(existingExposure).filter(
+        ([, shownAt]) => Number(shownAt) >= cutoff
+      )
+    );
+
+    listings.forEach((listing) => {
+      nextExposure[listing.id] = Date.now();
+    });
+
+    window.localStorage.setItem(
+      getRecommendationExposureStorageKey(viewerSeed),
+      JSON.stringify(nextExposure)
+    );
+  } catch (error) {
+    console.warn("Unable to save browse recommendation history:", error);
+  }
+}
+
 function getMilesBetweenLocations(origin, destination) {
   if (
     typeof origin?.latitude !== "number" ||
@@ -247,7 +316,11 @@ function getBrowseAvailabilityRank(listing = {}) {
   return 0;
 }
 
-function sortBrowseListings(listings = [], sortMode = "recommended") {
+function sortBrowseListings(
+  listings = [],
+  sortMode = "recommended",
+  recommendationOptions = {}
+) {
   if (sortMode === "newest") {
     return sortListingsByAvailabilityAndDate(listings);
   }
@@ -285,7 +358,7 @@ function sortBrowseListings(listings = [], sortMode = "recommended") {
     });
   }
 
-  return sortListingsByRecommended(listings);
+  return sortListingsByRecommended(listings, recommendationOptions);
 }
 
 function getLocationMatchInfo(listing, filters) {
@@ -408,6 +481,9 @@ function getCompetitionFulfillmentOption(competition = {}) {
 
 function Browse() {
   const { currentUser } = useAuth();
+  const [visitorSeed] = useState(getRecommendationVisitorSeed);
+  const recommendationViewerSeed = currentUser?.uid || visitorSeed;
+  const [recentlyShownListingIds, setRecentlyShownListingIds] = useState([]);
   const [allListings, setAllListings] = useState([]); // For search/filter
   const [filteredListings, setFilteredListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -485,6 +561,12 @@ function Browse() {
     }));
     setRestoredLocationFilterKey(locationFilterStorageKey);
   }, [currentUser?.uid, locationFilterStorageKey]);
+
+  useEffect(() => {
+    setRecentlyShownListingIds(
+      readRecentRecommendationExposure(recommendationViewerSeed)
+    );
+  }, [recommendationViewerSeed]);
 
   useEffect(() => {
     if (restoredLocationFilterKey !== locationFilterStorageKey) {
@@ -600,13 +682,37 @@ function Browse() {
       });
     }
 
-    setFilteredListings(sortBrowseListings(filtered, filters.sortMode));
+    setFilteredListings(
+      sortBrowseListings(filtered, filters.sortMode, {
+        viewerSeed: recommendationViewerSeed,
+        recentlyShownListingIds,
+      })
+    );
   }, [
     allListings,
     currentUser?.uid,
     filters,
     hasPriceRangeFilter,
     hasPuzzleTypeFilter,
+    recommendationViewerSeed,
+    recentlyShownListingIds,
+  ]);
+
+  useEffect(() => {
+    if (filters.sortMode !== "recommended") return;
+
+    const listingsToRecord = (isSearching
+      ? filteredListings
+      : filteredListings.slice(0, visibleCount)
+    ).slice(0, RECOMMENDATION_EXPOSURE_LIMIT);
+
+    recordRecommendationExposure(recommendationViewerSeed, listingsToRecord);
+  }, [
+    filteredListings,
+    filters.sortMode,
+    isSearching,
+    recommendationViewerSeed,
+    visibleCount,
   ]);
 
   const loadMoreListings = useCallback(() => {

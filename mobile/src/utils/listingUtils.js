@@ -486,13 +486,81 @@ export function getRecommendedListingScore(listing = {}, now = new Date()) {
   );
 }
 
-export function sortListingsByRecommended(listings = [], now = new Date()) {
-  return [...listings].sort((a, b) => {
-    const scoreDelta =
-      getRecommendedListingScore(b, now) - getRecommendedListingScore(a, now);
+const RECOMMENDATION_SCORE_BAND_SIZE = 20;
+const RECENTLY_SHOWN_RECOMMENDATION_PENALTY = 12;
+const FRESH_ACTIVE_LISTING_SCORE_FLOOR = 1160;
 
-    if (scoreDelta !== 0) {
-      return scoreDelta;
+function getRecommendationDayKey(now = new Date()) {
+  return [now.getFullYear(), now.getMonth() + 1, now.getDate()].join("-");
+}
+
+function getDeterministicFraction(value) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0) / 4294967295;
+}
+
+function isFreshListing(listing = {}, now = new Date()) {
+  const createdAtMs = getDateTime(listing.createdAt);
+  if (!createdAtMs) return false;
+
+  const ageInDays = Math.max(
+    0,
+    (now.getTime() - createdAtMs) / (24 * 60 * 60 * 1000)
+  );
+  return ageInDays <= 7;
+}
+
+/**
+ * Keeps Recommended relevant while rotating similarly strong listings per viewer/day.
+ * Explicit date and price sorts intentionally bypass these options.
+ */
+export function sortListingsByRecommended(listings = [], options = {}) {
+  const now = options.now || new Date();
+  const viewerSeed = options.viewerSeed || "wecube-guest";
+  const dayKey = options.dayKey || getRecommendationDayKey(now);
+  const recentlyShownListingIds = new Set(options.recentlyShownListingIds || []);
+
+  return [...listings].sort((a, b) => {
+    const getAdjustedScore = (listing) => {
+      const hasRecentlyBeenShown = recentlyShownListingIds.has(listing.id);
+      const freshActiveListing =
+        listing.status === "active" && isFreshListing(listing, now);
+      const exposurePenalty =
+        hasRecentlyBeenShown && !freshActiveListing
+          ? RECENTLY_SHOWN_RECOMMENDATION_PENALTY
+          : 0;
+      const baseScore = getRecommendedListingScore(listing, now);
+      const protectedScore = freshActiveListing
+        ? Math.max(baseScore, FRESH_ACTIVE_LISTING_SCORE_FLOOR)
+        : baseScore;
+
+      return protectedScore - exposurePenalty;
+    };
+
+    const aScore = getAdjustedScore(a);
+    const bScore = getAdjustedScore(b);
+    const aBand = Math.floor(aScore / RECOMMENDATION_SCORE_BAND_SIZE);
+    const bBand = Math.floor(bScore / RECOMMENDATION_SCORE_BAND_SIZE);
+
+    if (aBand !== bBand) {
+      return bBand - aBand;
+    }
+
+    const aRotation = getDeterministicFraction(`${viewerSeed}:${dayKey}:${a.id}`);
+    const bRotation = getDeterministicFraction(`${viewerSeed}:${dayKey}:${b.id}`);
+
+    if (aRotation !== bRotation) {
+      return bRotation - aRotation;
+    }
+
+    if (aScore !== bScore) {
+      return bScore - aScore;
     }
 
     return getDateTime(b.createdAt) - getDateTime(a.createdAt);
