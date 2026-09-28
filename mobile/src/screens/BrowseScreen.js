@@ -529,11 +529,8 @@ export default function BrowseScreen({ navigation }) {
   }, [locationFilter]);
 
   function clearLocationFilter() {
-    const nextFilter = DEFAULT_BROWSE_FILTERS;
-    setLocationFilter(nextFilter);
-    setLocationDraft(nextFilter);
+    setLocationDraft(getInitialLocationDraft(DEFAULT_BROWSE_FILTERS));
     setLocationOptions([]);
-    setLocationModalOpen(false);
   }
 
   function applyLocationFilter() {
