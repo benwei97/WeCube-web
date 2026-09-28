@@ -786,6 +786,7 @@ export default function BrowseScreen({ navigation }) {
             <View style={styles.modalDivider} />
 
             <View style={styles.searchPanel}>
+              <MaterialIcons name="location-on" size={22} color={colors.muted} accessible={false} />
               <ClearableTextInput
                 value={locationDraft.locationInput}
                 onChangeText={(value) =>
@@ -802,9 +803,6 @@ export default function BrowseScreen({ navigation }) {
                 autoCapitalize="words"
                 clearAccessibilityLabel="Clear location search"
               />
-              <View style={styles.locationSearchIcon}>
-                <MaterialIcons name="search" size={22} color={colors.text} />
-              </View>
             </View>
 
             {loadingLocations ? (
@@ -1036,16 +1034,6 @@ const styles = StyleSheet.create({
   locationButtonActive: {
     backgroundColor: "#eff6ff",
     borderColor: colors.primary,
-  },
-  locationSearchIcon: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.control,
-    borderWidth: 1,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
   },
   resultCount: {
     ...typography.caption,
