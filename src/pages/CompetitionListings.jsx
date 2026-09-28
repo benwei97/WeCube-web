@@ -331,9 +331,10 @@ function CompetitionListings() {
                   <ListingCardMediaFrame
                     imageUrl={
                       cube.photos?.[0]
-                        ? getS3PublicUrl(cube.photos[0].s3Key)
+                        ? getS3PublicUrl(cube.photos[0].thumbnailS3Key || cube.photos[0].s3Key)
                         : null
                     }
+                    fallbackImageUrl={getS3PublicUrl(cube.photos?.[0]?.s3Key)}
                     alt={cube.title}
                     isSold={cube.status === "sold"}
                     isPending={cube.status === "archived"}

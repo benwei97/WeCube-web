@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
+import { getS3PublicUrl } from "../utils/s3";
 import { collection, onSnapshot } from "firebase/firestore";
 import Screen from "../components/Screen";
 import ClearableTextInput from "../components/ClearableTextInput";
@@ -41,7 +43,7 @@ import { radii, typography } from "../theme/design";
 
 const DEFAULT_LOCATION_RADIUS_MILES = 25;
 const LOCATION_RADIUS_OPTIONS = [5, 10, 25, 50, 100];
-const INITIAL_VISIBLE_LISTINGS = 4;
+const INITIAL_VISIBLE_LISTINGS = 12;
 const LISTING_LOAD_INCREMENT = 8;
 const DEFAULT_BROWSE_FILTERS = {
   sortMode: "recommended",
@@ -496,6 +498,15 @@ export default function BrowseScreen({ navigation }) {
     ? visibleListings
     : visibleListings.slice(0, visibleCount);
   const hasMoreListings = !hasActiveFilter && visibleListings.length > visibleCount;
+
+  useEffect(() => {
+    if (hasActiveFilter) return;
+    const urls = visibleListings.slice(visibleCount, visibleCount + 4)
+      .map((listing) => listing.photos?.[0]?.thumbnailS3Key)
+      .filter(Boolean).map(getS3PublicUrl);
+    // Prefetch thumbnails only; never compete with visible cards using large originals.
+    if (urls.length) Image.prefetch(urls, { cachePolicy: "disk" }).catch(() => {});
+  }, [hasActiveFilter, visibleCount, visibleListings]);
 
   useEffect(() => {
     if (locationFilter.sortMode !== "recommended") return;

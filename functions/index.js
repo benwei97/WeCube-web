@@ -8,6 +8,7 @@ import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions";
 import { isConversationUnread } from "./unreadConversations.js";
 import { handleListingPriceChange } from "./listingPriceDrops.js";
+import { ensureListingThumbnail, thumbnailKey, THUMBNAIL_SUFFIX } from "./listingThumbnails.js";
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -33,6 +34,21 @@ const SUPPORTED_IMAGE_TYPES = new Set([
 ]);
 const pushFunctionOptions = { region: "us-central1" };
 const affiliateFunctionOptions = { region: "us-central1" };
+
+export const generateListingThumbnail = onDocumentWritten(
+  { ...functionOptions, document: "listings/{listingId}", memory: "1GiB", concurrency: 1, maxInstances: 3, timeoutSeconds: 120 },
+  async (event) => {
+    if (!event.data?.after.exists) return;
+    const photo = event.data.after.data().photos?.[0];
+    if (!photo?.s3Key || photo.thumbnailS3Key === thumbnailKey(photo.s3Key)) return;
+    try {
+      await ensureListingThumbnail({ firestore, ref: event.data.after.ref, s3: createS3Client(), bucket: getBucketName() });
+    } catch (error) {
+      // A corrupt/missing original must not break publishing or create a retry storm.
+      logger.error("Listing thumbnail failed; original remains available", { listingId: event.params.listingId, error: error.message });
+    }
+  }
+);
 
 export const notifyListingPriceChange = onDocumentUpdated(
   { region: "us-central1", document: "listings/{listingId}", retry: true },
@@ -541,7 +557,8 @@ export const deleteS3Objects = onCall(functionOptions, async (request) => {
     new DeleteObjectsCommand({
       Bucket: bucketName,
       Delete: {
-        Objects: safeKeys.map((Key) => ({ Key })),
+        Objects: [...new Set(safeKeys.flatMap((key) => key.startsWith("listings/") && !key.endsWith(THUMBNAIL_SUFFIX)
+          ? [key, thumbnailKey(key)] : [key]))].map((Key) => ({ Key })),
         Quiet: true,
       },
     })

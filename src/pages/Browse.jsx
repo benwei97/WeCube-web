@@ -487,9 +487,8 @@ function Browse() {
   const [allListings, setAllListings] = useState([]); // For search/filter
   const [filteredListings, setFilteredListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(4);
+  const [visibleCount, setVisibleCount] = useState(12);
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS });
   const [filterDraft, setFilterDraft] = useState({ ...DEFAULT_FILTER_PANEL });
@@ -522,6 +521,20 @@ function Browse() {
   const displayedListings = isSearching
     ? filteredListings
     : filteredListings.slice(0, visibleCount);
+
+  useEffect(() => {
+    if (isSearching || navigator.connection?.saveData) return;
+    const images = filteredListings.slice(visibleCount, visibleCount + 4)
+      .map((listing) => listing.photos?.[0]?.thumbnailS3Key).filter(Boolean)
+      .map((key) => {
+        const image = new Image();
+        image.decoding = "async";
+        image.fetchPriority = "low";
+        image.src = getS3PublicUrl(key);
+        return image;
+      });
+    return () => { images.forEach((image) => { image.onload = null; }); };
+  }, [filteredListings, isSearching, visibleCount]);
 
   useEffect(() => {
     const listingsQuery = query(
@@ -716,14 +729,10 @@ function Browse() {
   ]);
 
   const loadMoreListings = useCallback(() => {
-    if (!isSearching && hasMore && !loadingMore) {
-      setLoadingMore(true);
-      window.setTimeout(() => {
-        setVisibleCount((prev) => prev + 8);
-        setLoadingMore(false);
-      }, 120);
+    if (!isSearching && hasMore) {
+      setVisibleCount((prev) => Math.min(prev + 8, filteredListings.length));
     }
-  }, [hasMore, isSearching, loadingMore]);
+  }, [hasMore, isSearching, filteredListings.length]);
 
   useEffect(() => {
     applyFilters();
@@ -744,10 +753,6 @@ function Browse() {
     }
 
     const handleScroll = () => {
-      if (loadingMore) {
-        return;
-      }
-
       const scrollPosition = window.innerHeight + window.scrollY;
       const pageBottom = document.documentElement.scrollHeight;
 
@@ -760,7 +765,7 @@ function Browse() {
     handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [hasMore, isSearching, loading, loadingMore, loadMoreListings]);
+  }, [hasMore, isSearching, loading, visibleCount, loadMoreListings]);
 
   const handleFilterChange = (filterType, value) => {
     setFilters((prev) => ({
@@ -1147,7 +1152,7 @@ function Browse() {
 
       {/* Listings Grid */}
       <Box sx={LISTING_CARD_GRID_SX}>
-        {displayedListings.map((listing) => (
+        {displayedListings.map((listing, index) => (
           <Box key={listing.id}>
             {(() => {
               const normalizedListing = {
@@ -1183,9 +1188,11 @@ function Browse() {
               <ListingCardMediaFrame
                 imageUrl={
                   listing.photos?.[0]
-                    ? getS3PublicUrl(listing.photos[0].s3Key)
+                    ? getS3PublicUrl(listing.photos[0].thumbnailS3Key || listing.photos[0].s3Key)
                     : null
                 }
+                fallbackImageUrl={getS3PublicUrl(listing.photos?.[0]?.s3Key)}
+                priority={index < 4}
                 alt={listing.title}
                 isSold={listing.status === "sold"}
                 isPending={listing.status === "archived"}
@@ -1253,7 +1260,7 @@ function Browse() {
             mt: 3,
           }}
         >
-          {(loadingMore || hasMore) && (
+          {hasMore && (
             <Stack
               direction="row"
               spacing={1.25}
@@ -1264,11 +1271,11 @@ function Browse() {
               <Typography
                 variant="body2"
                 sx={{
-                  opacity: loadingMore ? 1 : 0.72,
+                  opacity: 0.72,
                   transition: "opacity 0.2s ease",
                 }}
               >
-                {loadingMore ? "Loading more cubes..." : "Scroll for more"}
+                Scroll for more
               </Typography>
             </Stack>
           )}

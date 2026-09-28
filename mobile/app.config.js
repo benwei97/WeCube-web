@@ -10,5 +10,5 @@ const scheme = googleIosRedirectScheme
 module.exports = {
   ...appJson.expo,
   scheme,
-  plugins: [...(appJson.expo.plugins || []), "expo-web-browser", "expo-font"],
+  plugins: [...(appJson.expo.plugins || []), "expo-web-browser", "expo-font", "expo-image"],
 };

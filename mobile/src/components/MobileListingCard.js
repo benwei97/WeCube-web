@@ -1,5 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Image } from "expo-image";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme/colors";
 import { elevation, radii, typography } from "../theme/design";
 import { getS3PublicUrl } from "../utils/s3";
@@ -42,8 +44,9 @@ export function ListingFulfillmentLine({ option }) {
 }
 
 export function ListingCardMediaFrame({ listing, sizeStyle }) {
+  const [failedUrl, setFailedUrl] = useState(null);
   const imageUrl = listing.photos?.[0]?.s3Key
-    ? getS3PublicUrl(listing.photos[0].s3Key)
+    ? getS3PublicUrl(listing.photos[0].thumbnailS3Key || listing.photos[0].s3Key)
     : null;
   const isSold = listing.status === "sold";
 
@@ -52,7 +55,12 @@ export function ListingCardMediaFrame({ listing, sizeStyle }) {
       <StatusBadge status={listing.status} />
       {imageUrl ? (
         <Image
-          source={{ uri: imageUrl }}
+          source={{ uri: failedUrl === imageUrl ? getS3PublicUrl(listing.photos[0].s3Key) : imageUrl }}
+          onError={() => setFailedUrl(imageUrl)}
+          cachePolicy="memory-disk"
+          contentFit="cover"
+          recyclingKey={imageUrl}
+          transition={100}
           style={[styles.mediaImage, isSold && styles.soldImage]}
         />
       ) : (
@@ -104,7 +112,6 @@ const styles = StyleSheet.create({
   },
   mediaImage: {
     height: "100%",
-    resizeMode: "cover",
     width: "100%",
   },
   soldImage: {

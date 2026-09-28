@@ -1,4 +1,5 @@
 import { Box, CardMedia, Typography } from "@mui/material";
+import { useState } from "react";
 import { getSoldMediaSx, getSoldPlaceholderSx } from "./listingStatusStyles";
 
 export function SoldRibbon({ size = "default" }) {
@@ -60,6 +61,8 @@ export function PendingBadge({ size = "default" }) {
 
 export function ListingCardMediaFrame({
   imageUrl,
+  fallbackImageUrl,
+  priority = false,
   alt,
   isSold = false,
   isPending = false,
@@ -67,6 +70,7 @@ export function ListingCardMediaFrame({
   placeholderSx = {},
   placeholderLabel = "No Image",
 }) {
+  const [failedUrl, setFailedUrl] = useState(null);
   const resolvedImageSx = isSold ? getSoldMediaSx(imageSx) : imageSx;
   const resolvedPlaceholderSx = isSold
     ? getSoldPlaceholderSx(placeholderSx)
@@ -92,7 +96,11 @@ export function ListingCardMediaFrame({
         <CardMedia
           className="listing-card-media-image"
           component="img"
-          image={imageUrl}
+          image={failedUrl === imageUrl && fallbackImageUrl ? fallbackImageUrl : imageUrl}
+          onError={() => setFailedUrl(imageUrl)}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={priority ? "high" : "auto"}
           alt={alt}
           sx={{
             width: "100%",
