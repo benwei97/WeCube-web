@@ -17,6 +17,8 @@ import SellerProfile from "./pages/SellerProfile";
 import AdminAffiliates from "./pages/AdminAffiliates";
 import AdminMetrics from "./pages/AdminMetrics";
 import AdminReports from "./pages/AdminReports";
+import Feedback from "./pages/Feedback";
+import AdminFeedback from "./pages/AdminFeedback";
 import About from "./pages/About";
 import SafetyGuidelines from "./pages/SafetyGuidelines";
 import Terms from "./pages/Terms";
@@ -58,6 +60,8 @@ function App() {
               <Route path="/admin/affiliates" element={<AdminAffiliates />} />
               <Route path="/admin/metrics" element={<AdminMetrics />} />
               <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/admin/feedback" element={<AdminFeedback />} />
               <Route path="/about" element={<About />} />
               <Route path="/safety" element={<SafetyGuidelines />} />
               <Route path="/terms" element={<Terms />} />

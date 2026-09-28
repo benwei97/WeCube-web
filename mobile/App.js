@@ -28,6 +28,7 @@ import SellScreen from "./src/screens/SellScreen";
 import MessagesScreen from "./src/screens/MessagesScreen";
 import ConversationScreen from "./src/screens/ConversationScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import FeedbackScreen, { AdminFeedbackScreen } from "./src/screens/FeedbackScreen";
 import InfoScreen from "./src/screens/InfoScreen";
 import AuthScreen from "./src/screens/AuthScreen";
 import { db } from "./src/lib/firebase";
@@ -317,6 +318,8 @@ function ProfileNavigator() {
         component={ProfileScreen}
         options={{ headerShown: false }}
       />
+      <ProfileStack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false }} />
+      <ProfileStack.Screen name="AdminFeedback" component={AdminFeedbackScreen} options={{ headerShown: false }} />
       <ProfileStack.Screen
         name="ProfileSection"
         component={ProfileScreen}

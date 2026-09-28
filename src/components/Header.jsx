@@ -344,6 +344,9 @@ function Header() {
               <MenuItem onClick={() => handleMenuNavigation("/dashboard")}>
                 Dashboard
               </MenuItem>
+              <MenuItem onClick={() => handleMenuNavigation("/feedback")}>
+                Feedback
+              </MenuItem>
               <MenuItem
                 onClick={() => handleMenuNavigation("/about")}
                 sx={{ display: { xs: "flex", md: "none" } }}
@@ -358,6 +361,9 @@ function Header() {
               </MenuItem>
               {currentUser?.isAdmin && (
                 [
+                  <MenuItem key="admin-feedback" onClick={() => handleMenuNavigation("/admin/feedback")}>
+                    Feedback Inbox
+                  </MenuItem>,
                   <MenuItem
                     key="admin-affiliates"
                     onClick={() => handleMenuNavigation("/admin/affiliates")}

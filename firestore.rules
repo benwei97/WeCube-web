@@ -687,6 +687,29 @@ service cloud.firestore {
         && isOptionalStringField(request.resource.data, "actionTaken", 120);
     }
 
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "userId", "name", "category", "subject", "details", "platform", "version", "status", "createdAt"
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && isNonEmptyString(request.resource.data.name, 120)
+        && request.resource.data.category in ["bug", "feedback"]
+        && isNonEmptyString(request.resource.data.subject, 120)
+        && isNonEmptyString(request.resource.data.details, 4000)
+        && request.resource.data.platform in ["web", "ios", "android"]
+        && isOptionalStringField(request.resource.data, "version", 80)
+        && request.resource.data.status == "new"
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "reviewedBy", "updatedAt"])
+        && request.resource.data.status in ["new", "in_progress", "resolved"]
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if true;
       allow create: if validUserProfileCreate(request.resource.data, userId);

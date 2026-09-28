@@ -873,6 +873,8 @@ export default function ProfileScreen({ navigation, route }) {
             iconName="policy"
             onPress={() => navigation.navigate("Info")}
           />
+          <ProfileMenuRow title="Feedback" detail="Report a bug or share an idea" iconName="feedback" onPress={() => navigation.navigate("Feedback")} />
+          {currentUser?.isAdmin && <ProfileMenuRow title="Feedback Inbox" detail="Review community feedback" iconName="inbox" onPress={() => navigation.navigate("AdminFeedback")} />}
         </View>
 
       </ScrollView>

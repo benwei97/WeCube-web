@@ -205,6 +205,7 @@ export function AuthProvider({ children }) {
 
       try {
         await ensureVerifiedUserProfile(user, pendingProfiles[user.uid]);
+        const tokenResult = await user.getIdTokenResult();
         const userDocRef = doc(db, "users", user.uid);
 
         unsubscribeUserDoc = onSnapshot(
@@ -214,6 +215,7 @@ export function AuthProvider({ children }) {
               setCurrentUser({
                 uid: user.uid,
                 ...snapshot.data(),
+                isAdmin: tokenResult.claims.admin === true,
               });
             }
             setLoading(false);
