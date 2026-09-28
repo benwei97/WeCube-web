@@ -1,3 +1,4 @@
+import { KeyboardFormModalBody } from "../components/KeyboardForm";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -478,9 +479,8 @@ export default function SellerProfileScreen({ navigation, route }) {
         ]}
       />
 
-      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+<Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Report user</Text>
             <Text style={styles.modalBody}>
               Reports help WeCube review unsafe, abusive, fake, or suspicious behavior.
@@ -539,8 +539,7 @@ export default function SellerProfileScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </KeyboardFormModalBody>
       </Modal>
     </Screen>
   );

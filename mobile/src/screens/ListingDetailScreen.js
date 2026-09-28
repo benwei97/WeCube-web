@@ -1,3 +1,4 @@
+import { KeyboardDismissButton, KeyboardFormModalBody } from "../components/KeyboardForm";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -1969,6 +1970,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                 </Pressable>
               </View>
             </ScrollView>
+            <KeyboardDismissButton />
           </KeyboardAvoidingView>
         </Screen>
       </Modal>
@@ -2015,9 +2017,8 @@ export default function ListingDetailScreen({ navigation, route }) {
         ]}
       />
 
-      <Modal visible={messageDraftOpen} transparent animationType="fade" onRequestClose={closeMessageDraftModal}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+<Modal visible={messageDraftOpen} transparent animationType="fade" onRequestClose={closeMessageDraftModal}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Message seller</Text>
             <Text style={styles.modalBody}>
               Send a first message to start a conversation about this listing.
@@ -2054,13 +2055,11 @@ export default function ListingDetailScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </KeyboardFormModalBody>
       </Modal>
 
-      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+<Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Report listing</Text>
             <Text style={styles.modalBody}>
               Reports help WeCube review suspicious, unsafe, misleading, or inappropriate listings.
@@ -2119,8 +2118,7 @@ export default function ListingDetailScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </KeyboardFormModalBody>
       </Modal>
 
       <Modal visible={markSoldOpen} transparent animationType="fade" onRequestClose={closeMarkSoldModal}>

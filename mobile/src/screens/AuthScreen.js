@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import KeyboardForm from "../components/KeyboardForm";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -307,10 +307,7 @@ export default function AuthScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.container}
-      >
+      <KeyboardForm contentContainerStyle={styles.container}>
         <View style={styles.card}>
           <BrandLogo style={styles.logo} markHeight={66} markWidth={86} wordmarkSize={32} />
           <Text style={styles.title}>
@@ -458,7 +455,7 @@ export default function AuthScreen() {
             </Pressable>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardForm>
     </Screen>
   );
 }

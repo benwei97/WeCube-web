@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { KeyboardDismissButton } from "../components/KeyboardForm";
 import {
   ActivityIndicator,
   Alert,
@@ -1250,6 +1251,7 @@ export default function SellScreen({ navigation }) {
             </Pressable>
           </View>
         </ScrollView>
+        <KeyboardDismissButton />
       </KeyboardAvoidingView>
       <Modal visible={publishing} transparent animationType="fade" onRequestClose={() => {}}>
         <View style={styles.progressOverlay}>

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardDismissButton } from "../components/KeyboardForm";
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -660,7 +663,7 @@ export default function BrowseScreen({ navigation }) {
         visible={locationModalOpen}
         onRequestClose={() => setLocationModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View style={styles.locationPanel}>
             <View style={styles.modalHeader}>
               <View>
@@ -677,6 +680,7 @@ export default function BrowseScreen({ navigation }) {
             <ScrollView
               style={styles.modalBody}
               contentContainerStyle={styles.modalBodyContent}
+              keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -808,7 +812,7 @@ export default function BrowseScreen({ navigation }) {
             ) : null}
 
             {locationOptions.length > 0 ? (
-              <ScrollView style={styles.locationOptions}>
+              <ScrollView style={styles.locationOptions} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
                 {locationOptions.map((option) => {
                   const selected =
                     locationDraft.locationOption?.label === option.label;
@@ -899,6 +903,7 @@ export default function BrowseScreen({ navigation }) {
             </View>
             </ScrollView>
 
+            <KeyboardDismissButton />
             <View style={styles.modalActions}>
               <Pressable style={styles.secondaryButton} onPress={clearLocationFilter}>
                 <Text style={styles.secondaryButtonText}>Clear filters</Text>
@@ -915,7 +920,7 @@ export default function BrowseScreen({ navigation }) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );

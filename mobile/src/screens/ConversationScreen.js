@@ -1,3 +1,4 @@
+import { KeyboardFormModalBody } from "../components/KeyboardForm";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -5,9 +6,7 @@ import {
   AppState,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -1080,12 +1079,8 @@ export default function ConversationScreen({ navigation, route }) {
         ]}
       />
 
-      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalBackdrop}
-        >
-          <View style={styles.modalCard}>
+<Modal visible={reportOpen} transparent animationType="fade" onRequestClose={closeReportModal}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Report conversation</Text>
             <Text style={styles.modalBody}>
               Reports help WeCube review unsafe, suspicious, abusive, or problematic messages.
@@ -1143,16 +1138,11 @@ export default function ConversationScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardFormModalBody>
       </Modal>
 
-      <Modal visible={reviewOpen} transparent animationType="fade" onRequestClose={closeReviewModal}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalBackdrop}
-        >
-          <View style={styles.modalCard}>
+<Modal visible={reviewOpen} transparent animationType="fade" onRequestClose={closeReviewModal}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Rate your experience</Text>
             <Text style={styles.modalBody}>Share how it went with {otherUserName}.</Text>
             <Text style={styles.modalLabel}>Rating</Text>
@@ -1201,8 +1191,7 @@ export default function ConversationScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardFormModalBody>
       </Modal>
     </Screen>
   );

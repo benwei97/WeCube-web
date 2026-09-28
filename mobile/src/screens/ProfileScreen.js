@@ -1,3 +1,4 @@
+import { KeyboardFormModalBody } from "../components/KeyboardForm";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -894,14 +895,13 @@ export default function ProfileScreen({ navigation, route }) {
         ]}
       />
 
-      <Modal
+<Modal
         animationType="fade"
         transparent
         visible={deleteAccountOpen}
         onRequestClose={closeDeleteAccountModal}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Delete account</Text>
             <Text style={styles.modalBody}>
               This permanently deletes your sign-in and removes your listings. Your public profile
@@ -938,18 +938,16 @@ export default function ProfileScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </KeyboardFormModalBody>
       </Modal>
 
-      <Modal
+<Modal
         animationType="fade"
         transparent
         visible={editProfileOpen}
         onRequestClose={closeEditProfileModal}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+        <KeyboardFormModalBody backdropStyle={styles.modalBackdrop} cardStyle={styles.modalCard}>
             <Text style={styles.modalTitle}>Edit profile</Text>
             <View style={styles.avatarEditor}>
               {avatarUrl ? (
@@ -1020,8 +1018,7 @@ export default function ProfileScreen({ navigation, route }) {
                 </Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </KeyboardFormModalBody>
       </Modal>
     </Screen>
   );
