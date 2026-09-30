@@ -1,4 +1,4 @@
-import { KeyboardDismissButton, KeyboardFormModalBody } from "../components/KeyboardForm";
+import { KeyboardFormModalBody } from "../components/KeyboardForm";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -1970,7 +1970,6 @@ export default function ListingDetailScreen({ navigation, route }) {
                 </Pressable>
               </View>
             </ScrollView>
-            <KeyboardDismissButton />
           </KeyboardAvoidingView>
         </Screen>
       </Modal>

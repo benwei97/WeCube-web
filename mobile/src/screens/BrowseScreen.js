@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardDismissButton } from "../components/KeyboardForm";
 import {
   ActivityIndicator,
   FlatList,
@@ -909,7 +908,6 @@ export default function BrowseScreen({ navigation }) {
             </View>
             </ScrollView>
 
-            <KeyboardDismissButton />
             <View style={styles.modalActions}>
               <Pressable style={styles.secondaryButton} onPress={clearLocationFilter}>
                 <Text style={styles.secondaryButtonText}>Clear filters</Text>
