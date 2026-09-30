@@ -557,10 +557,7 @@ export default function BrowseScreen({ navigation }) {
   const content = useMemo(() => {
     if (loading) {
       return (
-        <PageState
-          variant="loading"
-          title="Loading listings"
-        />
+        <PageState variant="loading" />
       );
     }
 

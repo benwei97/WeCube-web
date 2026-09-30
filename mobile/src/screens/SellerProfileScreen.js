@@ -321,10 +321,7 @@ export default function SellerProfileScreen({ navigation, route }) {
   if (loadingProfile) {
     return (
       <Screen>
-        <PageState
-          variant="loading"
-          title="Loading profile"
-        />
+        <PageState variant="loading" />
       </Screen>
     );
   }

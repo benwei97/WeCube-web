@@ -264,10 +264,7 @@ export default function CompetitionsScreen({ navigation }) {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           {loading ? (
-            <PageState
-              variant="loading"
-              title="Loading competitions"
-            />
+            <PageState variant="loading" />
           ) : displayedCompetitions.length === 0 ? (
             <PageState
               title="No competitions found"

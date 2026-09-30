@@ -1192,10 +1192,7 @@ export default function ListingDetailScreen({ navigation, route }) {
   if (loading) {
     return (
       <Screen>
-        <PageState
-          variant="loading"
-          title="Loading listing"
-        />
+        <PageState variant="loading" />
       </Screen>
     );
   }
@@ -1914,13 +1911,11 @@ export default function ListingDetailScreen({ navigation, route }) {
                               );
                             })}
                           </ScrollView>
-                        ) : (
+                        ) : !loadingEditCompetitions ? (
                           <Text style={styles.editCompetitionDropdownEmpty}>
-                            {loadingEditCompetitions
-                              ? "Loading competitions..."
-                              : "No competitions found."}
+                            No competitions found.
                           </Text>
-                        )}
+                        ) : null}
                       </View>
                     ) : null}
                     {editCompetitionDropdownOpen && editCompetitions.length >= editCompetitionLimit ? (

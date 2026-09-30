@@ -17,24 +17,30 @@ export default function PageState({
   actionLabel,
   message,
   onAction,
-  title = "Loading",
+  title,
   variant = "default",
 }) {
-  const isLoading = variant === "loading";
+  if (variant === "loading") {
+    return (
+      <View
+        style={[styles.wrapper, styles.loading]}
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel="Loading"
+        accessibilityState={{ busy: true }}
+      >
+        <BrandLogo markHeight={44} markWidth={58} wordmarkSize={24} />
+        <ActivityIndicator size="small" color={colors.primary} accessible={false} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.card}>
-        {isLoading ? (
-          <>
-            <BrandLogo style={styles.loadingLogo} markHeight={50} markWidth={66} wordmarkSize={26} />
-            <ActivityIndicator color={colors.primary} style={styles.loadingSpinner} />
-          </>
-        ) : (
-          <View style={styles.iconBox}>
-            <BrandMark />
-          </View>
-        )}
+        <View style={styles.iconBox}>
+          <BrandMark />
+        </View>
         <Text style={styles.title}>{title}</Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
         {actionLabel && onAction ? (
@@ -48,6 +54,10 @@ export default function PageState({
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    alignItems: "center",
+    gap: 24,
+  },
   wrapper: {
     flex: 1,
     justifyContent: "center",
@@ -66,12 +76,6 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     ...elevation.panel,
     width: "100%",
-  },
-  loadingLogo: {
-    marginBottom: 12,
-  },
-  loadingSpinner: {
-    marginBottom: 14,
   },
   iconBox: {
     alignItems: "center",

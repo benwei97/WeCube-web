@@ -191,10 +191,7 @@ function AppContent() {
   if (!fontsLoaded || loading) {
     return (
       <View style={styles.loadingShell}>
-        <PageState
-          variant="loading"
-          title="Loading WeCube"
-        />
+        <PageState variant="loading" />
       </View>
     );
   }

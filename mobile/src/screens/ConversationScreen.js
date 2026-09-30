@@ -970,10 +970,7 @@ export default function ConversationScreen({ navigation, route }) {
   if (loading) {
     return (
       <Screen>
-        <PageState
-          variant="loading"
-          title="Loading conversation"
-        />
+        <PageState variant="loading" />
       </Screen>
     );
   }

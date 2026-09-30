@@ -337,10 +337,7 @@ export default function MessagesScreen({ navigation }) {
   if (loading) {
     return (
       <Screen>
-        <PageState
-          variant="loading"
-          title="Loading messages"
-        />
+        <PageState variant="loading" />
       </Screen>
     );
   }

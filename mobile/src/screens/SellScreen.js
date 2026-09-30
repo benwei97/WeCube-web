@@ -1206,11 +1206,11 @@ export default function SellScreen({ navigation }) {
                             );
                           })}
                         </ScrollView>
-                      ) : (
+                      ) : !loadingCompetitions ? (
                         <Text style={styles.competitionDropdownEmpty}>
-                          {loadingCompetitions ? "Loading competitions..." : "No competitions found."}
+                          No competitions found.
                         </Text>
-                      )}
+                      ) : null}
                     </View>
                   ) : null}
                   <HelperText error={hasAttemptedSubmit && !isCompetitionValid}>
